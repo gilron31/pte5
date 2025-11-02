@@ -93,4 +93,28 @@ class GaussianIntegersParameterization:
         im_coords = np.array(im_monomials) @ self.im_sign_matrix
         re_coords = np.array(re_monomials) @ self.re_sign_matrix
 
-        return np.stack([re_coords, im_coords])
+        rv = np.stack([re_coords, im_coords])
+
+        if canonize_to_first_quadrant:
+            return np.sort(np.abs(rv), axis=0)
+        else:
+            return rv
+
+
+def decompose_prime(p):
+    assert p % 4 == 1 or p == 2, "Prime is not decomposable"
+    for x in range(int(math.sqrt(p)), 0, -1):
+        y, valid = sp.integer_nthroot((p - x**2), 2)
+        if valid:
+            assert x >= y, (x, y)
+            return (x, y)
+    assert False, f"Could not decompose prime {p}"
+
+
+def get_all_decomposable_primes_up_to(b):
+    return [2] + [p for p in sp.primerange(b) if p % 4 == 1]
+
+
+def get_all_decomposed_primes_up_to(b):
+    primes = get_all_decomposable_primes_up_to(b)
+    return {p: decompose_prime(p) for p in primes}
