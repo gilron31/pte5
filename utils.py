@@ -140,3 +140,35 @@ def get_all_gaussian_integers_with_norm(N):
             if a**2 + b**2 == N:
                 rv.append((a, b))
     return rv
+
+
+def get_all_gaussian_integers_with_factored_norm(factors_list, is_2P=False):
+    gaussian_primes = []
+    j_ps = []
+    odd_mult_p_representative = None
+    if is_2P:
+        assert 2 in factors_list
+        assert factors_list[2] == 1 or factors_list[2] == 2
+    else:
+        if 2 in factors_list:
+            assert factors_list[2] == 1
+    for p, e_p in factors_list.items():
+        if p == 2:
+            continue
+        
+        assert p % 4 == 1, f"{p}"
+        if odd_mult_p_representative is not None and e_p % 2 == 1:
+            odd_mult_p_representative = p
+        else:
+            gaussian_primes.append((p, decompose_prime(p)))
+            j_ps.append(list(range(-e_p, e_p + 1, 2)))
+
+    rv = []
+    base = sp.ZZ_I(*decompose_prime(factors_list[odd_mult_p_representative]))
+    if 2 in factors_list.keys():
+        if factors_list[2] == 1:
+            base *= sp.ZZ_I(1,1)
+        elif factors_list[2] == 2:
+            base *= 
+    for perm in itertools.product(*j_ps[0:]):
+    # pass  # TODO

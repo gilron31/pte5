@@ -230,13 +230,18 @@ $$
 
 Since the multiplicities are given and there are $e_q + 1$ options for each $j_q$.
 
+Note: If we are interested only in the integers  $0 \le b \le a$ we need to divide this number by 2.
+
+Note: This is true only if there is a prime with odd multiplicity. If there is not (all are squares), then there is an edgecase.
+
 ## Symmetries
 
 We are only interested in solutions that satisfy $0 \le b \le a$ which is only 1/8 of the gaussian plane.
 
 # Unordered ideas
 
-Multiplying by $\mathfrak{p}_{2,+} = 1 + i$ is like transforming $(a, b) \rightarrow (a + b, a - b)$
+1. Multiplying by $\mathfrak{p}_{2,+} = 1 + i$ is like transforming $(a, b) \rightarrow (a + b, a - b)$
+2. Can we prove that the existence of a double root makes it impossible to find solutions?
 
 # Archive
 
