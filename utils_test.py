@@ -3,8 +3,10 @@ from utils import (
     verify_skew_normal_symbolic,
     get_all_gaussian_integers_with_norm,
     get_all_decomposed_primes_up_to,
+    get_all_gaussian_integers_with_factored_norm,
 )
 import pytest
+import sympy as sp
 
 
 def test_verify_skew_normal_squareish():
@@ -76,3 +78,20 @@ def test_decomposed_primes():
         exp_d = get_all_gaussian_integers_with_norm(p)
         assert len(exp_d) == 1, p
         assert exp_d[0] == d, p
+
+
+def test_get_all_gaussian_integers_with_norm():
+    N = 5
+    expected = get_all_gaussian_integers_with_norm(N)
+    result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
+    assert expected == result
+
+    N = 2 * 5 * 13 * 17 * 29
+    expected = get_all_gaussian_integers_with_norm(N)
+    result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
+    assert expected == result
+
+    N = 2 * 5 * 17 * 17 * 17 * 29 * 29
+    expected = get_all_gaussian_integers_with_norm(N)
+    result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
+    assert expected == result

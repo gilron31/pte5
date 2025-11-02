@@ -142,33 +142,39 @@ def get_all_gaussian_integers_with_norm(N):
     return rv
 
 
-def get_all_gaussian_integers_with_factored_norm(factors_list, is_2P=False):
+def get_all_gaussian_integers_with_factored_norm(factors_list):
     gaussian_primes = []
-    j_ps = []
-    odd_mult_p_representative = None
-    if is_2P:
-        assert 2 in factors_list
-        assert factors_list[2] == 1 or factors_list[2] == 2
+    j_p_ranges = []
+    one_mult_p_representative = None
+    if 2 in factors_list:
+        assert factors_list[2] == 1
+        base_sp = sp.ZZ_I(1, 1)
     else:
-        if 2 in factors_list:
-            assert factors_list[2] == 1
+        base_sp = 1
     for p, e_p in factors_list.items():
         if p == 2:
             continue
-        
+
         assert p % 4 == 1, f"{p}"
-        if odd_mult_p_representative is not None and e_p % 2 == 1:
-            odd_mult_p_representative = p
+        if (one_mult_p_representative is None) and e_p == 1:
+            one_mult_p_representative = p
         else:
             gaussian_primes.append((p, decompose_prime(p)))
-            j_ps.append(list(range(-e_p, e_p + 1, 2)))
+            j_p_ranges.append(list(range(-e_p, e_p + 1, 2)))
 
+    assert one_mult_p_representative is not None
     rv = []
-    base = sp.ZZ_I(*decompose_prime(factors_list[odd_mult_p_representative]))
-    if 2 in factors_list.keys():
-        if factors_list[2] == 1:
-            base *= sp.ZZ_I(1,1)
-        elif factors_list[2] == 2:
-            base *= 
-    for perm in itertools.product(*j_ps[0:]):
-    # pass  # TODO
+    base_sp *= sp.ZZ_I(*decompose_prime(one_mult_p_representative))
+
+    for j_ps in itertools.product(*j_p_ranges):
+        res_sp = base_sp
+        for i, (p, d) in enumerate(gaussian_primes):
+            d_sp = sp.ZZ_I(*d)
+            d_conj_sp = sp.ZZ_I(*d[::-1])
+            if j_ps[i] > 0:
+                res_sp *= d_sp ** j_ps[i]
+            else:
+                res_sp *= d_conj_sp ** (-j_ps[i])
+            res_sp *= p ** ((factors_list[p] - abs(j_ps[i])) // 2)
+        rv.append(tuple(sorted([abs(res_sp.x), abs(res_sp.y)], reverse=True)))
+    return sorted(rv)
