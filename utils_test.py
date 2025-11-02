@@ -1,13 +1,64 @@
-from utils import verify_skew_normal_squareish
+from utils import verify_skew_normal_squareish, verify_skew_normal_symbolic
 import pytest
 
 
 def test_verify_skew_normal_squareish():
-    assert verify_skew_normal_squareish([1, 2, 81])[1] == False
-    assert verify_skew_normal_squareish([85, 4176, 2880**2])[1] == True
-    assert (
-        verify_skew_normal_squareish(
-            [67405, 3525798096, 533470702551552000, 469208209191321600**2]
-        )[1]
-        == True
+    iroots, is_gem = verify_skew_normal_squareish([1, 2, 3])
+    assert is_gem == False
+    assert iroots == None
+    iroots, is_gem = verify_skew_normal_squareish([85, 4176, 2880**2])
+    assert is_gem == True
+    assert sorted(iroots) == [-13, -11, -7, -1, 1, 7, 11, 13]
+    iroots, is_gem = verify_skew_normal_squareish(
+        [67405, 3525798096, 533470702551552000, 469208209191321600**2]
     )
+    assert sorted(iroots) == [
+        -367,
+        -359,
+        -353,
+        -343,
+        -131,
+        -101,
+        -77,
+        -11,
+        11,
+        77,
+        101,
+        131,
+        343,
+        353,
+        359,
+        367,
+    ]
+    assert is_gem == True
+
+
+def test_verify_skew_normal_symbolic():
+    _, iroots, is_gem = verify_skew_normal_symbolic([1, 2, 3])
+    assert is_gem == False
+    assert iroots == []
+    _, iroots, is_gem = verify_skew_normal_symbolic([85, 4176, 2880**2])
+    assert is_gem == True
+    assert sorted(iroots) == [-13, -11, -7, -1, 1, 7, 11, 13]
+    _, iroots, is_gem = verify_skew_normal_symbolic(
+        [67405, 3525798096, 533470702551552000, 469208209191321600**2]
+    )
+    assert sorted(iroots) == [
+        -367,
+        -359,
+        -353,
+        -343,
+        -131,
+        -101,
+        -77,
+        -11,
+        11,
+        77,
+        101,
+        131,
+        343,
+        353,
+        359,
+        367,
+    ]
+    assert is_gem == True

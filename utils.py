@@ -40,6 +40,17 @@ def verify_skew_normal_squareish(cs):
     return iroots, is_gem
 
 
+def verify_skew_normal_symbolic(cs):
+    x = sp.var("x")
+    p = sp.poly(x)
+    for c in cs:
+        p = p**2 - c
+    iroots = [r for r in p.all_roots() if r.is_Integer]
+    is_gem = len(iroots) == 2 ** len(cs)
+    print(f"{p=} \n{iroots=} \n{is_gem=}")
+    return p, iroots, is_gem
+
+
 class GaussianIntegersParameterization:
     def __init__(self, order):
         self.order = order
