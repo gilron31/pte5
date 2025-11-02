@@ -148,26 +148,25 @@ def get_all_gaussian_integers_with_factored_norm(factors_list):
     one_mult_p_representative = None
     if 2 in factors_list:
         assert factors_list[2] == 1
-        base_sp = sp.ZZ_I(1, 1)
-    else:
-        base_sp = 1
     for p, e_p in factors_list.items():
         if p == 2:
+            gaussian_primes.append((p, decompose_prime(p)))
+            j_p_ranges.append([1])
             continue
-
         assert p % 4 == 1, f"{p}"
-        if (one_mult_p_representative is None) and e_p == 1:
+        if (one_mult_p_representative is None) and e_p % 2 == 1:
             one_mult_p_representative = p
+            gaussian_primes.append((p, decompose_prime(p)))
+            j_p_ranges.append(list(range(1, e_p + 1, 2)))
         else:
             gaussian_primes.append((p, decompose_prime(p)))
             j_p_ranges.append(list(range(-e_p, e_p + 1, 2)))
 
     assert one_mult_p_representative is not None
     rv = []
-    base_sp *= sp.ZZ_I(*decompose_prime(one_mult_p_representative))
 
     for j_ps in itertools.product(*j_p_ranges):
-        res_sp = base_sp
+        res_sp = 1
         for i, (p, d) in enumerate(gaussian_primes):
             d_sp = sp.ZZ_I(*d)
             d_conj_sp = sp.ZZ_I(*d[::-1])

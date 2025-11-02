@@ -95,3 +95,13 @@ def test_get_all_gaussian_integers_with_norm():
     expected = get_all_gaussian_integers_with_norm(N)
     result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
     assert expected == result
+
+    N = 2 * 5 * 5 * 17 * 17 * 17 * 29 * 29
+    expected = get_all_gaussian_integers_with_norm(N)
+    result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
+    assert expected == result
+
+    N = 5 * 5 * 17 * 17 * 17 * 29 * 29
+    expected = get_all_gaussian_integers_with_norm(N)
+    result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
+    assert expected == result
