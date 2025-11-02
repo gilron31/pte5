@@ -1,4 +1,9 @@
-from utils import verify_skew_normal_squareish, verify_skew_normal_symbolic
+from utils import (
+    verify_skew_normal_squareish,
+    verify_skew_normal_symbolic,
+    get_all_gaussian_integers_with_norm,
+    get_all_decomposed_primes_up_to,
+)
 import pytest
 
 
@@ -62,3 +67,12 @@ def test_verify_skew_normal_symbolic():
         367,
     ]
     assert is_gem == True
+
+
+def test_decomposed_primes():
+    B = 1000
+    ps_and_decompositions = get_all_decomposed_primes_up_to(B)
+    for p, d in ps_and_decompositions.items():
+        exp_d = get_all_gaussian_integers_with_norm(p)
+        assert len(exp_d) == 1, p
+        assert exp_d[0] == d, p

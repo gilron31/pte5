@@ -129,3 +129,14 @@ def get_all_decomposable_primes_up_to(b):
 def get_all_decomposed_primes_up_to(b):
     primes = get_all_decomposable_primes_up_to(b)
     return {p: decompose_prime(p) for p in primes}
+
+
+def get_all_gaussian_integers_with_norm(N):
+    rv = []
+    for a in range(math.floor(math.sqrt(N)) + 1):
+        for b in range(
+            math.floor(math.sqrt(N - a**2)), min(a, int(math.sqrt(N - a**2))) + 1
+        ):
+            if a**2 + b**2 == N:
+                rv.append((a, b))
+    return rv

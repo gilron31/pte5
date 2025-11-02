@@ -234,6 +234,10 @@ Since the multiplicities are given and there are $e_q + 1$ options for each $j_q
 
 We are only interested in solutions that satisfy $0 \le b \le a$ which is only 1/8 of the gaussian plane.
 
+# Unordered ideas
+
+Multiplying by $\mathfrak{p}_{2,+} = 1 + i$ is like transforming $(a, b) \rightarrow (a + b, a - b)$
+
 # Archive
 
 $$
