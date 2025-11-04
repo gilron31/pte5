@@ -4,6 +4,7 @@ from utils import (
     get_all_gaussian_integers_with_norm,
     get_all_decomposed_primes_up_to,
     get_all_gaussian_integers_with_factored_norm,
+    is_quadruplet_E3,
 )
 import pytest
 import sympy as sp
@@ -84,24 +85,31 @@ def test_get_all_gaussian_integers_with_norm():
     N = 5
     expected = get_all_gaussian_integers_with_norm(N)
     result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
-    assert expected == result
+    assert expected == sorted(result)
 
     N = 2 * 5 * 13 * 17 * 29
     expected = get_all_gaussian_integers_with_norm(N)
     result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
-    assert expected == result
+    assert expected == sorted(result)
 
     N = 2 * 5 * 17 * 17 * 17 * 29 * 29
     expected = get_all_gaussian_integers_with_norm(N)
     result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
-    assert expected == result
+    assert expected == sorted(result)
 
     N = 2 * 5 * 5 * 17 * 17 * 17 * 29 * 29
     expected = get_all_gaussian_integers_with_norm(N)
     result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
-    assert expected == result
+    assert expected == sorted(result)
 
     N = 5 * 5 * 17 * 17 * 17 * 29 * 29
     expected = get_all_gaussian_integers_with_norm(N)
     result = get_all_gaussian_integers_with_factored_norm(sp.factorint(N))
-    assert expected == result
+    assert expected == sorted(result)
+
+
+def test_is_qudruplet_E3():
+    _, is_gem = is_quadruplet_E3(9, 7, 11, 3)
+    assert is_gem
+    _, is_gem = is_quadruplet_E3(1, 2, 3, 4)
+    assert not is_gem

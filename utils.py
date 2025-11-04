@@ -51,6 +51,24 @@ def verify_skew_normal_symbolic(cs):
     return p, iroots, is_gem
 
 
+def is_quadruplet_E3(a, b, c, d):
+    a_sq = a**2
+    b_sq = b**2
+    c_sq = c**2
+    d_sq = d**2
+
+    P = a_sq + b_sq
+    if P % 2 == 1:
+        return None, False
+    if P != (c_sq + d_sq):
+        return None, False
+    P = P // 2
+    Q = ((a_sq - b_sq) ** 2 + (c_sq - d_sq) ** 2) // 8
+    R = ((a_sq - b_sq) ** 2 - (c_sq - d_sq) ** 2) ** 2 // 64
+    # R = ((a_sq * b_sq) - (c_sq * d_sq)) ** 2 // 4
+    return verify_skew_normal_squareish([P, Q, R])
+
+
 class GaussianIntegersParameterization:
     def __init__(self, order):
         self.order = order
@@ -142,7 +160,7 @@ def get_all_gaussian_integers_with_norm(N):
     return rv
 
 
-def get_all_gaussian_integers_with_factored_norm(factors_list):
+def get_all_gaussian_integers_with_factored_norm(factors_list, return_metadata=False):
     gaussian_primes = []
     j_p_ranges = []
     one_mult_p_representative = None
@@ -164,8 +182,9 @@ def get_all_gaussian_integers_with_factored_norm(factors_list):
 
     assert one_mult_p_representative is not None
     rv = []
+    j_ps_sequence = list(itertools.product(*j_p_ranges))
 
-    for j_ps in itertools.product(*j_p_ranges):
+    for j_ps in j_ps_sequence:
         res_sp = 1
         for i, (p, d) in enumerate(gaussian_primes):
             d_sp = sp.ZZ_I(*d)
@@ -176,4 +195,7 @@ def get_all_gaussian_integers_with_factored_norm(factors_list):
                 res_sp *= d_conj_sp ** (-j_ps[i])
             res_sp *= p ** ((factors_list[p] - abs(j_ps[i])) // 2)
         rv.append(tuple(sorted([abs(res_sp.x), abs(res_sp.y)], reverse=True)))
-    return sorted(rv)
+    if return_metadata:
+        return rv, j_ps_sequence, gaussian_primes, factors_list
+    else:
+        return rv
