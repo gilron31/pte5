@@ -141,12 +141,13 @@ def decompose_prime(p):
 
 
 def get_all_decomposable_primes_up_to(b):
-    return [2] + [p for p in sp.primerange(b) if p % 4 == 1]
+    ps = sp.primerange(b)
+    return [2] + [p for p in tqdm.tqdm(ps, total=b) if p % 4 == 1]
 
 
 def get_all_decomposed_primes_up_to(b):
-    primes = get_all_decomposable_primes_up_to(b)
-    return {p: decompose_prime(p) for p in primes}
+    d_primes = get_all_decomposable_primes_up_to(b)
+    return {p: decompose_prime(p) for p in tqdm.tqdm(d_primes)}
 
 
 def get_all_gaussian_integers_with_norm(N):
@@ -160,33 +161,58 @@ def get_all_gaussian_integers_with_norm(N):
     return rv
 
 
-def get_all_gaussian_integers_with_factored_norm(factors_list, return_metadata=False):
+def find_quadruplets(points):
+    points_a2b2 = [(p[0] ** 2) * (p[1] ** 2) for p in points]
+    Q_m_dict = collections.defaultdict(list)
+    for i, norm_i in enumerate(points_a2b2):
+        for j, norm_j in enumerate(points_a2b2[:i]):
+            Q_m_dict[norm_i + norm_j].append((i, j))
+    return {
+        k: ((points[v[0][0]], points[v[0][1]]), (points[v[1][0]], points[v[1][1]]))
+        for k, v in Q_m_dict.items()
+        if len(v) > 1
+    }
+
+
+def calculate_norm_from_factorization(factorization):
+    rv = 1
+    for p, m in factorization.items():
+        rv *= p**m
+    return rv
+
+
+def get_all_gaussian_integers_with_factored_norm(
+    factors_list, return_metadata=False, prime_decompositions=dict()
+):
     gaussian_primes = []
     j_p_ranges = []
+
     one_mult_p_representative = None
     if 2 in factors_list:
         assert factors_list[2] == 1
     for p, e_p in factors_list.items():
+        gaussian_primes.append(p)
+        if p not in prime_decompositions:
+            prime_decompositions[p] = decompose_prime(p)
         if p == 2:
-            gaussian_primes.append((p, decompose_prime(p)))
             j_p_ranges.append([1])
             continue
         assert p % 4 == 1, f"{p}"
+
         if (one_mult_p_representative is None) and e_p % 2 == 1:
             one_mult_p_representative = p
-            gaussian_primes.append((p, decompose_prime(p)))
             j_p_ranges.append(list(range(1, e_p + 1, 2)))
         else:
-            gaussian_primes.append((p, decompose_prime(p)))
             j_p_ranges.append(list(range(-e_p, e_p + 1, 2)))
 
-    assert one_mult_p_representative is not None
+    assert one_mult_p_representative is not None, factors_list
     rv = []
     j_ps_sequence = list(itertools.product(*j_p_ranges))
 
     for j_ps in j_ps_sequence:
         res_sp = 1
-        for i, (p, d) in enumerate(gaussian_primes):
+        for i, p in enumerate(gaussian_primes):
+            d = prime_decompositions[p]
             d_sp = sp.ZZ_I(*d)
             d_conj_sp = sp.ZZ_I(*d[::-1])
             if j_ps[i] > 0:
