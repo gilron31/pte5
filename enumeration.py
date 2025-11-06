@@ -6,6 +6,9 @@ import tqdm
 import itertools
 import random
 from loguru import logger
+import argparse
+import cProfile
+import pstats
 
 import utils
 
@@ -19,9 +22,10 @@ class Enumerator:
     def __init__(self):
         self.skipped_norms = []
 
-    def enumerate_radius_factorized(self, factorization):
-        assert 2 in factorization
-        assert factorization[2] <= 2
+    def enumerate_radius_factorized(self, factorization, validate_2=True):
+        if validate_2:
+            assert 2 in factorization
+            assert factorization[2] <= 2
         all_even_mults = True
         for p, m in factorization.items():
             if p == 2:
@@ -37,19 +41,25 @@ class Enumerator:
         Q_m_matches = utils.find_quadruplets(points)
         return Q_m_matches
 
-    def enumerate_over_factorizations(self, prime_bound, num_primes, skip_squares = False):
+    def enumerate_over_factorizations(
+        self, prime_bound, num_primes, skip_squares=False, include_2=True
+    ):
         prime_decompositions = utils.get_all_decomposed_primes_up_to(prime_bound)
         primes = sorted(list(prime_decompositions.keys()))
-        
-        if skip_squares:
-        radius_factorizations = [
-            dict(collections.Counter(x + (2,)))
-            for x in itertools.combinations_with_replacement(primes[1:], num_primes)
-        ]
+
+        radius_compositions = (
+            itertools.combinations(primes[1:], num_primes)
+            if skip_squares
+            else itertools.combinations_with_replacement(primes[1:], num_primes)
+        )
+
         results = {}
-        for factorization in tqdm.tqdm(radius_factorizations):
+        for composition in tqdm.tqdm(radius_compositions):
+            factorization = dict(
+                collections.Counter((2,) + composition if include_2 else composition)
+            )
             radius = utils.calculate_norm_from_factorization(factorization)
-            matches = self.enumerate_radius_factorized(factorization)
+            matches = self.enumerate_radius_factorized(factorization, include_2)
             if 134810 == radius:
                 print(radius, factorization, matches)
             if len(matches) > 0:
@@ -58,6 +68,27 @@ class Enumerator:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--prime_bound", type=int, required=True)
+    parser.add_argument("--num_primes", type=int, required=True)
+    parser.add_argument("--skip_squares", action="store_true")
+    parser.add_argument("--include_2", action="store_true")
+
+    args = parser.parse_args()
+
     enum = Enumerator()
-    # enum.enumerate_radius_factorized(sp.factorint(2 * 5 * 13 * 17 * 29 * 37 * 53))
-    enum.enumerate_over_factorizations(101, 8)
+
+    # profiler = cProfile.Profile()
+
+    # profiler.enable()
+    enum.enumerate_over_factorizations(
+        args.prime_bound,
+        args.num_primes,
+        skip_squares=args.skip_squares,
+        include_2=args.include_2,
+    )
+    # profiler.disable()
+    # stats = pstats.Stats(profiler)
+    # stats.strip_dirs()
+    # stats.sort_stats("cumulative")
+    # stats.print_stats(100)
