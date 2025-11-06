@@ -28,7 +28,6 @@ class Enumerator:
         factorization,
         prime_decompositions,
         validate_2=True,
-        silently_square_everything=False,
     ):
         if validate_2:
             assert 2 in factorization
@@ -75,10 +74,24 @@ class Enumerator:
         return Q_m_matches
 
     def enumerate_over_factorizations(
-        self, prime_bound, num_primes, skip_squares=False, include_2=True
+        self,
+        prime_bound,
+        num_primes,
+        skip_squares=False,
+        include_2=True,
+        silently_square_everything=True,
+        forced_primes=[],
     ):
         prime_decompositions = utils.get_all_decomposed_primes_up_to(prime_bound)
+        if silently_square_everything:
+            prime_decompositions = {
+                p: (abs(d[0] ** 2 - d[1] ** 2), 2 * d[0] * d[1])
+                for p, d in prime_decompositions.items()
+            }
         primes = sorted(list(prime_decompositions.keys()))
+
+        for p in forced_primes:
+            primes.remove(p)
 
         radius_compositions = (
             itertools.combinations(primes[1:], num_primes)
@@ -88,9 +101,11 @@ class Enumerator:
 
         results = {}
         for composition in tqdm.tqdm(radius_compositions):
-            factorization = dict(
-                collections.Counter((2,) + composition if include_2 else composition)
-            )
+
+            if include_2:
+                composition = (2,) + composition
+            composition = tuple(forced_primes) + composition
+            factorization = dict(collections.Counter(composition))
             radius = utils.calculate_norm_from_factorization(factorization)
             matches = self.enumerate_radius_factorized(
                 factorization,
@@ -101,7 +116,6 @@ class Enumerator:
                 print(radius, factorization, matches)
             if len(matches) > 0:
                 logger.info(f"{radius=} {factorization} {matches=}")
-            # print(self.skipped_norms)
 
 
 if __name__ == "__main__":
@@ -110,6 +124,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_primes", type=int, required=True)
     parser.add_argument("--skip_squares", action="store_true")
     parser.add_argument("--include_2", action="store_true")
+    parser.add_argument("--silently_square_everything", action="store_true")
 
     args = parser.parse_args()
 
@@ -123,6 +138,10 @@ if __name__ == "__main__":
         args.num_primes,
         skip_squares=args.skip_squares,
         include_2=args.include_2,
+        silently_square_everything=args.silently_square_everything,
+        forced_primes=[
+            5,
+        ],
     )
     # profiler.disable()
     # stats = pstats.Stats(profiler)
