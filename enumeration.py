@@ -21,8 +21,15 @@ class Enumerator:
 
     def __init__(self):
         self.skipped_norms = []
+        self.parameterizers = {}
 
-    def enumerate_radius_factorized(self, factorization, validate_2=True):
+    def enumerate_radius_factorized(
+        self,
+        factorization,
+        prime_decompositions,
+        validate_2=True,
+        silently_square_everything=False,
+    ):
         if validate_2:
             assert 2 in factorization
             assert factorization[2] <= 2
@@ -37,7 +44,33 @@ class Enumerator:
                 utils.calculate_norm_from_factorization(factorization)
             )
             return {}
-        points = utils.get_all_gaussian_integers_with_factored_norm(factorization)
+        no_mults = all(v == 1 for v in factorization.values())
+        num_primes = len(factorization)
+        if no_mults:
+            # if False:
+            if num_primes not in self.parameterizers:
+                self.parameterizers[num_primes] = (
+                    utils.GaussianIntegersParameterization(num_primes)
+                )
+            points = list(
+                set(
+                    tuple(x)
+                    for x in self.parameterizers[num_primes]
+                    .get_pair_group_at(
+                        [prime_decompositions[p] for p in factorization.keys()],
+                        canonize_to_first_quadrant=True,
+                    )
+                    .transpose()
+                    .tolist()
+                )
+            )
+        else:
+            points = utils.get_all_gaussian_integers_with_factored_norm(
+                factorization,
+                prime_decompositions={
+                    p: prime_decompositions[p] for p in factorization.keys()
+                },
+            )
         Q_m_matches = utils.find_quadruplets(points)
         return Q_m_matches
 
@@ -59,7 +92,11 @@ class Enumerator:
                 collections.Counter((2,) + composition if include_2 else composition)
             )
             radius = utils.calculate_norm_from_factorization(factorization)
-            matches = self.enumerate_radius_factorized(factorization, include_2)
+            matches = self.enumerate_radius_factorized(
+                factorization,
+                prime_decompositions,
+                include_2,
+            )
             if 134810 == radius:
                 print(radius, factorization, matches)
             if len(matches) > 0:
