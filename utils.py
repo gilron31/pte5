@@ -72,6 +72,9 @@ def is_quadruplet_E3(a, b, c, d):
 class GaussianIntegersParameterization:
     def __init__(self, order):
         self.order = order
+        self.perms = list(itertools.product([0, 1], repeat=order - 1))
+        if self.order <= 1:
+            return
         self.guide = list(itertools.product([0, 1], repeat=self.order))
         self.re_guide = [g for g in self.guide if sum(g) % 2 == 0]
         self.im_guide = [g for g in self.guide if sum(g) % 2 == 1]
@@ -80,9 +83,7 @@ class GaussianIntegersParameterization:
                 (
                     (
                         (np.array(self.im_guide)[:, 1:])
-                        @ np.array(
-                            list(itertools.product([0, 1], repeat=order - 1))
-                        ).transpose()
+                        @ np.array(self.perms).transpose()
                     )
                     + ((np.array(self.im_guide).sum(axis=1, keepdims=True) - 1) // 2)
                 )
@@ -96,9 +97,7 @@ class GaussianIntegersParameterization:
                 (
                     (
                         (np.array(self.re_guide)[:, 1:])
-                        @ np.array(
-                            list(itertools.product([0, 1], repeat=order - 1))
-                        ).transpose()
+                        @ np.array(self.perms).transpose()
                     )
                     + ((np.array(self.re_guide).sum(axis=1, keepdims=True)) // 2)
                 )
@@ -110,19 +109,21 @@ class GaussianIntegersParameterization:
 
     def get_pair_group_at(self, parameters, canonize_to_first_quadrant=False):
         assert len(parameters) == self.order
-        re_monomials = [
-            math.prod([p[g[i]] for i, p in enumerate(parameters)])
-            for g in self.re_guide
-        ]
-        im_monomials = [
-            math.prod([p[g[i]] for i, p in enumerate(parameters)])
-            for g in self.im_guide
-        ]
+        if self.order > 1:
+            re_monomials = [
+                math.prod([p[g[i]] for i, p in enumerate(parameters)])
+                for g in self.re_guide
+            ]
+            im_monomials = [
+                math.prod([p[g[i]] for i, p in enumerate(parameters)])
+                for g in self.im_guide
+            ]
+            im_coords = np.array(im_monomials) @ self.im_sign_matrix
+            re_coords = np.array(re_monomials) @ self.re_sign_matrix
 
-        im_coords = np.array(im_monomials) @ self.im_sign_matrix
-        re_coords = np.array(re_monomials) @ self.re_sign_matrix
-
-        rv = np.stack([re_coords, im_coords])
+            rv = np.stack([re_coords, im_coords])
+        else:
+            rv = np.array(parameters[0]).reshape((2, 1))
 
         if canonize_to_first_quadrant:
             return np.sort(np.abs(rv), axis=0)
@@ -161,6 +162,53 @@ def get_all_gaussian_integers_with_norm(N):
     return rv
 
 
+def factorize_gaussian_integer(a, b):
+    norm = a**2 + b**2
+    factors = sp.factorint(norm)
+    integer_factors = {p: m for p, m in factors.items() if p % 4 == 3}
+    integer_part = calculate_norm_from_factorization(integer_factors)
+    decomposable_factors = {p: m for p, m in factors.items() if p % 4 != 3}
+    num_primes_including_mult = sum(m for m in decomposable_factors.values())
+    prime_decompositions = [
+        decompose_prime(p) for p, m in decomposable_factors.items() for _ in range(m)
+    ]
+    gp = GaussianIntegersParameterization(num_primes_including_mult)
+    logger.trace(
+        f"\n {a=}, {b=}\n {norm=}\n {factors}\n {integer_factors=}\n {integer_part=}\n {decomposable_factors=}\n {prime_decompositions=}\n {num_primes_including_mult=}"
+    )
+    results = [
+        tuple(t)
+        for t in (
+            math.isqrt(integer_part)
+            * gp.get_pair_group_at(
+                prime_decompositions, canonize_to_first_quadrant=True
+            )
+        )
+        .transpose()
+        .tolist()
+    ]
+    logger.trace(results)
+    canonical_form = tuple(sorted((abs(a), abs(b))))
+    i = results.index(canonical_form)
+    conj_mask = (0,) + gp.perms[i]
+    logger.trace(conj_mask)
+
+    rec = math.prod(
+        sp.ZZ_I(p[0], p[1] * (2 * do_conj - 1))
+        for p, do_conj in zip(prime_decompositions, conj_mask)
+    ) * math.isqrt(integer_part)
+    assert canonical_form == tuple(sorted((abs(rec.x), abs(rec.y))))
+    logger.trace(rec)
+    return integer_part, prime_decompositions, conj_mask
+
+
+def calculate_norm_from_factorization(factorization):
+    rv = 1
+    for p, m in factorization.items():
+        rv *= p**m
+    return rv
+
+
 def find_quadruplets(points):
     points_a2b2 = [(p[0] ** 2) * (p[1] ** 2) for p in points]
     Q_m_dict = collections.defaultdict(list)
@@ -172,13 +220,6 @@ def find_quadruplets(points):
         for k, v in Q_m_dict.items()
         if len(v) > 1
     }
-
-
-def calculate_norm_from_factorization(factorization):
-    rv = 1
-    for p, m in factorization.items():
-        rv *= p**m
-    return rv
 
 
 def get_all_gaussian_integers_with_factored_norm(

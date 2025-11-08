@@ -5,6 +5,7 @@ from utils import (
     get_all_decomposed_primes_up_to,
     get_all_gaussian_integers_with_factored_norm,
     is_quadruplet_E3,
+    factorize_gaussian_integer,
 )
 import pytest
 import sympy as sp
@@ -113,3 +114,30 @@ def test_is_qudruplet_E3():
     assert is_gem
     _, is_gem = is_quadruplet_E3(1, 2, 3, 4)
     assert not is_gem
+
+
+def test_factorize_gaussian_integer():
+    i_part, factors, conj_mask = factorize_gaussian_integer(1, 4)
+    assert i_part == 1
+    assert factors == [(4, 1)]
+    assert conj_mask == (0,)
+    i_part, factors, conj_mask = factorize_gaussian_integer(2, 0)
+    assert i_part == 1
+    assert factors == [(1, 1), (1, 1)]
+    assert conj_mask == (0, 0)  # There is an ambiguity here, it can also be (0,1)
+    i_part, factors, conj_mask = factorize_gaussian_integer(2, 3)
+    assert i_part == 1
+    assert factors == [(3, 2)]
+    assert conj_mask == (0,)
+    i_part, factors, conj_mask = factorize_gaussian_integer(5, 0)
+    assert i_part == 1
+    assert factors == [(2, 1), (2, 1)]
+    assert conj_mask == (0, 1)
+    i_part, factors, conj_mask = factorize_gaussian_integer(3, 4)
+    assert i_part == 1
+    assert factors == [(2, 1), (2, 1)]
+    assert conj_mask == (0, 0)
+    i_part, factors, conj_mask = factorize_gaussian_integer(123123, 1233421)
+    assert i_part == 49
+    assert factors == [(1, 1), (2, 1), (120, 31), (353, 282)]
+    assert conj_mask == (0, 0, 1, 0)

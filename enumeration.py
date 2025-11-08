@@ -46,7 +46,6 @@ class Enumerator:
         no_mults = all(v == 1 for v in factorization.values())
         num_primes = len(factorization)
         if no_mults:
-            # if False:
             if num_primes not in self.parameterizers:
                 self.parameterizers[num_primes] = (
                     utils.GaussianIntegersParameterization(num_primes)
@@ -139,9 +138,7 @@ if __name__ == "__main__":
         skip_squares=args.skip_squares,
         include_2=args.include_2,
         silently_square_everything=args.silently_square_everything,
-        forced_primes=[
-            5,
-        ],
+        forced_primes=[],
     )
     # profiler.disable()
     # stats = pstats.Stats(profiler)
