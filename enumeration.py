@@ -115,6 +115,8 @@ class Enumerator:
                 print(radius, factorization, matches)
             if len(matches) > 0:
                 logger.info(f"{radius=} {factorization} {matches=}")
+                for e4_sol in matches.values():
+                    utils.analyze_E4_sol(e4_sol)
 
 
 if __name__ == "__main__":

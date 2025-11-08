@@ -266,3 +266,55 @@ def get_all_gaussian_integers_with_factored_norm(
         return rv, j_ps_sequence, gaussian_primes, factors_list
     else:
         return rv
+
+
+def analyze_E4_sol(sol):
+    q0, q1 = sol
+    p00, p01 = q0
+    p10, p11 = q1
+
+    radius = p00[0] ** 2 + p00[1] ** 2
+    assert radius == p01[0] ** 2 + p01[1] ** 2
+    assert radius == p10[0] ** 2 + p10[1] ** 2
+    assert radius == p11[0] ** 2 + p11[1] ** 2
+
+    assert radius % 2 == 0
+    P = radius // 2
+
+    Q_m = p00[0] ** 2 * p00[1] ** 2 + p01[0] ** 2 * p01[1] ** 2
+    assert Q_m == p10[0] ** 2 * p10[1] ** 2 + p11[0] ** 2 * p11[1] ** 2
+    Q_a = p00[0] ** 4 + p00[1] ** 4 + p01[0] ** 4 + p01[1] ** 4
+    L_2 = (p00[0] ** 2 - p00[1] ** 2) ** 2 + (p01[0] ** 2 - p01[1] ** 2) ** 2
+    assert L_2 % 8 == 0
+    L_2 = L_2 // 8
+
+    logger.info("##########################################")
+    logger.info(sol)
+    logger.info(f"{radius=}: {sp.factorint(radius)}")
+    logger.info(f"{P=}: {sp.factorint(P)}")
+    logger.info(f"{Q_m=}: {sp.factorint(Q_m)}")
+    logger.info(f"{Q_a=}: {sp.factorint(Q_a)}")
+    logger.info(f"{L_2=}: {sp.factorint(L_2)}")
+
+    i_part_00, factors_00, conj_mask_00 = factorize_gaussian_integer(*p00)
+    i_part_01, factors_01, conj_mask_01 = factorize_gaussian_integer(*p01)
+    i_part_10, factors_10, conj_mask_10 = factorize_gaussian_integer(*p10)
+    i_part_11, factors_11, conj_mask_11 = factorize_gaussian_integer(*p11)
+
+    assert i_part_00 == i_part_01
+    assert i_part_00 == i_part_10
+    assert i_part_00 == i_part_11
+
+    assert factors_00 == factors_01
+    assert factors_00 == factors_10
+    assert factors_00 == factors_11
+
+    xor_mask = lambda x, y: tuple(xx ^ yy for xx, yy in zip(x, y))
+
+    logger.info(f"{i_part_00}")
+    logger.info(f"{factors_00}")
+    logger.info(f"ref_mask 00: {xor_mask(conj_mask_00, conj_mask_00)}")
+    logger.info(f"ref_mask 01: {xor_mask(conj_mask_00, conj_mask_01)}")
+    logger.info(f"ref_mask 10: {xor_mask(conj_mask_00, conj_mask_10)}")
+    logger.info(f"ref_mask 11: {xor_mask(conj_mask_00, conj_mask_11)}")
+    logger.info("##########################################")
