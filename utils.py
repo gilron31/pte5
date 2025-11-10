@@ -288,6 +288,25 @@ def analyze_E4_sol(sol):
     assert L_2 % 8 == 0
     L_2 = L_2 // 8
 
+    a, b, c, d = sp.var("a,b,c,d")
+    norm = (
+        a**4
+        + c**4
+        - 4 * a * c**2 * b
+        + 2 * a**2 * b**2
+        + b**4
+        + 4 * a**2 * c * d
+        - 4 * c * b**2 * d
+        + 2 * c**2 * d**2
+        + 4 * a * b * d**2
+        + d**4
+    )
+
+    K4_norm_0 = norm.subs([(a, p00[0]), (b, p00[1]), (c, p01[0]), (d, p01[1])])
+    K4_norm_1 = norm.subs([(a, p10[0]), (b, p10[1]), (c, p11[0]), (d, p11[1])])
+    K4_norm_0_t = norm.subs([(a, p00[0]), (c, p00[1]), (b, p01[0]), (d, p01[1])])
+    K4_norm_1_t = norm.subs([(a, p10[0]), (c, p10[1]), (b, p11[0]), (d, p11[1])])
+
     logger.info("##########################################")
     logger.info(sol)
     logger.info(f"{radius=}: {sp.factorint(radius)}")
@@ -295,6 +314,10 @@ def analyze_E4_sol(sol):
     logger.info(f"{Q_m=}: {sp.factorint(Q_m)}")
     logger.info(f"{Q_a=}: {sp.factorint(Q_a)}")
     logger.info(f"{L_2=}: {sp.factorint(L_2)}")
+    logger.info(f"{K4_norm_0=}: {sp.factorint(K4_norm_0)}")
+    logger.info(f"{K4_norm_1=}: {sp.factorint(K4_norm_1)}")
+    logger.info(f"{K4_norm_0_t=}: {sp.factorint(K4_norm_0_t)}")
+    logger.info(f"{K4_norm_1_t=}: {sp.factorint(K4_norm_1_t)}")
 
     i_part_00, factors_00, conj_mask_00 = factorize_gaussian_integer(*p00)
     i_part_01, factors_01, conj_mask_01 = factorize_gaussian_integer(*p01)
