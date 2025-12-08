@@ -4,11 +4,8 @@ We are investigating chains polynomials created by iterated squaring and additio
 
 $$
 E(x; L) := x^2 - L \\
-
 E(x; L_1, L_2) := E(E(x; L_1); L_2) = (x^2 - L_1)^2 - L_2 \\
-
 E(x; L_1, L_2, L_3) := E(E(E(x; L_1); L_2); L_3) = ((x^2 - L_1)^2 - L_2)^2 - L_3 \\
-
 E(x; L_1, ..., L_n) := E(E(x; L_1, ..., L_{n-1}); L_n) \\
 $$
 
