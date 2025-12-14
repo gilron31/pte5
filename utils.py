@@ -8,6 +8,76 @@ import random
 from loguru import logger
 
 
+class IntegerComplex:
+    def __init__(self, real: int, imag: int):
+        if not isinstance(real, int) or not isinstance(imag, int):
+            try:
+                self.real = int(real)
+                self.imag = int(imag)
+            except ValueError:
+                raise TypeError(
+                    "IntegerComplex components must be convertible to integers."
+                )
+        else:
+            self.real = real
+            self.imag = imag
+
+    def __repr__(self):
+        return f"({self.real}, {self.imag})"
+
+    def __str__(self):
+        if self.imag >= 0:
+            return f"{self.real} + {self.imag}i"
+        else:
+            # Handle negative imaginary part cleanly
+            return f"{self.real} - {-self.imag}i"
+
+    def __add__(self, other):
+        return IntegerComplex(self.real + other.real, self.imag + other.imag)
+
+    def __sub__(self, other):
+        return IntegerComplex(self.real - other.real, self.imag - other.imag)
+
+    def __mul__(self, other):
+        if isinstance(other, IntegerComplex):
+            new_real = (self.real * other.real) - (self.imag * other.imag)
+            new_imag = (self.real * other.imag) + (self.imag * other.real)
+            return IntegerComplex(new_real, new_imag)
+        elif isinstance(other, int):
+            return IntegerComplex(other * self.real, other * self.imag)
+
+    def __pow__(self, pow):
+        assert isinstance(pow, int)
+        if pow == 0:
+            return IntegerComplex(1, 0)
+        assert pow > 0
+
+        rv = self
+        for _ in range(pow - 1):
+            rv *= self
+        return rv
+
+    def __getitem__(self, index):
+        if index == 0:
+            return self.real
+        if index == 1:
+            return self.imag
+        assert False, "Index out of range."
+
+    def __eq__(self, other):
+        assert isinstance(other, IntegerComplex)
+        return self.real == other.real and self.imag == other.imag
+
+    def __neg__(self):
+        return IntegerComplex(-self.real, -self.imag)
+
+    def conjugate(self):
+        return IntegerComplex(self.real, -self.imag)
+
+    def norm(self):
+        return self.real**2 + self.imag**2
+
+
 def compute_square_roots(l):
     rv = []
     for x in l:
@@ -268,7 +338,7 @@ def get_all_gaussian_integers_with_factored_norm(
         return rv
 
 
-def analyze_E4_sol(sol):
+def analyze_E4_sol(sol, factorize_gaussian_integers=False, analyze_K4_norm=False):
     q0, q1 = sol
     p00, p01 = q0
     p10, p11 = q1
@@ -282,30 +352,13 @@ def analyze_E4_sol(sol):
     P = radius // 2
 
     Q_m = p00[0] ** 2 * p00[1] ** 2 + p01[0] ** 2 * p01[1] ** 2
-    assert Q_m == p10[0] ** 2 * p10[1] ** 2 + p11[0] ** 2 * p11[1] ** 2
+    assert (
+        Q_m == p10[0] ** 2 * p10[1] ** 2 + p11[0] ** 2 * p11[1] ** 2
+    ), f"Qm_0: {Q_m}, Qm_1: {p10[0] ** 2 * p10[1] ** 2 + p11[0] ** 2 * p11[1] ** 2}"
     Q_a = p00[0] ** 4 + p00[1] ** 4 + p01[0] ** 4 + p01[1] ** 4
     L_2 = (p00[0] ** 2 - p00[1] ** 2) ** 2 + (p01[0] ** 2 - p01[1] ** 2) ** 2
     assert L_2 % 8 == 0
     L_2 = L_2 // 8
-
-    a, b, c, d = sp.var("a,b,c,d")
-    norm = (
-        a**4
-        + c**4
-        - 4 * a * c**2 * b
-        + 2 * a**2 * b**2
-        + b**4
-        + 4 * a**2 * c * d
-        - 4 * c * b**2 * d
-        + 2 * c**2 * d**2
-        + 4 * a * b * d**2
-        + d**4
-    )
-
-    K4_norm_0 = norm.subs([(a, p00[0]), (b, p00[1]), (c, p01[0]), (d, p01[1])])
-    K4_norm_1 = norm.subs([(a, p10[0]), (b, p10[1]), (c, p11[0]), (d, p11[1])])
-    K4_norm_0_t = norm.subs([(a, p00[0]), (c, p00[1]), (b, p01[0]), (d, p01[1])])
-    K4_norm_1_t = norm.subs([(a, p10[0]), (c, p10[1]), (b, p11[0]), (d, p11[1])])
 
     logger.info("##########################################")
     logger.info(sol)
@@ -314,30 +367,52 @@ def analyze_E4_sol(sol):
     logger.info(f"{Q_m=}: {sp.factorint(Q_m)}")
     logger.info(f"{Q_a=}: {sp.factorint(Q_a)}")
     logger.info(f"{L_2=}: {sp.factorint(L_2)}")
-    logger.info(f"{K4_norm_0=}: {sp.factorint(K4_norm_0)}")
-    logger.info(f"{K4_norm_1=}: {sp.factorint(K4_norm_1)}")
-    logger.info(f"{K4_norm_0_t=}: {sp.factorint(K4_norm_0_t)}")
-    logger.info(f"{K4_norm_1_t=}: {sp.factorint(K4_norm_1_t)}")
 
-    i_part_00, factors_00, conj_mask_00 = factorize_gaussian_integer(*p00)
-    i_part_01, factors_01, conj_mask_01 = factorize_gaussian_integer(*p01)
-    i_part_10, factors_10, conj_mask_10 = factorize_gaussian_integer(*p10)
-    i_part_11, factors_11, conj_mask_11 = factorize_gaussian_integer(*p11)
+    if analyze_K4_norm:
+        a, b, c, d = sp.var("a,b,c,d")
+        norm = (
+            a**4
+            + c**4
+            - 4 * a * c**2 * b
+            + 2 * a**2 * b**2
+            + b**4
+            + 4 * a**2 * c * d
+            - 4 * c * b**2 * d
+            + 2 * c**2 * d**2
+            + 4 * a * b * d**2
+            + d**4
+        )
 
-    assert i_part_00 == i_part_01
-    assert i_part_00 == i_part_10
-    assert i_part_00 == i_part_11
+        K4_norm_0 = norm.subs([(a, p00[0]), (b, p00[1]), (c, p01[0]), (d, p01[1])])
+        K4_norm_1 = norm.subs([(a, p10[0]), (b, p10[1]), (c, p11[0]), (d, p11[1])])
+        K4_norm_0_t = norm.subs([(a, p00[0]), (c, p00[1]), (b, p01[0]), (d, p01[1])])
+        K4_norm_1_t = norm.subs([(a, p10[0]), (c, p10[1]), (b, p11[0]), (d, p11[1])])
 
-    assert factors_00 == factors_01
-    assert factors_00 == factors_10
-    assert factors_00 == factors_11
+        logger.info(f"{K4_norm_0=}: {sp.factorint(K4_norm_0)}")
+        logger.info(f"{K4_norm_1=}: {sp.factorint(K4_norm_1)}")
+        logger.info(f"{K4_norm_0_t=}: {sp.factorint(K4_norm_0_t)}")
+        logger.info(f"{K4_norm_1_t=}: {sp.factorint(K4_norm_1_t)}")
 
-    xor_mask = lambda x, y: tuple(xx ^ yy for xx, yy in zip(x, y))
+    if factorize_gaussian_integers:
+        i_part_00, factors_00, conj_mask_00 = factorize_gaussian_integer(*p00)
+        i_part_01, factors_01, conj_mask_01 = factorize_gaussian_integer(*p01)
+        i_part_10, factors_10, conj_mask_10 = factorize_gaussian_integer(*p10)
+        i_part_11, factors_11, conj_mask_11 = factorize_gaussian_integer(*p11)
 
-    logger.info(f"{i_part_00}")
-    logger.info(f"{factors_00}")
-    logger.info(f"ref_mask 00: {xor_mask(conj_mask_00, conj_mask_00)}")
-    logger.info(f"ref_mask 01: {xor_mask(conj_mask_00, conj_mask_01)}")
-    logger.info(f"ref_mask 10: {xor_mask(conj_mask_00, conj_mask_10)}")
-    logger.info(f"ref_mask 11: {xor_mask(conj_mask_00, conj_mask_11)}")
-    logger.info("##########################################")
+        assert i_part_00 == i_part_01
+        assert i_part_00 == i_part_10
+        assert i_part_00 == i_part_11
+
+        assert factors_00 == factors_01
+        assert factors_00 == factors_10
+        assert factors_00 == factors_11
+
+        xor_mask = lambda x, y: tuple(xx ^ yy for xx, yy in zip(x, y))
+
+        logger.info(f"{i_part_00}")
+        logger.info(f"{factors_00}")
+        logger.info(f"ref_mask 00: {xor_mask(conj_mask_00, conj_mask_00)}")
+        logger.info(f"ref_mask 01: {xor_mask(conj_mask_00, conj_mask_01)}")
+        logger.info(f"ref_mask 10: {xor_mask(conj_mask_00, conj_mask_10)}")
+        logger.info(f"ref_mask 11: {xor_mask(conj_mask_00, conj_mask_11)}")
+        logger.info("##########################################")
