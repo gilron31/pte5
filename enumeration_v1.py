@@ -9,6 +9,7 @@ from loguru import logger
 import argparse
 import cProfile
 import pstats
+from line_profiler import profile
 
 from utils import IntegerComplex, get_all_decomposed_primes_up_to, analyze_E4_sol
 
@@ -22,6 +23,7 @@ class Enumerator:
             if (k != 2 or not remove_2)
         }
 
+    @profile
     def get_all_points_from_factorization(self, factors):
         n_factors = len(factors)
         all_points = []
@@ -49,6 +51,7 @@ class Enumerator:
                 all_points.append(g)
         return all_points
 
+    @profile
     def canonize_to_first_eighth(self, points, dedup=True):
         rv = set() if dedup else list()
         for p in points:
@@ -60,6 +63,7 @@ class Enumerator:
                 rv.append((min(x, y), max(x, y)))
         return [IntegerComplex(v[0], v[1]) for v in rv]
 
+    @profile
     def meet_points(self, points):
         point_projs = [(p.real * p.imag) ** 2 for p in points]
         hashtable = dict()
@@ -72,6 +76,7 @@ class Enumerator:
                     hashtable[v] = [(i, j)]
         return {k: v for k, v in hashtable.items() if len(v) > 1}
 
+    @profile
     def meet_points_from_factorization(self, factors, k=None, with_multiplicity=True):
         if k is None:
             points = self.get_all_points_from_factorization(factors)
@@ -94,6 +99,7 @@ class Enumerator:
                     rv.append(res)
             return rv
 
+    @profile
     def enrich_results(self, solutions, add_2=True):
         rv = []
         additional_factor = IntegerComplex(1, 1) if add_2 else IntegerComplex(1, 0)
@@ -122,6 +128,7 @@ class Enumerator:
             rv.append((factors, sol_points))
         return rv
 
+    @profile
     def meet_points_from_factor_base(self, k, with_multiplicity=True):
         return self.meet_points_from_factorization(
             list(self.factor_base.keys()), k, with_multiplicity=with_multiplicity
