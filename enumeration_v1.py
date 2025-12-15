@@ -7,7 +7,7 @@ import itertools
 import random
 from loguru import logger
 import argparse
-import cProfile
+import time
 import pstats
 from line_profiler import profile
 
@@ -22,6 +22,47 @@ class Enumerator:
             for k, v in get_all_decomposed_primes_up_to(self.bound).items()
             if (k != 2 or not remove_2)
         }
+        self.max_factors = 10
+        self.points_scratch = np.zeros((2, 2 ** (self.max_factors)), dtype=np.uint32)
+
+    @profile
+    def get_all_points_from_factorization_approx(self, factors):
+        n_factors = len(factors)
+        assert n_factors <= self.max_factors
+        self.points_scratch[0, 1] = self.factor_base[factors[0]].real
+        self.points_scratch[1, 1] = self.factor_base[factors[0]].imag
+        for i in range(n_factors - 1):
+            src_slice = self.points_scratch[:, 2 ** (i) : 2 ** (i + 1)]
+            dst_slice_0 = self.points_scratch[:, 2 ** (i + 1) : 2 ** (i + 1) + 2 ** (i)]
+            dst_slice_1 = self.points_scratch[:, 2 ** (i + 1) + 2 ** (i) : 2 ** (i + 2)]
+            x = src_slice[0] * self.factor_base[factors[i + 1]].real
+            y = src_slice[0] * self.factor_base[factors[i + 1]].imag
+            z = src_slice[1] * self.factor_base[factors[i + 1]].real
+            w = src_slice[1] * self.factor_base[factors[i + 1]].imag
+            dst_slice_0[0] = x - w
+            dst_slice_0[1] = y + z
+            dst_slice_1[0] = x + w
+            dst_slice_1[1] = y - z
+        return self.points_scratch[:, 2 ** (n_factors - 1) :]
+
+    @profile
+    def meet_points_approx(self, points, dedup=True):
+        point_projs = (points[0] * points[1]) ** 2
+
+        if dedup:
+            point_projs = list(set(point_projs))
+        else:
+            point_projs = list(point_projs)
+
+        hashtable = dict()
+        for i, p in enumerate(point_projs):
+            for j, q in enumerate(point_projs[:i]):
+                v = p + q
+                if v in hashtable:
+                    hashtable[v].append((i, j))
+                else:
+                    hashtable[v] = [(i, j)]
+        return {k: v for k, v in hashtable.items() if len(v) > 1}
 
     @profile
     def get_all_points_from_factorization(self, factors):
@@ -41,12 +82,6 @@ class Enumerator:
                     all_points_.append(IntegerComplex(x - w, y + z))
                     all_points_.append(IntegerComplex(x + w, y - z))
                 all_points = all_points_
-
-                # The naive way:
-
-                # all_points = [g * p for p in all_points] + [
-                #     g_conj * p for p in all_points
-                # ]
             else:
                 all_points.append(g)
         return all_points
@@ -79,24 +114,42 @@ class Enumerator:
     @profile
     def meet_points_from_factorization(self, factors, k=None, with_multiplicity=True):
         if k is None:
+            points_approx = self.get_all_points_from_factorization_approx(factors)
+            meet_result = self.meet_points_approx(points_approx)
+            if len(meet_result) == 0:
+                return None
+
             points = self.get_all_points_from_factorization(factors)
             points = self.canonize_to_first_eighth(points)
-            return (
-                factors,
-                points,
-                self.meet_points(points),
-            )
+            meet_result = self.meet_points(points)
+            if len(meet_result) == 0:
+                return None
+            else:
+
+                return (
+                    factors,
+                    points,
+                    meet_result,
+                )
         else:
             rv = []
-            combinations = (
+            combinations = list(
                 itertools.combinations_with_replacement(factors, k)
                 if with_multiplicity
                 else itertools.combinations(factors, k)
             )
-            for choice in tqdm.tqdm(list(combinations)):
+            combination_count = len(combinations)
+            start_time = time.time()
+            for choice in tqdm.tqdm(combinations):
                 res = self.meet_points_from_factorization(choice)
-                if len(res[2]) > 0:
+                if res:
                     rv.append(res)
+            elapsed_s = time.time() - start_time
+            combinations_per_sec = combination_count / elapsed_s
+            lg2_combinations_per_sec = math.log2(combinations_per_sec)
+            logger.info(
+                f"{lg2_combinations_per_sec=:0.2f}, {combination_count=} {elapsed_s=}"
+            )
             return rv
 
     @profile

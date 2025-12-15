@@ -9,18 +9,9 @@ from loguru import logger
 
 
 class IntegerComplex:
-    def __init__(self, real: int, imag: int):
-        if not isinstance(real, int) or not isinstance(imag, int):
-            try:
-                self.real = int(real)
-                self.imag = int(imag)
-            except ValueError:
-                raise TypeError(
-                    "IntegerComplex components must be convertible to integers."
-                )
-        else:
-            self.real = real
-            self.imag = imag
+    def __init__(self, real, imag):
+        self.real = real
+        self.imag = imag
 
     def __repr__(self):
         return f"({self.real}, {self.imag})"
