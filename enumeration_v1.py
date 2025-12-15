@@ -156,7 +156,6 @@ class Enumerator:
     def enrich_results(self, solutions, add_2=True):
         rv = []
         additional_factor = IntegerComplex(1, 1) if add_2 else IntegerComplex(1, 0)
-        # additional_factor = IntegerComplex(1, 0)
         for factors, points, meets in solutions:
             if add_2:
                 factors = [2] + list(factors)

@@ -55,6 +55,12 @@ class IntegerComplex:
             return self.imag
         assert False, "Index out of range."
 
+    def to_tuple(self):
+        return (self.real, self.imag)
+
+    def __hash__(self):
+        return hash(self.to_tuple())
+
     def __eq__(self, other):
         assert isinstance(other, IntegerComplex)
         return self.real == other.real and self.imag == other.imag
