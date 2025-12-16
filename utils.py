@@ -208,14 +208,14 @@ def decompose_prime(p):
     assert False, f"Could not decompose prime {p}"
 
 
-def get_all_decomposable_primes_up_to(b):
+def get_all_decomposable_primes_up_to(b, debug=True):
     ps = sp.primerange(b)
-    return [2] + [p for p in tqdm.tqdm(ps, total=b) if p % 4 == 1]
+    return [2] + [p for p in tqdm.tqdm(ps, total=b, disable=not debug) if p % 4 == 1]
 
 
-def get_all_decomposed_primes_up_to(b):
-    d_primes = get_all_decomposable_primes_up_to(b)
-    return {p: decompose_prime(p) for p in tqdm.tqdm(d_primes)}
+def get_all_decomposed_primes_up_to(b, debug=True):
+    d_primes = get_all_decomposable_primes_up_to(b, debug=debug)
+    return {p: decompose_prime(p) for p in tqdm.tqdm(d_primes, disable=not debug)}
 
 
 def get_all_gaussian_integers_with_norm(N):

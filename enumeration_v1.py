@@ -15,11 +15,12 @@ from utils import IntegerComplex, get_all_decomposed_primes_up_to, analyze_E4_so
 
 
 class Enumerator:
-    def __init__(self, bound, remove_2=True):
+    def __init__(self, bound, remove_2=True, debug=False):
+        self.debug = debug
         self.bound = bound
         self.factor_base = {
             k: IntegerComplex(v[0], v[1])
-            for k, v in get_all_decomposed_primes_up_to(self.bound).items()
+            for k, v in get_all_decomposed_primes_up_to(self.bound, debug=debug).items()
             if (k != 2 or not remove_2)
         }
         self.max_factors = 10
@@ -112,48 +113,60 @@ class Enumerator:
         return {k: v for k, v in hashtable.items() if len(v) > 1}
 
     @profile
-    def meet_points_from_factorization(self, factors, k=None, with_multiplicity=True):
-        if k is None:
-            points_approx = self.get_all_points_from_factorization_approx(factors)
-            meet_result = self.meet_points_approx(points_approx)
-            if len(meet_result) == 0:
-                return None
+    def meet_points_from_factorization(self, factors):
+        # points_approx = self.get_all_points_from_factorization_approx(factors)
+        # meet_result = self.meet_points_approx(points_approx)
+        # if len(meet_result) == 0:
+        #     return None
 
-            points = self.get_all_points_from_factorization(factors)
-            points = self.canonize_to_first_eighth(points)
-            meet_result = self.meet_points(points)
-            if len(meet_result) == 0:
-                return None
-            else:
-
-                return (
-                    factors,
-                    points,
-                    meet_result,
-                )
+        points = self.get_all_points_from_factorization(factors)
+        points = self.canonize_to_first_eighth(points)
+        meet_result = self.meet_points(points)
+        if len(meet_result) == 0:
+            return None
         else:
-            rv = []
-            combinations = list(
-                itertools.combinations_with_replacement(factors, k)
-                if with_multiplicity
-                else itertools.combinations(factors, k)
+
+            return (
+                factors,
+                points,
+                meet_result,
             )
-            combination_count = len(combinations)
-            start_time = time.time()
-            for choice in tqdm.tqdm(combinations):
-                res = self.meet_points_from_factorization(choice)
-                if res:
-                    rv.append(res)
-            elapsed_s = time.time() - start_time
-            combinations_per_sec = combination_count / elapsed_s
-            lg2_combinations_per_sec = math.log2(combinations_per_sec)
-            logger.info(
-                f"{lg2_combinations_per_sec=:0.2f}, {combination_count=} {elapsed_s=}"
-            )
-            return rv
 
     @profile
-    def enrich_results(self, solutions, add_2=True):
+    def meet_points_from_factorization_combinations(
+        self, factors, k, with_multiplicity=True
+    ):
+        rv = []
+        combinations = list(
+            itertools.combinations_with_replacement(factors, k)
+            if with_multiplicity
+            else itertools.combinations(factors, k)
+        )
+        start_time = time.time()
+
+        for choice in tqdm.tqdm(combinations, disable=not self.debug):
+            res = self.meet_points_from_factorization(choice)
+            if res:
+                rv.append(res)
+
+        combination_count = len(combinations)
+        elapsed_s = time.time() - start_time
+        combinations_per_sec = combination_count / elapsed_s
+        lg2_combinations_per_sec = math.log2(combinations_per_sec)
+        # logger.debug(
+        #     f"{lg2_combinations_per_sec=:0.2f}, {combination_count=} {elapsed_s=}"
+        # )
+        run_stats = {
+            "combination_count": combination_count,
+            "elapsed_s": elapsed_s,
+            "combinations_per_sec": combinations_per_sec,
+            "lg2_combinations_per_sec": lg2_combinations_per_sec,
+        }
+
+        return rv, run_stats
+
+    @profile
+    def enrich_results(self, solutions, add_2=True, print_analysis=True):
         rv = []
         additional_factor = IntegerComplex(1, 1) if add_2 else IntegerComplex(1, 0)
         for factors, points, meets in solutions:
@@ -176,14 +189,19 @@ class Enumerator:
                         (sol_points_[2], sol_points_[3]),
                     )
                 )
-                analyze_E4_sol(sol_points[-1])
+                if print_analysis:
+                    analyze_E4_sol(sol_points[-1])
             rv.append((factors, sol_points))
         return rv
 
     @profile
-    def meet_points_from_factor_base(self, k, with_multiplicity=True):
-        return self.meet_points_from_factorization(
-            list(self.factor_base.keys()), k, with_multiplicity=with_multiplicity
+    def meet_points_from_factor_base_combinations(
+        self, k, with_multiplicity=True, bound=None
+    ):
+        return self.meet_points_from_factorization_combinations(
+            [p for p in self.factor_base.keys() if (p < bound if bound else True)],
+            k,
+            with_multiplicity=with_multiplicity,
         )
 
 
@@ -195,11 +213,12 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    enum = Enumerator(args.prime_bound)
+    enum = Enumerator(args.prime_bound, debug=True)
 
-    res = enum.meet_points_from_factor_base(
+    res, stats = enum.meet_points_from_factor_base_combinations(
         args.num_primes,
         with_multiplicity=args.with_multiplicity,
     )
+    logger.info(stats)
     res = enum.enrich_results(res)
     logger.info(res)

@@ -1,15 +1,16 @@
 from enumeration_v1 import Enumerator
-from utils import IntegerComplex
+import pytest
 
 
-def test_basic_B200_k4():
+@pytest.mark.parametrize("with_multiplicity", [True, False])
+def test_B200_k4(with_multiplicity):
     enum = Enumerator(200)
-    res = enum.meet_points_from_factor_base(
+    res, _ = enum.meet_points_from_factor_base_combinations(
         k=4,
-        with_multiplicity=True,
+        with_multiplicity=with_multiplicity,
     )
 
-    res = enum.enrich_results(res)
+    res = enum.enrich_results(res, print_analysis=False)
     assert len(res) == 2
     res = sorted(res, key=lambda x: x[0])
     assert sorted(res[0][0]) == [2, 5, 13, 17, 61]
@@ -17,13 +18,14 @@ def test_basic_B200_k4():
     # equating points is nabaz implement later
 
 
-def test_basic_B200_k5():
+@pytest.mark.parametrize("with_multiplicity", [True, False])
+def test_B200_k5(with_multiplicity):
     enum = Enumerator(200)
-    res = enum.meet_points_from_factor_base(
+    res, _ = enum.meet_points_from_factor_base_combinations(
         k=5,
-        with_multiplicity=True,
+        with_multiplicity=with_multiplicity,
     )
-    res = enum.enrich_results(res)
+    res = enum.enrich_results(res, print_analysis=False)
     assert len(res) == 3
     res = sorted(res, key=lambda x: x[0])
     assert sorted(res[0][0]) == [2, 5, 13, 17, 53, 101]
