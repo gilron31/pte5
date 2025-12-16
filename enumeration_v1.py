@@ -15,7 +15,7 @@ from utils import IntegerComplex, get_all_decomposed_primes_up_to, analyze_E4_so
 
 
 class Enumerator:
-    def __init__(self, bound, remove_2=True, debug=False):
+    def __init__(self, bound, remove_2=True, debug=False, batch_size=4):
         self.debug = debug
         self.bound = bound
         self.factor_base = {
@@ -25,8 +25,9 @@ class Enumerator:
         }
         self.max_factors = 10
         self.points_scratch = np.zeros((2, 2 ** (self.max_factors)), dtype=np.uint32)
+        self.batch_size = batch_size
 
-    @profile
+    # @profile
     def get_all_points_from_factorization_approx(self, factors):
         n_factors = len(factors)
         assert n_factors <= self.max_factors
@@ -46,7 +47,7 @@ class Enumerator:
             dst_slice_1[1] = y - z
         return self.points_scratch[:, 2 ** (n_factors - 1) :]
 
-    @profile
+    # @profile
     def meet_points_approx(self, points, dedup=True):
         point_projs = (points[0] * points[1]) ** 2
 
@@ -65,7 +66,7 @@ class Enumerator:
                     hashtable[v] = [(i, j)]
         return {k: v for k, v in hashtable.items() if len(v) > 1}
 
-    @profile
+    # @profile
     def get_all_points_from_factorization(self, factors):
         n_factors = len(factors)
         all_points = []
@@ -87,7 +88,7 @@ class Enumerator:
                 all_points.append(g)
         return all_points
 
-    @profile
+    # @profile
     def canonize_to_first_eighth(self, points, dedup=True):
         rv = set() if dedup else list()
         for p in points:
@@ -99,7 +100,7 @@ class Enumerator:
                 rv.append((min(x, y), max(x, y)))
         return [IntegerComplex(v[0], v[1]) for v in rv]
 
-    @profile
+    # @profile
     def meet_points(self, points):
         point_projs = [(p.real * p.imag) ** 2 for p in points]
         hashtable = dict()
@@ -113,24 +114,34 @@ class Enumerator:
         return {k: v for k, v in hashtable.items() if len(v) > 1}
 
     @profile
-    def meet_points_from_factorization(self, factors):
+    def meet_points_from_factorization(self, factors_batch):
         # points_approx = self.get_all_points_from_factorization_approx(factors)
         # meet_result = self.meet_points_approx(points_approx)
         # if len(meet_result) == 0:
         #     return None
 
-        points = self.get_all_points_from_factorization(factors)
-        points = self.canonize_to_first_eighth(points)
-        meet_result = self.meet_points(points)
-        if len(meet_result) == 0:
-            return None
-        else:
+        points_batch = [
+            self.get_all_points_from_factorization(factors) for factors in factors_batch
+        ]
 
-            return (
-                factors,
-                points,
-                meet_result,
-            )
+        canonized_points_batch = [
+            self.canonize_to_first_eighth(points) for points in points_batch
+        ]
+
+        meet_result_batch = [
+            self.meet_points(points) for points in canonized_points_batch
+        ]
+
+        rv = []
+        for i in range(len(factors_batch)):
+            if len(meet_result_batch[i]) == 0:
+                rv.append(None)
+            else:
+                rv.append(
+                    (factors_batch[i], canonized_points_batch[i], meet_result_batch[i])
+                )
+
+        return rv
 
     @profile
     def meet_points_from_factorization_combinations(
@@ -142,14 +153,30 @@ class Enumerator:
             if with_multiplicity
             else itertools.combinations(factors, k)
         )
+        combination_count = len(combinations)
+
         start_time = time.time()
 
-        for choice in tqdm.tqdm(combinations, disable=not self.debug):
-            res = self.meet_points_from_factorization(choice)
-            if res:
-                rv.append(res)
+        num_batches = (combination_count + self.batch_size - 1) // self.batch_size
 
-        combination_count = len(combinations)
+        with tqdm.tqdm(total=combination_count) as pbar:
+            for batch_idx in range(num_batches):
+                curr_batch_start = batch_idx * self.batch_size
+                curr_batch_end = min(
+                    combination_count, (batch_idx + 1) * self.batch_size
+                )
+                curr_batch_size = curr_batch_end - curr_batch_start
+                choices = []
+                for i in range(curr_batch_size):
+                    choices.append(combinations[curr_batch_start + i])
+
+                res = self.meet_points_from_factorization(choices)
+                pbar.update(curr_batch_size)
+
+                for res_ in res:
+                    if res_:
+                        rv.append(res_)
+
         elapsed_s = time.time() - start_time
         combinations_per_sec = combination_count / elapsed_s
         lg2_combinations_per_sec = math.log2(combinations_per_sec)
@@ -165,7 +192,6 @@ class Enumerator:
 
         return rv, run_stats
 
-    @profile
     def enrich_results(self, solutions, add_2=True, print_analysis=True):
         rv = []
         additional_factor = IntegerComplex(1, 1) if add_2 else IntegerComplex(1, 0)
