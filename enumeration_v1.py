@@ -15,9 +15,7 @@ from utils import IntegerComplex, get_all_decomposed_primes_up_to, analyze_E4_so
 
 
 class Enumerator:
-    def __init__(
-        self, bound, remove_2=True, debug=False, batch_size=4, hashtable_key_bits=15
-    ):
+    def __init__(self, bound, remove_2=True, debug=False, batch_size=4):
         self.debug = debug
         self.bound = bound
         self.factor_base = {
@@ -27,76 +25,6 @@ class Enumerator:
         }
         self.max_factors = 10
         self.batch_size = batch_size
-        self.points_scratch = np.zeros(
-            (self.batch_size, 2, 2 ** (self.max_factors)), dtype=np.uint32
-        )
-        self.hashtable_key_size_bits = hashtable_key_bits
-        self.hashtable: np.array = np.zeros(
-            (self.batch_size, 2**self.hashtable_key_size_bits), dtype=np.uint8
-        )
-        self.indexing_dummy = np.arange(self.batch_size)[:, None]
-
-    # @profile
-    def get_all_points_from_factorization_approx(self, factors_batch):
-        k = len(factors_batch[0])
-        assert k <= self.max_factors
-
-        initialized_factors = np.zeros((self.batch_size, 2, k))
-        for i in range(len(factors_batch)):
-            for j in range(k):
-                initialized_factors[i, 0, j] = self.factor_base[
-                    factors_batch[i][j]
-                ].real
-                initialized_factors[i, 1, j] = self.factor_base[
-                    factors_batch[i][j]
-                ].imag
-
-        self.points_scratch[:, :, 1] = initialized_factors[:, :, 0]
-        for i in range(k - 1):
-            src_slice = self.points_scratch[:, :, 2 ** (i) : 2 ** (i + 1)]
-            dst_slice_0 = self.points_scratch[
-                :, :, 2 ** (i + 1) : 2 ** (i + 1) + 2 ** (i)
-            ]
-            dst_slice_1 = self.points_scratch[
-                :, :, 2 ** (i + 1) + 2 ** (i) : 2 ** (i + 2)
-            ]
-            x = src_slice[:, 0, :] * initialized_factors[:, 0, i, None]
-            y = src_slice[:, 0, :] * initialized_factors[:, 1, i, None]
-            z = src_slice[:, 1, :] * initialized_factors[:, 0, i, None]
-            w = src_slice[:, 1, :] * initialized_factors[:, 1, i, None]
-            dst_slice_0[:, 0] = x - w
-            dst_slice_0[:, 1] = y + z
-            dst_slice_1[:, 0] = x + w
-            dst_slice_1[:, 1] = y - z
-        return self.points_scratch[:, :, 2 ** (k - 1) : 2 ** (k)]
-
-    # @profile
-    def meet_points_approx(self, points):
-        point_projs = (points[0] * points[1]) ** 2
-
-        # dedup
-        self.hashtable[:] = 0
-        for i in range(point_projs.shape[1]):
-            for j in range(i):
-                self.hashtable[
-                    self.indexing_dummy,
-                    (point_projs[:, i] + point_projs[:, j])
-                    & ((2**self.hashtable_key_size_bits) - 1),
-                ] += 1
-        print(list(self.hashtable[0]))
-        assert False
-        return self.hashtable.max(axis=1) > 1
-        # self.hashtable[self.indexing_dummy, point_projs] = 1
-
-        # hashtable = dict()
-        # for i, p in enumerate(point_projs):
-        #     for j, q in enumerate(point_projs[:i]):
-        #         v = p + q
-        #         if v in hashtable:
-        #             hashtable[v].append((i, j))
-        #         else:
-        #             hashtable[v] = [(i, j)]
-        # return {k: v for k, v in hashtable.items() if len(v) > 1}
 
     # @profile
     def get_all_points_from_factorization(self, factors):
@@ -156,21 +84,11 @@ class Enumerator:
 
     # @profile
     def meet_points_from_factorization(self, factors_batch):
-        points_approx_batch = self.get_all_points_from_factorization_approx(
-            factors_batch
-        )
-
-        meet_result_batch = self.meet_points_approx(points_approx_batch)
-
-        print(sum(meet_result_batch))
         rv = []
         for i in range(len(factors_batch)):
-            if meet_result_batch[i]:
-                rv.append(
-                    self.meet_points_from_factorization_hermetic(factors_batch[i])
-                )
-            else:
-                rv.append(None)
+            res = self.meet_points_from_factorization_hermetic(factors_batch[i])
+            if res:
+                rv.append(res)
 
         return rv
 
