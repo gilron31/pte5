@@ -27,7 +27,7 @@ class Enumerator:
         self.batch_size = batch_size
 
     # @profile
-    def get_all_points_from_factorization(self, factors):
+    def get_all_points_from_factorization(self, factors, conj_first_point=False):
         n_factors = len(factors)
         all_points = []
         for i in range(n_factors):
@@ -41,11 +41,34 @@ class Enumerator:
                     y = p.real * g.imag
                     z = p.imag * g.real
                     w = p.imag * g.imag
-                    all_points_.append(IntegerComplex(x - w, y + z))
-                    all_points_.append(IntegerComplex(x + w, y - z))
+                    all_points_.append(IntegerComplex(x - w, z + y))
+                    all_points_.append(IntegerComplex(x + w, z - y))
                 all_points = all_points_
             else:
                 all_points.append(g)
+                if conj_first_point:
+                    all_points.append(g.conjugate())
+        return all_points
+
+    def get_all_points_from_factorization_marked(self, factors):
+        n_factors = len(factors)
+        all_points = []
+        for i in range(n_factors):
+            g = self.factor_base[factors[i]]
+            # g_conj = g.conjugate()
+            if len(all_points) > 0:
+                # A trick for saving multiplications
+                all_points_ = []
+                for m, p in all_points:
+                    x = p.real * g.real
+                    y = p.real * g.imag
+                    z = p.imag * g.real
+                    w = p.imag * g.imag
+                    all_points_.append((m + [0], IntegerComplex(x - w, z + y)))
+                    all_points_.append((m + [1], IntegerComplex(x + w, z - y)))
+                all_points = all_points_
+            else:
+                all_points.append(([0], g))
         return all_points
 
     # @profile
@@ -55,16 +78,16 @@ class Enumerator:
             x = abs(p.real)
             y = abs(p.imag)
             if dedup:
-                rv.add((min(x, y), max(x, y)))
+                rv.add((max(x, y), min(x, y)))
             else:
-                rv.append((min(x, y), max(x, y)))
+                rv.append((max(x, y), min(x, y)))
         return [IntegerComplex(v[0], v[1]) for v in rv]
 
     # @profile
     def meet_points(self, points):
         point_projs = [(p.real * p.imag) ** 2 for p in points]
         hashtable = dict()
-        for i, p in enumerate(point_projs):
+        for i, p in tqdm.tqdm(enumerate(point_projs), total=len(point_projs)):
             for j, q in enumerate(point_projs[:i]):
                 v = p + q
                 if v in hashtable:
@@ -82,7 +105,6 @@ class Enumerator:
         else:
             return None
 
-    # @profile
     def meet_points_from_factorization(self, factors_batch):
         rv = []
         for i in range(len(factors_batch)):

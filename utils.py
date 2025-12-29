@@ -391,10 +391,10 @@ def analyze_E4_sol(sol, factorize_gaussian_integers=False, analyze_K4_norm=False
         logger.info(f"{K4_norm_1_t=}: {sp.factorint(K4_norm_1_t)}")
 
     if factorize_gaussian_integers:
-        i_part_00, factors_00, conj_mask_00 = factorize_gaussian_integer(*p00)
-        i_part_01, factors_01, conj_mask_01 = factorize_gaussian_integer(*p01)
-        i_part_10, factors_10, conj_mask_10 = factorize_gaussian_integer(*p10)
-        i_part_11, factors_11, conj_mask_11 = factorize_gaussian_integer(*p11)
+        i_part_00, factors_00, conj_mask_00 = factorize_gaussian_integer(p00[0], p00[1])
+        i_part_01, factors_01, conj_mask_01 = factorize_gaussian_integer(p01[0], p01[1])
+        i_part_10, factors_10, conj_mask_10 = factorize_gaussian_integer(p10[0], p10[1])
+        i_part_11, factors_11, conj_mask_11 = factorize_gaussian_integer(p11[0], p11[1])
 
         assert i_part_00 == i_part_01
         assert i_part_00 == i_part_10
