@@ -10,7 +10,6 @@ def _():
     import sympy as sp
     from collections import defaultdict
     import itertools
-
     return defaultdict, itertools, mo, sp
 
 
@@ -34,7 +33,6 @@ def _(mo, sp):
     checkboxes = mo.ui.array(
         [mo.ui.checkbox(label=f"{i}", value=False) for i in range(8)]
     )
-
     return as_tuple, checkboxes, conj, ss, ts
 
 
@@ -96,9 +94,9 @@ def _(as_tuple, conj, ps):
     Q20 = (A2[0] * A2[1]) ** 2 + (A0[0] * A0[1]) ** 2
     Q30 = (A3[0] * A3[1]) ** 2 + (A0[0] * A0[1]) ** 2
 
-    D1 = (Q12 - Q30).as_poly()
+    D1 = (Q10 - Q23).as_poly()
     D2 = (Q13 - Q20).as_poly()
-    D3 = (Q10 - Q23).as_poly()
+    D3 = (Q12 - Q30).as_poly()
     return A0, A1, A2, A3, D1
 
 
@@ -109,15 +107,19 @@ def _(checkboxes, mo):
 
 
 @app.cell
-def _(D1):
-    D1
-
+def _(D1, sp):
+    sp.print_latex(D1)
     return
 
 
 @app.cell
 def _(D1):
     D1.factor_list()
+    return
+
+
+@app.cell
+def _():
     return
 
 
