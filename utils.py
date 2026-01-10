@@ -82,9 +82,9 @@ class GeneralPoint:
         self.x = x
         self.y = y
         self.a2, self.a4, self.a6 = a_coeffs
-        assert y**2 - x**3 - self.a2 * x**2 - self.a4 * x - self.a6 == 0, (
-            y**2 - x**3 - self.a2 * x**2 - self.a4 * x - self.a6
-        )
+        assert (
+            y**2 - x**3 - self.a2 * x**2 - self.a4 * x - self.a6 == 0
+        ), f"{y**2=},  {x**3 + self.a2 * x**2 + self.a4 * x + self.a6=}"
 
     def __add__(self, other):
         if self.x is None:
@@ -174,58 +174,114 @@ and inverse
 """
 
 
-def point_to_bremner_2(point: GeneralPoint):
-    assert (point.a2, point.a4, point.a6) == (Fraction(-1), Fraction(-8), Fraction(112))
-    x = Fraction(4, 25) * point.x - Fraction(8, 25)
-    y = Fraction(8, 125) * point.y
+def bremner_F1_point(k=1):
+    coeffs_F1 = (Fraction(-1), Fraction(-30), Fraction(72))
+    P = GeneralPoint(2, 4, coeffs_F1) * k
+    X, Y = P.x, P.y
 
-    X = (
-        Fraction(25, 2) * x**3
-        - Fraction(35, 2) * x * y
-        + Fraction(25, 4) * y**2
-        + Fraction(56, 5) * x
-        - 8 * y
+    x = (-21 + 4 * X) * (3 - 10 * X + 2 * X**2 + Y)
+    y = 171 + 102 * X - 44 * X**2 - 69 * Y - 4 * X * Y
+    z = (-21 + 4 * X) * (-15 + 5 * X + 2 * Y)
+
+    A = (x**2 * y) - (x * y**2) + (3 * x * z**2) - (7 * y * z**2)
+    B = z * (x**2 + 2 * x * y - y**2 + 10 * z**2)
+    C = (x**2 * y) - (x * y**2) + (7 * x * z**2) - (3 * y * z**2)
+    D = -z * (x**2 - 2 * x * y - y**2 - 10 * z**2)
+    E = -z * ((x**2) + (y**2) + (2 * x * z) + (2 * y * z) - (10 * z**2))
+    G = -z * ((x**2) + (y**2) - (2 * x * z) - (2 * y * z) - (10 * z**2))
+
+    H_sq = (
+        (x**4 * y**2)
+        - (2 * x**3 * y**3)
+        + (x**2 * y**4)
+        + (10 * x**3 * y * z**2)
+        - (20 * x**2 * y**2 * z**2)
+        + (10 * x * y**3 * z**2)
+        + (4 * x**3 * z**3)
+        + (4 * x**2 * y * z**3)
+        + (4 * x * y**2 * z**3)
+        + (4 * y**3 * z**3)
+        + (45 * x**2 * z**4)
+        - (10 * x * y * z**4)
+        + (45 * y**2 * z**4)
+        - (40 * x * z**5)
+        - (40 * y * z**5)
+    )
+
+    F_sq = (
+        (x**4 * y**2)
+        - (2 * x**3 * y**3)
+        + (x**2 * y**4)
+        + (10 * x**3 * y * z**2)
+        - (20 * x**2 * y**2 * z**2)
+        + (10 * x * y**3 * z**2)
+        - (4 * x**3 * z**3)
+        - (4 * x**2 * y * z**3)
+        - (4 * x * y**2 * z**3)
+        - (4 * y**3 * z**3)
+        + (45 * x**2 * z**4)
+        - (10 * x * y * z**4)
+        + (45 * y**2 * z**4)
+        + (40 * x * z**5)
+        + (40 * y * z**5)
+    )
+
+    H = Fraction(math.isqrt(H_sq.numerator), math.isqrt(H_sq.denominator))
+    F = Fraction(math.isqrt(F_sq.numerator), math.isqrt(F_sq.denominator))
+
+    assert H**2 == H_sq
+    assert F**2 == F_sq
+
+    sol = [A, B, C, D, E, F, G, H]
+
+    lcm = sp.lcm([t.denominator for t in sol])
+    sol = [t * lcm for t in sol]
+    gcd = sp.gcd(sol)
+    sol = [int(t // gcd) for t in sol]
+
+    return sol
+
+
+def bremner_F2_point(k=5):
+    coeffs = (Fraction(-1), Fraction(-8), Fraction(112))
+    P = GeneralPoint(Fraction(12), Fraction(40), coeffs) * k
+
+    X = Fraction(4, 25) * P.x - Fraction(8, 25)
+    Y = Fraction(8, 125) * P.y
+
+    x = (
+        Fraction(25, 2) * X**3
+        - Fraction(35, 2) * X * Y
+        + Fraction(25, 4) * Y**2
+        + Fraction(56, 5) * X
+        - 8 * Y
         + Fraction(64, 25)
     )
-    Y = (
-        Fraction(-5, 2) * x * y
-        + Fraction(75, 4) * y**2
-        + Fraction(8, 5) * x
-        - 24 * y
+    y = (
+        Fraction(-5, 2) * X * Y
+        + Fraction(75, 4) * Y**2
+        + Fraction(8, 5) * X
+        - 24 * Y
         + Fraction(192, 25)
     )
-    Z = x**2 - Fraction(15, 2) * x * y + Fraction(24, 5) * x
+    z = X**2 - Fraction(15, 2) * X * Y + Fraction(24, 5) * X
 
-    A = lambda x, y, z: x**2 * y - x * y**2 + (3 * x - 7 * y) * z**2
-    B = lambda x, y, z: z * (x**2 + 2 * x * y - y**2 + 10 * z**2)
-    C = lambda x, y, z: x**2 * y - x * y**2 + (7 * x - 3 * y) * z**2
-    D = lambda x, y, z: -z * (x**2 - 2 * x * y - y**2 - 10 * z**2)
-    E = lambda x, y, z: -z * (x**2 + y**2 + 2 * (x + y) * z - 10 * z**2)
+    A = x**2 * y - x * y**2 + (3 * x - 7 * y) * z**2
+    B = z * (x**2 + 2 * x * y - y**2 + 10 * z**2)
+    C = x**2 * y - x * y**2 + (7 * x - 3 * y) * z**2
+    D = -z * (x**2 - 2 * x * y - y**2 - 10 * z**2)
+    E = -z * (x**2 + y**2 + 2 * (x + y) * z - 10 * z**2)
     F = (
-        lambda x, y, z: -2 * x**2 * y
+        -2 * x**2 * y
         + 3 * x * y**2
         - y**3
         - (x**2 - 8 * x * y + 7 * y**2) * z
         - (x + 3 * y) * z**2
     )
-    G = lambda x, y, z: -z * (x**2 + y**2 - 2 * (x + y) * z - 10 * z**2)
-    H = (
-        lambda x, y, z: -(x**2) * y
-        + x * y**2
-        + (6 * x * y - 2 * y**2) * z
-        + (3 * x - 11 * y) * z**2
-    )
+    G = -z * (x**2 + y**2 - 2 * (x + y) * z - 10 * z**2)
+    H = -(x**2) * y + x * y**2 + (6 * x * y - 2 * y**2) * z + (3 * x - 11 * y) * z**2
 
-    sol = [
-        A(X, Y, Z),
-        B(X, Y, Z),
-        C(X, Y, Z),
-        D(X, Y, Z),
-        E(X, Y, Z),
-        F(X, Y, Z),
-        G(X, Y, Z),
-        H(X, Y, Z),
-    ]
+    sol = [A, B, C, D, E, F, G, H]
 
     lcm = sp.lcm([t.denominator for t in sol])
     sol = [t * lcm for t in sol]
@@ -495,6 +551,32 @@ def get_all_gaussian_integers_with_factored_norm(
         return rv
 
 
+def validate_and_canonize_E4_sol(sol):
+    sol = [abs(x) for x in sol]
+    sol_pairs = [sorted(x, reverse=True) for x in zip(sol[::2], sol[1::2])]
+    sol_quads = [sorted(x, reverse=True) for x in zip(sol_pairs[::2], sol_pairs[1::2])]
+    sol_octs = [sorted(x, reverse=True) for x in zip(sol_quads[::2], sol_quads[1::2])]
+    sol_quads = [x[i] for x in sol_octs for i in range(2)]
+    sol_pairs = [x[i] for x in sol_quads for i in range(2)]
+    sol = [x[i] for x in sol_pairs for i in range(2)]
+
+    gcd = int(sp.gcd(sol))
+    sol = [t // gcd for t in sol]
+    radius = sol[0] ** 2 + sol[1] ** 2
+    assert radius == sol[2] ** 2 + sol[3] ** 2
+    assert radius == sol[4] ** 2 + sol[5] ** 2
+    assert radius == sol[6] ** 2 + sol[7] ** 2
+    Q_m = (sol[0] * sol[1]) ** 2 + (sol[2] * sol[3]) ** 2
+    assert Q_m == (sol[4] * sol[5]) ** 2 + (sol[6] * sol[7]) ** 2
+    if radius % 2 != 0:
+        sol_pairs_mul2 = [(x[0] + x[1], x[0] - x[1]) for x in sol_pairs]
+        return validate_and_canonize_E4_sol(
+            [x[i] for x in sol_pairs_mul2 for i in range(2)]
+        )
+
+    return sol
+
+
 def analyze_E4_sol(sol, factorize_gaussian_integers=False):
     radius = sol[0] ** 2 + sol[1] ** 2
     Q_m = (sol[0] * sol[1]) ** 2 + (sol[2] * sol[3]) ** 2
@@ -502,10 +584,10 @@ def analyze_E4_sol(sol, factorize_gaussian_integers=False):
     L_2 = (sol[0] ** 2 - sol[1] ** 2) ** 2 + (sol[2] ** 2 - sol[3] ** 2) ** 2
     Q_b = L_2 - 4 * Q_m
 
-    assert L_2 % 8 == 0
-    L_2 = L_2 // 8
     assert radius % 2 == 0
     L_1 = radius // 2
+    assert L_2 % 8 == 0
+    L_2 = L_2 // 8
 
     rv = dict()
 
@@ -521,18 +603,10 @@ def analyze_E4_sol(sol, factorize_gaussian_integers=False):
     # rv["Q_m_fact"] = sp.factorint(Q_m)
 
     if factorize_gaussian_integers:
-        i_part_00, factors_00, conj_mask_00 = utils.factorize_gaussian_integer(
-            sol[0], sol[1]
-        )
-        i_part_01, factors_01, conj_mask_01 = utils.factorize_gaussian_integer(
-            sol[2], sol[3]
-        )
-        i_part_10, factors_10, conj_mask_10 = utils.factorize_gaussian_integer(
-            sol[4], sol[5]
-        )
-        i_part_11, factors_11, conj_mask_11 = utils.factorize_gaussian_integer(
-            sol[6], sol[7]
-        )
+        i_part_00, factors_00, conj_mask_00 = factorize_gaussian_integer(sol[0], sol[1])
+        i_part_01, factors_01, conj_mask_01 = factorize_gaussian_integer(sol[2], sol[3])
+        i_part_10, factors_10, conj_mask_10 = factorize_gaussian_integer(sol[4], sol[5])
+        i_part_11, factors_11, conj_mask_11 = factorize_gaussian_integer(sol[6], sol[7])
 
         assert i_part_00 == i_part_01
         assert i_part_00 == i_part_10
