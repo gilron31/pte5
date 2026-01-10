@@ -6,6 +6,7 @@ import tqdm
 import itertools
 import random
 from loguru import logger
+from fractions import Fraction
 
 
 class IntegerComplex:
@@ -73,6 +74,165 @@ class IntegerComplex:
 
     def norm(self):
         return self.real**2 + self.imag**2
+
+
+class GeneralPoint:
+    def __init__(self, x, y, a_coeffs):
+        """a_coeffs = (a2, a4, a6) for curve: y^2 = x^3 + a2*x^2 + a4*x + a6"""
+        self.x = x
+        self.y = y
+        self.a2, self.a4, self.a6 = a_coeffs
+        assert y**2 - x**3 - self.a2 * x**2 - self.a4 * x - self.a6 == 0, (
+            y**2 - x**3 - self.a2 * x**2 - self.a4 * x - self.a6
+        )
+
+    def __add__(self, other):
+        if self.x is None:
+            return other
+        if other.x is None:
+            return self
+
+        # Point negation for y^2 = f(x) is (x, -y)
+        if self.x == other.x and self.y == -other.y:
+            return GeneralPoint(None, None, (self.a2, self.a4, self.a6))
+
+        if self.x != other.x:
+            l = (other.y - self.y) / (other.x - self.x)
+        else:
+            # Doubling: Derivative includes the 2*a2*x term
+            l = (3 * self.x**2 + 2 * self.a2 * self.x + self.a4) / (2 * self.y)
+
+        # Main difference: subtract a2 when calculating x3
+        x3 = l**2 - self.a2 - self.x - other.x
+        y3 = l * (self.x - x3) - self.y
+
+        return GeneralPoint(x3, y3, (self.a2, self.a4, self.a6))
+
+    def __mul__(self, k):
+        assert isinstance(k, int)
+        assert k != 0, "Not supported"
+        if k < 0:
+            return GeneralPoint(self.x, -self.y, (self.a2, self.a4, self.a6)) * -k
+        rv = self
+        for i in range(k - 1):
+            rv += self
+        return rv
+
+    def __repr__(self):
+        return f"({self.x}, {self.y})"
+
+
+"""
+Magma in:
+
+`http://magma.maths.usyd.edu.au/calc/`
+
+```
+PP<x,y,z>:=ProjectiveSpace(Rationals(),2);
+C:=Curve(PP,3*x^2*y-4*x*y^2+y^3+(x^2 -14*x*y +9*y^2)*z +10*(x+y)*z^2);
+P0:=C![1,1,0];
+E, phi:=EllipticCurve(C,P0);
+Em, psi:= MinimalModel(E);
+E;
+Em;
+phi;
+psi;
+Rank(Em);
+
+Inverse(psi);
+is_bir, phi_inv := IsInvertible(phi);
+phi_inv;
+```
+
+Magma out
+
+```
+Elliptic Curve defined by y^2 = x^3 + 4/5*x^2 + 256/625 over Rational Field
+Elliptic Curve defined by y^2 = x^3 - x^2 - 8*x + 112 over Rational Field
+Mapping from: CrvPln: C to CrvEll: E
+with equations :
+3/25*x^2 - 4/25*x*y + 1/25*y^2
+-8/125*x^2 - 8/125*x*y + 8/125*y^2 + 8/25*x*z
+-1/8*x^2 + 1/4*x*y - 1/8*y^2 + 1/4*x*z - 1/4*y*z
+Elliptic curve isomorphism from: CrvEll: E to CrvEll: Em
+Taking (x : y : 1) to (25/4*x + 2 : 125/8*y : 1)
+1 true
+Elliptic curve isomorphism from: CrvEll: Em to CrvEll: E
+Taking (x : y : 1) to (4/25*x - 8/25 : 8/125*y : 1)
+Mapping from: CrvEll: E to CrvPln: C
+with equations :
+25/2*$.1^3 - 35/2*$.1*$.2*$.3 + 25/4*$.2^2*$.3 + 56/5*$.1*$.3^2 - 8*$.2*$.3^2 +
+    64/25*$.3^3
+-5/2*$.1*$.2*$.3 + 75/4*$.2^2*$.3 + 8/5*$.1*$.3^2 - 24*$.2*$.3^2 + 192/25*$.3^3
+$.1^2*$.3 - 15/2*$.1*$.2*$.3 + 24/5*$.1*$.3^2
+and inverse
+3/25*x^2 - 4/25*x*y + 1/25*y^2
+-8/125*x^2 - 8/125*x*y + 8/125*y^2 + 8/25*x*z
+-1/8*x^2 + 1/4*x*y - 1/8*y^2 + 1/4*x*z - 1/4*y*z
+
+```
+"""
+
+
+def point_to_bremner_2(point: GeneralPoint):
+    assert (point.a2, point.a4, point.a6) == (Fraction(-1), Fraction(-8), Fraction(112))
+    x = Fraction(4, 25) * point.x - Fraction(8, 25)
+    y = Fraction(8, 125) * point.y
+
+    X = (
+        Fraction(25, 2) * x**3
+        - Fraction(35, 2) * x * y
+        + Fraction(25, 4) * y**2
+        + Fraction(56, 5) * x
+        - 8 * y
+        + Fraction(64, 25)
+    )
+    Y = (
+        Fraction(-5, 2) * x * y
+        + Fraction(75, 4) * y**2
+        + Fraction(8, 5) * x
+        - 24 * y
+        + Fraction(192, 25)
+    )
+    Z = x**2 - Fraction(15, 2) * x * y + Fraction(24, 5) * x
+
+    A = lambda x, y, z: x**2 * y - x * y**2 + (3 * x - 7 * y) * z**2
+    B = lambda x, y, z: z * (x**2 + 2 * x * y - y**2 + 10 * z**2)
+    C = lambda x, y, z: x**2 * y - x * y**2 + (7 * x - 3 * y) * z**2
+    D = lambda x, y, z: -z * (x**2 - 2 * x * y - y**2 - 10 * z**2)
+    E = lambda x, y, z: -z * (x**2 + y**2 + 2 * (x + y) * z - 10 * z**2)
+    F = (
+        lambda x, y, z: -2 * x**2 * y
+        + 3 * x * y**2
+        - y**3
+        - (x**2 - 8 * x * y + 7 * y**2) * z
+        - (x + 3 * y) * z**2
+    )
+    G = lambda x, y, z: -z * (x**2 + y**2 - 2 * (x + y) * z - 10 * z**2)
+    H = (
+        lambda x, y, z: -(x**2) * y
+        + x * y**2
+        + (6 * x * y - 2 * y**2) * z
+        + (3 * x - 11 * y) * z**2
+    )
+
+    sol = [
+        A(X, Y, Z),
+        B(X, Y, Z),
+        C(X, Y, Z),
+        D(X, Y, Z),
+        E(X, Y, Z),
+        F(X, Y, Z),
+        G(X, Y, Z),
+        H(X, Y, Z),
+    ]
+
+    lcm = sp.lcm([t.denominator for t in sol])
+    sol = [t * lcm for t in sol]
+    gcd = sp.gcd(sol)
+    sol = [int(t // gcd) for t in sol]
+
+    return sol
 
 
 def compute_square_roots(l):
@@ -335,66 +495,44 @@ def get_all_gaussian_integers_with_factored_norm(
         return rv
 
 
-def analyze_E4_sol(sol, factorize_gaussian_integers=False, analyze_K4_norm=False):
-    q0, q1 = sol
-    p00, p01 = q0
-    p10, p11 = q1
+def analyze_E4_sol(sol, factorize_gaussian_integers=False):
+    radius = sol[0] ** 2 + sol[1] ** 2
+    Q_m = (sol[0] * sol[1]) ** 2 + (sol[2] * sol[3]) ** 2
+    Q_a = sol[0] ** 4 + sol[1] ** 4 + sol[2] ** 4 + sol[3] ** 4
+    L_2 = (sol[0] ** 2 - sol[1] ** 2) ** 2 + (sol[2] ** 2 - sol[3] ** 2) ** 2
+    Q_b = L_2 - 4 * Q_m
 
-    radius = p00[0] ** 2 + p00[1] ** 2
-    assert radius == p01[0] ** 2 + p01[1] ** 2
-    assert radius == p10[0] ** 2 + p10[1] ** 2
-    assert radius == p11[0] ** 2 + p11[1] ** 2
-
-    assert radius % 2 == 0
-    P = radius // 2
-
-    Q_m = p00[0] ** 2 * p00[1] ** 2 + p01[0] ** 2 * p01[1] ** 2
-    assert (
-        Q_m == p10[0] ** 2 * p10[1] ** 2 + p11[0] ** 2 * p11[1] ** 2
-    ), f"Qm_0: {Q_m}, Qm_1: {p10[0] ** 2 * p10[1] ** 2 + p11[0] ** 2 * p11[1] ** 2}"
-    Q_a = p00[0] ** 4 + p00[1] ** 4 + p01[0] ** 4 + p01[1] ** 4
-    L_2 = (p00[0] ** 2 - p00[1] ** 2) ** 2 + (p01[0] ** 2 - p01[1] ** 2) ** 2
     assert L_2 % 8 == 0
     L_2 = L_2 // 8
+    assert radius % 2 == 0
+    L_1 = radius // 2
 
-    logger.info("##########################################")
-    logger.info(sol)
-    logger.info(f"{radius=}: {sp.factorint(radius)}")
-    logger.info(f"{P=}: {sp.factorint(P)}")
-    logger.info(f"{Q_m=}: {sp.factorint(Q_m)}")
-    logger.info(f"{Q_a=}: {sp.factorint(Q_a)}")
-    logger.info(f"{L_2=}: {sp.factorint(L_2)}")
+    rv = dict()
 
-    if analyze_K4_norm:
-        a, b, c, d = sp.var("a,b,c,d")
-        norm = (
-            a**4
-            + c**4
-            - 4 * a * c**2 * b
-            + 2 * a**2 * b**2
-            + b**4
-            + 4 * a**2 * c * d
-            - 4 * c * b**2 * d
-            + 2 * c**2 * d**2
-            + 4 * a * b * d**2
-            + d**4
-        )
-
-        K4_norm_0 = norm.subs([(a, p00[0]), (b, p00[1]), (c, p01[0]), (d, p01[1])])
-        K4_norm_1 = norm.subs([(a, p10[0]), (b, p10[1]), (c, p11[0]), (d, p11[1])])
-        K4_norm_0_t = norm.subs([(a, p00[0]), (c, p00[1]), (b, p01[0]), (d, p01[1])])
-        K4_norm_1_t = norm.subs([(a, p10[0]), (c, p10[1]), (b, p11[0]), (d, p11[1])])
-
-        logger.info(f"{K4_norm_0=}: {sp.factorint(K4_norm_0)}")
-        logger.info(f"{K4_norm_1=}: {sp.factorint(K4_norm_1)}")
-        logger.info(f"{K4_norm_0_t=}: {sp.factorint(K4_norm_0_t)}")
-        logger.info(f"{K4_norm_1_t=}: {sp.factorint(K4_norm_1_t)}")
+    rv["L_1"] = L_1
+    rv["L_1_fact"] = sp.factorint(L_1)
+    # rv["L_2"] = L_2
+    # rv["L_2_fact"] = sp.factorint(L_2)
+    # rv["Q_a"] = Q_a
+    # rv["Q_a_fact"] = sp.factorint(Q_a)
+    rv["Q_b"] = Q_b
+    rv["Q_b_fact"] = sp.factorint(Q_b)
+    # rv["Q_m"] = Q_m
+    # rv["Q_m_fact"] = sp.factorint(Q_m)
 
     if factorize_gaussian_integers:
-        i_part_00, factors_00, conj_mask_00 = factorize_gaussian_integer(p00[0], p00[1])
-        i_part_01, factors_01, conj_mask_01 = factorize_gaussian_integer(p01[0], p01[1])
-        i_part_10, factors_10, conj_mask_10 = factorize_gaussian_integer(p10[0], p10[1])
-        i_part_11, factors_11, conj_mask_11 = factorize_gaussian_integer(p11[0], p11[1])
+        i_part_00, factors_00, conj_mask_00 = utils.factorize_gaussian_integer(
+            sol[0], sol[1]
+        )
+        i_part_01, factors_01, conj_mask_01 = utils.factorize_gaussian_integer(
+            sol[2], sol[3]
+        )
+        i_part_10, factors_10, conj_mask_10 = utils.factorize_gaussian_integer(
+            sol[4], sol[5]
+        )
+        i_part_11, factors_11, conj_mask_11 = utils.factorize_gaussian_integer(
+            sol[6], sol[7]
+        )
 
         assert i_part_00 == i_part_01
         assert i_part_00 == i_part_10
@@ -405,11 +543,20 @@ def analyze_E4_sol(sol, factorize_gaussian_integers=False, analyze_K4_norm=False
         assert factors_00 == factors_11
 
         xor_mask = lambda x, y: tuple(xx ^ yy for xx, yy in zip(x, y))
+        xorred_00 = xor_mask(conj_mask_00, conj_mask_00)
+        xorred_01 = xor_mask(conj_mask_00, conj_mask_01)
+        xorred_10 = xor_mask(conj_mask_00, conj_mask_10)
+        xorred_11 = xor_mask(conj_mask_00, conj_mask_11)
+        syndrome_pattern = sorted(
+            list(
+                set(
+                    [
+                        "".join([str(_x) for _x in x])
+                        for x in zip(xorred_11, xorred_10, xorred_01)
+                    ]
+                )
+            )
+        )
 
-        logger.info(f"{i_part_00}")
-        logger.info(f"{factors_00}")
-        logger.info(f"ref_mask 00: {xor_mask(conj_mask_00, conj_mask_00)}")
-        logger.info(f"ref_mask 01: {xor_mask(conj_mask_00, conj_mask_01)}")
-        logger.info(f"ref_mask 10: {xor_mask(conj_mask_00, conj_mask_10)}")
-        logger.info(f"ref_mask 11: {xor_mask(conj_mask_00, conj_mask_11)}")
-        logger.info("##########################################")
+        rv["syndrome_pattern"] = ",".join(syndrome_pattern)
+    return rv

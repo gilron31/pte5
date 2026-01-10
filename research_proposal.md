@@ -1,6 +1,6 @@
-# A Search for a Normal 32-gem motivated by the PTE problem
+# A Search for Normal 32-gem motivated by the PTE problem
 
-- [A Search for a Normal 32-gem motivated by the PTE problem](#a-search-for-a-normal-32-gem-motivated-by-the-pte-problem)
+- [A Search for Normal 32-gem motivated by the PTE problem](#a-search-for-normal-32-gem-motivated-by-the-pte-problem)
   - [Abstract](#abstract)
   - [Introduction](#introduction)
     - [The $E\_n$ Problem Statement](#the-e_n-problem-statement)
