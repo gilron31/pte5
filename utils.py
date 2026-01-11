@@ -577,7 +577,7 @@ def validate_and_canonize_E4_sol(sol):
     return sol
 
 
-def analyze_E4_sol(sol, factorize_gaussian_integers=False):
+def analyze_E4_sol(sol, factorize=True, factorize_gaussian_integers=False):
     radius = sol[0] ** 2 + sol[1] ** 2
     Q_m = (sol[0] * sol[1]) ** 2 + (sol[2] * sol[3]) ** 2
     Q_a = sol[0] ** 4 + sol[1] ** 4 + sol[2] ** 4 + sol[3] ** 4
@@ -591,14 +591,26 @@ def analyze_E4_sol(sol, factorize_gaussian_integers=False):
 
     rv = dict()
 
+    rv["A"] = sol[0]
+    rv["B"] = sol[1]
+    rv["C"] = sol[2]
+    rv["D"] = sol[3]
+    rv["E"] = sol[4]
+    rv["F"] = sol[5]
+    rv["G"] = sol[6]
+    rv["H"] = sol[7]
+    rv["lg2_coeff_size"] = len(bin(rv["A"])) - 2
+
     rv["L_1"] = L_1
-    rv["L_1_fact"] = sp.factorint(L_1)
+    if factorize:
+        rv["L_1_fact"] = sp.factorint(L_1)
     # rv["L_2"] = L_2
     # rv["L_2_fact"] = sp.factorint(L_2)
     # rv["Q_a"] = Q_a
     # rv["Q_a_fact"] = sp.factorint(Q_a)
     rv["Q_b"] = Q_b
-    rv["Q_b_fact"] = sp.factorint(Q_b)
+    if factorize:
+        rv["Q_b_fact"] = sp.factorint(Q_b)
     # rv["Q_m"] = Q_m
     # rv["Q_m_fact"] = sp.factorint(Q_m)
 
