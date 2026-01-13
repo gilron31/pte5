@@ -577,6 +577,36 @@ def validate_and_canonize_E4_sol(sol):
     return sol
 
 
+def canonize_syndrome_pattern(p):
+    x = np.array([list(_t) for _t in p.split(",")]) == "1"
+    x = np.pad(x, [[0, 0], [1, 0]]).transpose()
+    perms = [
+        [0, 1, 2, 3],
+        [1, 0, 2, 3],
+        [0, 1, 3, 2],
+        [1, 0, 3, 2],
+        [2, 3, 0, 1],
+        [2, 3, 1, 0],
+        [3, 2, 0, 1],
+        [3, 2, 1, 0],
+    ]
+
+    augs = []
+    for perm in perms:
+        x_p = x[perm]
+        x_p ^= x_p[0:1, :]
+        augs.append(
+            tuple(
+                np.sort(
+                    np.sum(
+                        x_p.astype(np.int32) * np.array([[8], [4], [2], [1]]), axis=0
+                    )
+                ).tolist()
+            )
+        )
+    return str(sorted(augs)[0])
+
+
 def analyze_E4_sol(sol, factorize=True, factorize_gaussian_integers=False):
     radius = sol[0] ** 2 + sol[1] ** 2
     Q_m = (sol[0] * sol[1]) ** 2 + (sol[2] * sol[3]) ** 2
@@ -644,5 +674,5 @@ def analyze_E4_sol(sol, factorize=True, factorize_gaussian_integers=False):
             )
         )
 
-        rv["syndrome_pattern"] = ",".join(syndrome_pattern)
+        rv["syndrome_pattern"] = canonize_syndrome_pattern(",".join(syndrome_pattern))
     return rv

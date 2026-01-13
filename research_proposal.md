@@ -1,33 +1,8 @@
-# A Search for Normal 32-gem motivated by the PTE problem
-
-- [A Search for Normal 32-gem motivated by the PTE problem](#a-search-for-normal-32-gem-motivated-by-the-pte-problem)
-  - [Abstract](#abstract)
-  - [Introduction](#introduction)
-    - [The $E\_n$ Problem Statement](#the-e_n-problem-statement)
-    - [Necessary and Sufficient Conditions for an $E\_n$ Solution](#necessary-and-sufficient-conditions-for-an-e_n-solution)
-    - [Key Property - Solution Construction](#key-property---solution-construction)
-  - [The Connection to Gaussian Integers](#the-connection-to-gaussian-integers)
-    - [Factorization Analysis](#factorization-analysis)
-  - [Joint Parameterization of $2^n$ Norm-like Gaussian Integers](#joint-parameterization-of-2n-norm-like-gaussian-integers)
-    - [The $n=1$ Case and Application to the $E\_3$ Problem](#the-n1-case-and-application-to-the-e_3-problem)
-    - [The $n=2$ Case and Application to the $E\_4$ Problem](#the-n2-case-and-application-to-the-e_4-problem)
-    - [The General Case](#the-general-case)
-  - [Formulation of the $E\_4$ Problem Using a Single Constraint](#formulation-of-the-e_4-problem-using-a-single-constraint)
-  - [The $L\_{2,d}$ Condition and Fourth Powers](#the-l_2d-condition-and-fourth-powers)
-    - [Single Constraint Formulation of $E\_4$ - The $L\_{2,d}$ Prism](#single-constraint-formulation-of-e_4---the-l_2d-prism)
-  - [Implementation-Aware Enumeration of $E\_4$ Solutions](#implementation-aware-enumeration-of-e_4-solutions)
-    - [Pinpointing a Particular $L\_1$](#pinpointing-a-particular-l_1)
-    - [](#)
-  - [More Ideas](#more-ideas)
-  - [Appendix](#appendix)
-  - [References](#references)
+# Split Iterated-Squaring Polynomials and Norm-like Gaussian Integers
 
 ## Abstract
 
-We investigate the search integers $(P,Q,R,S,T)$ such that the polynomial $((((x - P)^2 - Q)^2 - R)^2 - S)^2 - T^2$ factors into linear factors. Such a finding will provide an ideal symmetric solution for the Prouhet-Tarry-Escott (PTE) problem with degree $n=15$, extending the current state of the art currently at $n=11$. We propose several research directions which, to our knowledge are novel. We present both theoretical insights and an analysis of implementation details for extensive numerical enumeration.
-
-- [ ] Our main strategy is:
-- [ ] Our novel result is:
+We investigate the search integers $(P,Q,R,S,T)$ such that the polynomial $((((x - P)^2 - Q)^2 - R)^2 - S)^2 - T$ factors into linear factors. Such a finding will provide an ideal symmetric solution for the Prouhet-Tarry-Escott (PTE) problem with degree $n=15$, extending the current state of the art currently at $n=11$. By linking the problem to the study of norm-like Gaussian integers, we reduced the search problem to finding zeros of a single multivariate polynomial of a special form. In addition, we provide a new enumeration technique for possible solutions. We believe that more new results can be achieved by further developing the theoretical side and by running extensive enumerations and examining numeric data.
 
 ## Introduction
 
@@ -65,19 +40,14 @@ $$
 
 ### Key Property - Solution Construction
 
-If two $E_n$ solutions share identical $L_1, \dots, L_{n-1}$ coefficients, they can be used to construct an $E_{n+1}$ solution. This suggests a strategy for finding $E_5$ solutions by first finding many $E_4$ solutions, and then find a pair of solutions taht share $P$, $Q$ and $R$.
+If two $E_n$ solutions share identical $L_1, \dots, L_{n-1}$ coefficients, they can be used to construct an $E_{n+1}$ solution. This suggests a strategy for finding $E_5$ solutions by first finding many $E_4$ solutions, and then find a pair of solutions that share $P$, $Q$ and $R$.
 
 ## The Connection to Gaussian Integers
 
-Since the $L_1$ condition for all root pairs implies:
-$$
-r_{2k}^2 + r_{2k+1}^2 = 2L_1 = 2L_1\\
-$$
+Since the $L_1$ condition for all root pairs implies $r_{2k}^2 + r_{2k+1}^2 = 2L_1$, we can treat the root pairs as Gaussian integers of equal norm. When searching for roots that satisfy higher order $L_n$ conditions, we can confine our search to the complex circle of radius $2L_1$. By fixing $L_1$ and examining its factorization, we can:
 
-we can treat the root pairs as Gaussian integers of equal norm. When searching for roots that satisfy higher order $L_n$ conditions, we can confine our search to the complex circle of radius $2L_1$. By fixing $P$ and examining its factorization, we can:
-
-1. Detenmine the number of points with norm $2L_1$ (namely the sum of two squares function, $r_2(n)$).
-2. Efficiently ($O(n)$) enumerate all such points (see Appendix).
+1. Detenmine the number of points with norm $2L_1$ (namely the sum of two squares function, $r_2(n)$ [2]).
+2. Efficiently enumerate all such points.
 3. Parameterize sets of norm-like Gaussian integers even without a concrete $L_1$ at hand.
 
 ### Factorization Analysis
@@ -88,8 +58,8 @@ $$
 n = 2^{a_0}p_1^{2a_1} \dots p_r^{2a_r}q_1^{b_1} \dots q_s^{b_s}
 $$
 
-- The $q_i$ are odd rational primes such that $q_i \equiv 1 \pmod 4$. They decompose as $q_i = \mathrm{q}_i\overline{\mathrm{q}}_i = (s_i + it_i)(s_i - it_i)$.
-- The $p_i$ are odd rational primes such that $p_i \equiv 3 \pmod 4$. These remain inert in the Gaussian integers and must appear with even multiplicity. Their existence implies a common factor to all roots; thus, we generally assume the norm is free of such primes.
+- The $q_i$ are odd rational primes such that $q_i \equiv 1 \pmod 4$. They decompose as $q_i = \mathrm{q}_i\overline{\mathrm{q}}_i$.
+- The $p_i$ are odd rational primes such that $p_i \equiv 3 \pmod 4$. These remain inert in the Gaussian integers and must appear with even multiplicity. Their existence implies a common factor to all roots. Thus, we generally assume the norm is free of such primes.
 - The factor 2 contributes either a global scaling or a $45^\circ$ rotation, neither of which changes the essential structure of the roots.
 
 Any Gaussian integer $x = a + ib$ with norm $a^2 + b^2 = n$ satisfies (up to units):
@@ -117,7 +87,7 @@ y = g\overline{h} = mp + nq + i(np + mq) \\
 \end{gathered}
 $$
 
-This yields the Brahmagupta–Fibonacci parameterization of $a^2 + b^2 = c^2 + d^2$.Since the $L_1$ condition is the only constraint for the $E_3$ problem, every instance of this parameterization is a valid $E_3$ solution.
+This yields the Brahmagupta–Fibonacci parameterization of $a^2 + b^2 = c^2 + d^2$. Since the $L_1$ condition is the only constraint for the $E_3$ problem, every instance of this parameterization is a valid $E_3$ solution, as correctly pointed out in [3].
 
 ### The $n=2$ Case and Application to the $E_4$ Problem
 
@@ -140,9 +110,7 @@ This generalizes to any number of integers (not only powers of two). The complex
 
 ## Formulation of the $E_4$ Problem Using a Single Constraint
 
-The $L_2$ "Q condition" ($A^2B^2 + C^2D^2 = E^2F^2 + G^2H^2$) translates to finding the zeros of a degree 32 polynomial in 16 variables. This is the first known reduction of the $E_4$ problem to a single constraint. To the best of our knowledge, this is the first reduction of the $E_4$ problem into a single constraint problem (as opposed to the original formulation which involves 4 equations).
-
-Investigating this polynomial is a difficult task due to it's size. The actual polynomial expression is far too big to be displayed here, and not even easily manipulated in a computer program. The following observation can be used to simplify the expression: Our quadruplet will not always contain all possible syndromes $X_0,  \dots  , X_7$, inviting us to address separately different "syndrome patterns" solutions might have. For e.g. a quadruplet resulting as:
+The $L_2$ condition translates to finding the zeros of a degree 32 polynomial in 16 variables. To the best of our knowledge, this is the first reduction of the $E_4$ problem into a single constraint problem (as opposed to the original formulation which involves 4 equations). Investigating this polynomial is a difficult task due to it's size. The actual polynomial expression is far too big to be displayed here, and not even easily manipulated in a computer program. The following observation can be used to simplify the expression: Our quadruplet will not always contain all possible syndromes $X_0,  \dots  , X_7$, inviting us to address separately different "syndrome patterns" solutions might have. For e.g. a quadruplet resulting as:
 
 $$
 \begin{gathered}
@@ -168,7 +136,7 @@ $$
 \{\{n_1, n_2\},\{n_3, n_4\}\}
 $$
 
-And the Q condition is agnostic to order within the pairs and in between them. This imposes an equivalence on some of the syndrome patterns, inviting us to canonize the syndrome patterns w.r. to this equivalence.
+And the $L_2$ condition is agnostic to order within the pairs and in between them. This imposes an equivalence on some of the syndrome patterns, inviting us to canonize the syndrome patterns w.r. to this equivalence.
 
 ## The $L_{2,d}$ Condition and Fourth Powers
 
@@ -197,7 +165,7 @@ $$
 \begin{gathered}
 L_{2,d}(n_1, n_2) = L_{2,d}(n_3, n_4) \Rightarrow \\
 \ \\
-\text{Re}\left\{(X_0 X_1 X_2 X_3)^4\right\}\text{Re}\left\{(X_4 X_5 X_6 X_7)^4\right\} = \text{Re}\left\{(X_0 X_2 X_4 X_6)^4\right\}\text{Re}\left\{(X_1 X_3 X_5 X_7)^4\right\}
+\text{Re}\left\{(X_0 X_1 X_2 X_3)^4\right\}\text{Re}\left\{(X_4 X_5 X_6 X_7)^4\right\} = \text{Re}\left\{(X_0 \overline{X_3} X_4 \overline{X_7})^4\right\}\text{Re}\left\{(X_1 \overline{X_2} X_5 \overline{X_6})^4\right\}
 \end{gathered}
 $$
 
@@ -205,20 +173,18 @@ This refactors the degree 32 equation into degree 8 terms, potentially simplifyi
 
 ## Implementation-Aware Enumeration of $E_4$ Solutions
 
-### Pinpointing a Particular $L_1$
-
-**Goal:** Find all $E_4$ solutions for a given integer $P$.
+**Goal:** Find all $E_4$ solutions for a given norm $N$.
 
 **Stage 1**
 
-- Factorize $P$ and decompose $q_i \equiv 1 \pmod 4$ into Gaussian factors.
+- Factorize $N$ and decompose $q_i \equiv 1 \pmod 4$ into Gaussian factors.
 - The $p_i \equiv 3 \pmod 4$ and the factor of 2 only contribute global scaling or rotation so we omit them in this context.
 
 **Stage 2**
 
-- Construct the set $U$ of all Gaussian integers with norm $\tilde{P} = q_1^{b_1} \dots q_s^{b_s}$. We compute $U$ in a tree-like fashion, branching over each factor and its conjugate.
+- Construct the set $U$ of all Gaussian integers with norm $\tilde{N} = q_1^{b_1} \dots q_s^{b_s}$. We compute $U$ in a tree-like fashion, branching over each factor and its conjugate.
   - Start with $U = \{1\}$
-  - For each $q_1$ in $\tilde{P}$'s factorization (including multiplicity):
+  - For each $q_1$ in $\tilde{N}$'s factorization (including multiplicity):
     - $U \ \longleftarrow \ \mathrm{q_1}U  \bigcup \overline{\mathrm{q_1}}U$
 - Canonize elements to the first octant ($a + ib: 0 \le b \le a$) and remove duplicates.
 - Compute $r_{x,y} = (xy)^2$ (using two integer multiplications)
@@ -237,10 +203,9 @@ This refactors the degree 32 equation into degree 8 terms, potentially simplifyi
 - In stage 2, We compute a total of $O(2 \cdot 2^n)$ gaussian integer multiplications, each such multiplication, would normally cost 4 integer multiplications. We can utilize the fact that we also multiply with the conjugate to reduce this number to 2.
 - $r_{x,y}$ was chosen with respect to $L_{2,b}$ and costs two multiplications. We could equivalently choose it to correspond to $L_{2,d}$ which would simply be the real component of the final integer, provided we precompute all factors to the fourth power (attractive in the reduced precision approach).
 - Stage 3 complexity is quadratic
-- The complexity of factorizing $P$ is not discussed since in our context it will rarely be an arbitrary large random number.
+- The complexity of factorizing $N$ is not discussed since in our context it will rarely be an arbitrary large random number.
 - Computing the decompositions of the gaussian factors can be done as a preliminary stage and reused.
-
-###
+- We are likely to enumerate large sets of norms, therefore we should not find it hard to parallelize the search. Furthermore, jointly enumerating certain norms together allows us to amortize some of the work, for e.g. if the norms share factors that saves some of arithmetic at Stage 2.
 
 ## More Ideas
 
@@ -249,10 +214,6 @@ This refactors the degree 32 equation into degree 8 terms, potentially simplifyi
 - Apply the Brahmagupta-Fibonacci parameterization to the $L_{2,b}$ or $L_{2,c}$ constraints, since they also can be viewed as sum of squares.
 - The ring of Hurwitz quaternions admit a norm which is a sum of four squares. We can use it to parameterize the expression for $L_{2,a}$, which is a sum of four fourth-powers.
 - Apply a Chinese Remainder Theorem (CRT) approach: solve modulo various primes and lift to integers.
-
-## Appendix
-
-- [ ] Delete if empty
 
 ## References
 
