@@ -1,8 +1,8 @@
-# Split Iterated-Squaring Polynomials and Norm-like Gaussian Integers
+# Split Iterated-Squaring Polynomials and Norm-like Gaussian Integers - A Research Proposal
 
 ## Abstract
 
-We investigate the search integers $(P,Q,R,S,T)$ such that the polynomial $((((x - P)^2 - Q)^2 - R)^2 - S)^2 - T$ factors into linear factors. Such a finding will provide an ideal symmetric solution for the Prouhet-Tarry-Escott (PTE) problem with degree $n=15$, extending the current state of the art currently at $n=11$. By linking the problem to the study of norm-like Gaussian integers, we reduced the search problem to finding zeros of a single multivariate polynomial of a special form. In addition, we provide a new enumeration technique for possible solutions. We believe that more new results can be achieved by further developing the theoretical side and by running extensive enumerations and examining numeric data.
+We investigate the search for integers $(P,Q,R,S,T)$ such that the polynomial $((((x - P)^2 - Q)^2 - R)^2 - S)^2 - T$ completely factors over the integers. Such a finding will provide an ideal symmetric solution for the Prouhet-Tarry-Escott (PTE) problem with degree $n=15$, extending the current state of the art currently at $n=11$. By linking the problem to the study of norm-like Gaussian integers, we reduced the search problem to finding zeros of a single multivariate polynomial of a special form. In addition, we provide a new enumeration technique for possible solutions. We believe that more new results can be achieved by further developing the theoretical side and by running extensive enumerations and examining numeric data.
 
 ## Introduction
 
@@ -27,7 +27,7 @@ r_{2k}^2 + r_{2k+1}^2 = 2L_1 \\
 \end{gathered}
 $$
 
-We refer to a constraint at the $n$-th level as the **$L_n$ condition**. Note that an $L_{k>1}$ condition possesses certain degrees of freedom arising from the lower conditions in the tree. In [1], an equivalent set of conditions is introduced under the name **Litter Conditions**. Useful augmentations of the $L_2$ condition include:
+We refer to a constraint at the $n$-th level as the **$L_n$ condition**. Note that an $L_{n>1}$ condition possesses certain degrees of freedom arising from the lower conditions in the tree. In [1], an equivalent set of conditions is introduced under the name **Litter Conditions**. Useful augmentations of the $L_2$ condition include:
 
 $$
 \begin{gathered}
@@ -46,7 +46,7 @@ If two $E_n$ solutions share identical $L_1, \dots, L_{n-1}$ coefficients, they 
 
 Since the $L_1$ condition for all root pairs implies $r_{2k}^2 + r_{2k+1}^2 = 2L_1$, we can treat the root pairs as Gaussian integers of equal norm. When searching for roots that satisfy higher order $L_n$ conditions, we can confine our search to the complex circle of radius $2L_1$. By fixing $L_1$ and examining its factorization, we can:
 
-1. Detenmine the number of points with norm $2L_1$ (namely the sum of two squares function, $r_2(n)$ [2]).
+1. Determine the number of points with norm $2L_1$ (namely the sum of two squares function, $r_2(n)$ [2]).
 2. Efficiently enumerate all such points.
 3. Parameterize sets of norm-like Gaussian integers even without a concrete $L_1$ at hand.
 
@@ -72,13 +72,13 @@ This is characterized by a vector $\mathbf{e} = (e_1, \dots, e_s)$ where $0 \le 
 
 For the sake of simplicity, in the next sections we only treat norms without multiplicities. This allows us to view $\mathbf{e}$ as a binary vector. In that setting, taking the logical NOT of the $e_i$ is equivalent to taking the complex conjugate of $\mathrm{q}_i$.
 
-## Joint Parameterization of $2^n$ Norm-like Gaussian Integers  
+## Joint Parameterization of $n$ Norm-like Gaussian Integers  
 
-We show it is possible to parameterize any set of $2^n$ Gaussian integers sharing the same norm using $2^{2^n}$ variables. We are interested in essentially different solutions, therefore we pay special attention to the common factors and order of the roots.  
+We show it is possible to parameterize any set of $n$ Gaussian integers sharing the same norm using $2^{n}$ variables. We are interested in essentially different solutions, therefore we pay special attention to the common factors and order of the roots.  
 
-### The $n=1$ Case and Application to the $E_3$ Problem
+### The $n=2$ Case and Application to the $E_3$ Problem
 
-Let $x, y$ be norm-like Gaussian integers associated with vectors $e_x$ and $e_y$. Let $g = m + in$ be the product of factors where $e_x, e_y$ are identical and, $h = p + iq$ where they differ.
+Let $x=a+ib, y=c+id$ be norm-like Gaussian integers associated with vectors $\mathbf{e_x}$ and $\mathbf{e_y}$. Let $g = m + in$ be the product of factors where $\mathbf{e_x}, \mathbf{e_y}$ are identical and, $h = p + iq$ where they differ.
 
 $$
 \begin{gathered}
@@ -89,7 +89,7 @@ $$
 
 This yields the Brahmagupta–Fibonacci parameterization of $a^2 + b^2 = c^2 + d^2$. Since the $L_1$ condition is the only constraint for the $E_3$ problem, every instance of this parameterization is a valid $E_3$ solution, as correctly pointed out in [3].
 
-### The $n=2$ Case and Application to the $E_4$ Problem
+### The $n=4$ Case and Application to the $E_4$ Problem
 
 To parameterize four norm-like Gaussian integers $n_1, n_2, n_3, n_4$, we identify $2^3 = 8$ distinct "syndromes" (subsets of indices where factors are conjugated relative to $n_1$). Let $X_i = s_i + it_i$ be the product of all factors matching the $i$-th syndrome. Following this observation, we can write down the four Gaussian integers as:
 
@@ -106,7 +106,7 @@ Each of the coefficients $A,B,C,D,E,F,G,H$ can be thought of a degree 8 polynomi
 
 ### The General Case
 
-This generalizes to any number of integers (not only powers of two). The complexity of the parameterization makes it hard to utilize. For e.g., in light of the $E_5$ problem, we can parameterize a quadruplet of norm-like Gaussian integers. The expressions for the $L_2$ and $L_3$ conditions would result in polynomials with $2^8 = 256$ variables of degree no less than $512$ and $1024$ respectively.
+This generalizes to any number of integers. The complexity of the parameterization makes it hard to utilize. For e.g., in light of the $E_5$ problem, we can parameterize an octet of norm-like Gaussian integers. The expressions for the $L_2$ and $L_3$ conditions would result in polynomials with $2^8 = 256$ variables of degree no less than $512$ and $1024$ respectively.
 
 ## Formulation of the $E_4$ Problem Using a Single Constraint
 
@@ -125,9 +125,7 @@ $$
 Will be said to have a "${\{0,1,4,7\}}$" syndrome pattern. It is therefore natural to ask the following questions:
 
 - What syndrome patterns exist in the known families of [3] or in sporadic solutions.
-  - [ ] Perform the analysis here or in the appendix.
 - Are there some syndrome patterns that we can rule out altogether?
-  - [ ] Discuss only a few examples.
 - Conversely, are some patterns more promising then others?
 
 One should also note that in the context of the $E_4$ problem, the integers are divided into a pair of pairs:
@@ -198,16 +196,63 @@ This refactors the degree 32 equation into degree 8 terms, potentially simplifyi
 
 **Complexity and Implementation Details**
 
-- Runtime and memory grow exponentially with the number of factors ($O(2^{2n-1})$).
+- Runtime and memory grow exponentially with the number of factors ($O(2^{2n})$).
 - Large integer arithmetic can be optimized using reduced precision (e.g., $\mathbb{Z}/2^{32}\mathbb{Z}$) to detect collisions, followed by full-precision verification.
 - In stage 2, We compute a total of $O(2 \cdot 2^n)$ gaussian integer multiplications, each such multiplication, would normally cost 4 integer multiplications. We can utilize the fact that we also multiply with the conjugate to reduce this number to 2.
 - $r_{x,y}$ was chosen with respect to $L_{2,b}$ and costs two multiplications. We could equivalently choose it to correspond to $L_{2,d}$ which would simply be the real component of the final integer, provided we precompute all factors to the fourth power (attractive in the reduced precision approach).
-- Stage 3 complexity is quadratic
 - The complexity of factorizing $N$ is not discussed since in our context it will rarely be an arbitrary large random number.
 - Computing the decompositions of the gaussian factors can be done as a preliminary stage and reused.
 - We are likely to enumerate large sets of norms, therefore we should not find it hard to parallelize the search. Furthermore, jointly enumerating certain norms together allows us to amortize some of the work, for e.g. if the norms share factors that saves some of arithmetic at Stage 2.
 
-## More Ideas
+## Analysis of Known $E_4$ Solutions
+
+We examined the following known solutions:
+
+- The first family of [3] for $k=[1,30)$.
+- The second family of [3] for $k=[5,60)$.
+- Sporadic solutions of 4 to 8 for table 1 of [3].
+- A new solution found by our enumeration method.
+
+For each solutions we performed the following analysis:
+
+- Canonize the solution
+  - Moved all gaussian primes to the first octant.
+  - Scaled the solutions to remove common factors.
+  - Rotated the solutions such that $L_1$ will be odd.  
+  - Sorted the solutions pairs in descending order.
+- Computed $L_1$ and $L_{2,d}$, if they were not too large, we factored them.
+- Computed the canonized syndrome pattern by factoring each of the four Gaussian integer and comparing them.
+
+For e.g., our new solution admits the following properties:
+
+$$
+\begin{gathered}
+A=252885 \ B=46703 \ C=195203 \ D=167415 \\
+E=249703 \ F=61485 \ G=209985 \ H=148453 \\
+L_1 = 33065996717 = 13^1\cdot 89^1\cdot 173^1\cdot 233^1\cdot 709^1 \\
+L_{2,d}  = 912832201535971887688 = -1 \cdot 2^3\cdot 7^1\cdot 17^1\cdot 23^2\cdot 31^1\cdot 41^1\cdot 47^1\cdot 137^1\cdot 401^1\cdot 601^1\cdot 919^1 \\
+\text{Syndrome Pattern} = \{0, 1, 3, 5\} \\
+\end{gathered}
+$$
+
+We can draw the following insights:
+
+- None of the 90 unique solutions we examined shared a value of $L_1$ or $L_{2,d}$.
+- Unique Syndrome patterns (calculated for the smallest 18 solutions) are:
+
+$$
+\begin{gathered}
+\{0, 1, 5, 6\}, \{0, 1, 3, 5, 6\}, \{0, 1, 4, 6\} \\
+\{0, 1, 4, 5, 6\}, \{0, 1, 3, 4, 5, 6\}, \{0, 1, 2, 4, 5, 7\}, \\
+\{0, 1, 2, 4\}, \{0, 1, 3, 4, 6\}, \{0, 1, 3, 5\}, \{0, 1, 3, 4, 5\} \\
+\end{gathered}
+$$
+
+- The factorization of $L_1$ and $L_{2,d}$ is always smooth and rarely contain multiplicities for odd primes.
+  - Smoothness is probably related to the fact that under the parameterization, they are a product of 2 and 4 polynomials respectively.
+- Furthermore, the primes composing $L_{2,d}$ are always $\equiv \pm 1 \pmod 8$ (In $L_1$ they are  $\equiv 1 \pmod 4$ which aligns with $L_1$ being a norm of a Gaussian integer).
+
+## Future Directions
 
 - Providing an estimate for the $E_{4/5}$ solution **density** to bound enumeration efforts.
 - Systematically explore solution families via generalized linear constraints, extending the techniques of [3].

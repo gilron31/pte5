@@ -171,8 +171,24 @@ def _(pd, utils):
 
 @app.cell
 def _(df):
-    df
+    df["syndrome_pattern"].unique()
+    # "".join([f"{k}^{v}\cdot " for k, v in df.loc[89]["Q_b_fact"].items()])
     return
+
+
+app._unparsable_cell(
+    r"""
+    A	252885
+    B	46703
+    C	195203
+    D	167415
+    E	249703
+    F	61485
+    G	209985
+    H	148453
+    """,
+    name="_"
+)
 
 
 @app.cell
