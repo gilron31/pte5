@@ -1,5 +1,10 @@
 # Split Iterated-Squaring Polynomials and Norm-like Gaussian Integers - A Research Proposal
 
+Gil Ronen[^1], Roi Garnett[^2]
+
+[^1]: *<gilron31@gmail.com>*
+[^2]: *<roigarnett4@gmail.com>*
+
 ## Abstract
 
 We investigate the search for integers $(L_1,L_2,L_3,L_4,L_5)$ such that the polynomial $((((x - L_1)^2 - L_2)^2 - L_3)^2 - L_4)^2 - L_5$ completely factors over the integers. Such a finding will provide an ideal symmetric solution for the Prouhet-Tarry-Escott (PTE) problem with degree $n=15$, extending the state of the art, currently at $n=11$. By linking the problem to the study of norm-like Gaussian integers, we reduced the search problem to finding zeros of a single multivariate polynomial of a special form. In addition, we provide a new enumeration technique for possible solutions. We believe that further results can be achieved following the proposed directions, as well as by running extensive enumerations and examining numerical data.
@@ -286,7 +291,7 @@ $$
   - Smoothness is probably related to the fact that under the parameterization, they are a product of 2 and 4 quadratic polynomials respectively.
 - Furthermore, the primes composing $L_{2,d}$ are always $\equiv \pm 1 \pmod 8$ (In $L_1$ they are  $\equiv 1 \pmod 4$ which aligns with $L_1$ being a norm of a Gaussian integer).
 
-## Future Directions
+## More Ideas
 
 - Providing an estimate for the $E_{4/5}$ solution **density** to bound enumeration efforts.
 - Systematically explore solution families via generalized linear constraints, extending the techniques of [3].

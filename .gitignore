@@ -1,2 +1,3 @@
 *.pyc
 profile_output_*
+__marimo__/
