@@ -75,6 +75,9 @@ class IntegerComplex:
     def norm(self):
         return self.real**2 + self.imag**2
 
+    def to_first_octant(self):
+        return IntegerComplex(*sorted((abs(self.real), abs(self.imag)), reverse=True))
+
 
 class GeneralPoint:
     def __init__(self, x, y, a_coeffs):
@@ -412,6 +415,18 @@ class GaussianIntegersParameterization:
             return np.sort(np.abs(rv), axis=0)
         else:
             return rv
+
+
+def comprime_first_octant_complex_up_to_norm(max_norm, exclude_even_norm=False):
+    rv = []
+    for i in range(2, int(math.sqrt(max_norm))):
+        for j in range(1, min(i + 1, int(math.sqrt(max_norm - i**2)))):
+            if exclude_even_norm:
+                if i % 2 == 1 and j % 2 == 1:
+                    continue
+            if math.gcd(i, j) == 1:
+                rv.append(IntegerComplex(i, j))
+    return rv
 
 
 def decompose_prime(p):
