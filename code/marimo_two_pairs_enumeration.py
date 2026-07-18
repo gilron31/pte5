@@ -7,7 +7,7 @@ app = marimo.App(width="full")
 @app.cell
 def _():
     import marimo as mo
-    import utils
+    import code.utils as utils
     import sympy as sp
     import numpy as np
     import math
@@ -17,6 +17,7 @@ def _():
     import random
     from loguru import logger
     from fractions import Fraction
+
     return collections, random, sp, tqdm, utils
 
 
@@ -86,7 +87,6 @@ def _(random, sp):
 
             return total_hash
 
-
     # --- Usage Example ---
 
     # Initialize with a hint to cover primes up to 100
@@ -100,7 +100,6 @@ def _(AdditiveHash, collections, norms, points, rpow4, tqdm):
         h = points[j]
         return (g * h).to_first_octant(), (g * h.conjugate()).to_first_octant()
 
-
     def find_collisions(points, norms, rpow4):
         ht = collections.defaultdict(list)
         for i in tqdm.tqdm(range(len(points))):
@@ -110,7 +109,6 @@ def _(AdditiveHash, collections, norms, points, rpow4, tqdm):
                 key = (norms_key, rpow4_key)
                 ht[key].append((i, j))
         return {k: v for k, v in ht.items() if len(v) > 1}
-
 
     def find_collisions_v2(points, norms, rpow4, hasher):
         ht0 = collections.defaultdict(list)
@@ -134,7 +132,6 @@ def _(AdditiveHash, collections, norms, points, rpow4, tqdm):
                 key = (norms_key, rpow4_key)
                 ht1[key].append((i, j))
         return {k: v for k, v in ht1.items() if len(v) > 1}
-
 
     hasher = AdditiveHash(max_prime_hint=100, modulus=2**64)
     rs = find_collisions_v2(points, norms, rpow4, hasher)

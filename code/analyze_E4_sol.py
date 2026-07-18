@@ -10,7 +10,7 @@ import argparse
 import cProfile
 import pstats
 
-import utils
+import code.utils as utils
 
 E4_sols = [
     (((61485, 249703), (148453, 209985)), ((167415, 195203), (46703, 252885))),

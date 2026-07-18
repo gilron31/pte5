@@ -10,7 +10,7 @@ import argparse
 import cProfile
 import pstats
 
-import utils
+import code.utils as utils
 
 
 class Enumerator:

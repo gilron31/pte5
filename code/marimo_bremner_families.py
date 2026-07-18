@@ -8,13 +8,14 @@ app = marimo.App(width="full")
 def _():
     import marimo as mo
     import sympy as sp
-    import utils
+    import code.utils as utils
     from fractions import Fraction
     import pandas as pd
     import math
     import matplotlib.pyplot as plt
     import numpy as np
     from collections import defaultdict
+
     return defaultdict, mo, np, pd, plt, sp, utils
 
 
@@ -120,18 +121,15 @@ def _(pd, utils):
         df_bremner_sporadic.loc[l, list(analysis.keys())] = list(analysis.values())
         df_bremner_sporadic.loc[l, "Note"] = f"Bremner's sporadic i={_i}"
 
-
-
     df_gilro = pd.DataFrame()
     sols = [
-    [61485, 249703, 148453, 209985, 167415, 195203, 46703, 252885],
-    [3295, 17923, 9935, 15277, 4825, 17573, 8677, 16025],
-    [7397, 31799, 10129, 31037, 3031, 32507, 12623, 30109],
-    [8317, 9689, 3661, 12233, 5971, 11287, 5447, 11549],
-    [1337, 3169, 1607, 3041, 2287, 2569, 809, 3343],
-    [317, 1049, 541, 953, 719, 827, 139, 1087],
-    [101, 353, 77, 359, 131, 343, 11, 367],
-   
+        [61485, 249703, 148453, 209985, 167415, 195203, 46703, 252885],
+        [3295, 17923, 9935, 15277, 4825, 17573, 8677, 16025],
+        [7397, 31799, 10129, 31037, 3031, 32507, 12623, 30109],
+        [8317, 9689, 3661, 12233, 5971, 11287, 5447, 11549],
+        [1337, 3169, 1607, 3041, 2287, 2569, 809, 3343],
+        [317, 1049, 541, 953, 719, 827, 139, 1087],
+        [101, 353, 77, 359, 131, 343, 11, 367],
     ]
     for _i, _sol in enumerate(sols):
         _sol = utils.validate_and_canonize_E4_sol(_sol)
@@ -142,14 +140,11 @@ def _(pd, utils):
         df_gilro.loc[l, list(analysis.keys())] = list(analysis.values())
         df_gilro.loc[l, "Note"] = f"gilro sporadic i={_i}"
 
-
-
     df = (
-        pd.concat([df_bremner_first, df_bremner_second, df_bremner_sporadic,df_gilro])
+        pd.concat([df_bremner_first, df_bremner_second, df_bremner_sporadic, df_gilro])
         .reset_index(drop=True)
         .reset_index()
     )
-
 
     df = df.drop_duplicates(subset=["A", "B", "C", "D", "E", "F", "G", "H"])
 
@@ -158,7 +153,8 @@ def _(pd, utils):
         if _row["L_1"] < thresh:
             analysis = utils.analyze_E4_sol(
                 _row[["A", "B", "C", "D", "E", "F", "G", "H"]].tolist(),
-                factorize_gaussian_integers=_row["L_1"] < 2**120, factorize=True,
+                factorize_gaussian_integers=_row["L_1"] < 2**120,
+                factorize=True,
             )
             df.loc[_i, list(analysis.keys())] = list(analysis.values())
 
@@ -187,7 +183,7 @@ app._unparsable_cell(
     G	209985
     H	148453
     """,
-    name="_"
+    name="_",
 )
 
 
@@ -255,14 +251,14 @@ def _(df):
 
 @app.cell
 def _(mo):
-    mod_chooser = mo.ui.number(value= 2, step =1)
+    mod_chooser = mo.ui.number(value=2, step=1)
     mod_chooser
     return (mod_chooser,)
 
 
 @app.cell
 def _(df, mod_chooser, pd, sp):
-    Q_b_fact_primes = set([k for x in df["Q_b_fact"].dropna()  for k in x.keys() ])
+    Q_b_fact_primes = set([k for x in df["Q_b_fact"].dropna() for k in x.keys()])
     Q_b_fact_primes.remove(2)
     Q_b_fact_primes.remove(-1)
     Q_b_fact_primes

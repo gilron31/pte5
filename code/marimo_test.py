@@ -7,8 +7,9 @@ app = marimo.App(width="full", layout_file="layouts/marimo_test.slides.json")
 @app.cell
 def _():
     import marimo as mo
-    import utils
+    import code.utils as utils
     import pandas as pd
+
     return mo, pd, utils
 
 
@@ -37,7 +38,6 @@ def _(df_fb, mo):
     exp = mo.ui.dataframe(df_fb.transpose())
     exp
 
-
     return (exp,)
 
 
@@ -49,7 +49,7 @@ def _(exp):
 
 @app.cell
 def _(mo):
-    A = mo.ui.button(value=0, label=f"Press me", on_click=lambda x: x+1)
+    A = mo.ui.button(value=0, label=f"Press me", on_click=lambda x: x + 1)
     A
     return (A,)
 

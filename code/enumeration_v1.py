@@ -11,7 +11,7 @@ import time
 import pstats
 from line_profiler import profile
 
-from utils import IntegerComplex, get_all_decomposed_primes_up_to, analyze_E4_sol
+from code.utils import IntegerComplex, get_all_decomposed_primes_up_to, analyze_E4_sol
 
 
 class Enumerator:
