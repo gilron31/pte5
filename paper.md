@@ -59,7 +59,7 @@ We keep the focus on the $E_n$ ansatz itself, rather than on the size-$16$ recor
 
 1. **The first explicit lower bounds for an $E_5$ solution (§4).** A divisibility ladder cascades [\[CMSV\]](#ref-CMSV)'s required divisors of the PTE constant through the nested radicals of the tower, forcing $\sqrt{L_5} \ge C'_{16}/2 \approx 2.44 \times 10^{27}$ and $L_5 \ge 5.9 \times 10^{54}$ for any $E_5$ over $\mathbb{Z}$; together with [\[CMSV\]](#ref-CMSV)'s exhaustive size-$16$ search this gives largest root $> 850$ and $L_1 > 3.6 \times 10^5$.
 2. **Corrected structure theory (§2–§3).** $E_n$ solutions are exactly the *sym-perfect* subclass of [\[BMR\]](#ref-BMR), properly contained in symmetric ideal solutions; and a self-similar recursion (§3) identifies an $E_n$ solution with an $E_{n-1}$ solution whose entries are *congrua* of a common $L_1$, yielding a second, bottom-up search axis.
-3. **A single-constraint parameterization (§5).** A multiplicative parameterization of equal-norm Gaussian integers turns the $E_4$ conditions into a single polynomial identity $W(\mathbf X) = 0$, making explicit Dilcher's scalar constraint and Bremner's variety; and the fourth-power invariant $L_{2,d}$ is shown to factor through the norm form of $\mathbb{Z}[\sqrt 2]$, forcing its odd prime divisors to be $\equiv \pm 1 \pmod 8$.
+3. **A single-constraint parameterization (§5).** A multiplicative parameterization of equal-norm Gaussian integers turns the $E_4$ conditions into a single polynomial identity $W(\mathbf X) = 0$; we prove it *surjective* over all admissible norms, including repeated primes (Proposition 5.1), so the reduction is exhaustive — $E_4$ solutions are exactly the $\mathbb{Z}[i]$-points of $\{W = 0\}$ — making explicit Dilcher's scalar constraint and Bremner's variety. Separately, the fourth-power invariant $L_{2,d}$ is shown to factor through the norm form of $\mathbb{Z}[\sqrt 2]$, forcing its odd prime divisors to be $\equiv \pm 1 \pmod 8$.
 4. **Algorithms and an exhaustive $E_4$ catalog (§6–§7)**, with a density heuristic (§8) and directions (§9).
 
 All numeric claims in §2–§5 are reproduced by `drafts/verify_claims.py`. Throughout we take care to attribute the ansatz, the tree conditions, the correspondence, and the single-constraint reduction to their sources; the genuinely new ingredients are the ladder bounds, the multiplicative parameterization, the $\mathbb{Z}[\sqrt2]$ theorem, and the enumeration campaign.
@@ -225,17 +225,7 @@ $$
 
 This is characterized by a vector $\mathbf{e} = (e_1, \dots, e_s)$ where $0 \le e_i \le b_i$.
 
-For the sake of simplicity, in the next sections we only treat norms without multiplicities. This allows us to view $\mathbf{e}$ as a binary vector. In that setting, taking the logical NOT of the $e_i$ is equivalent to taking the complex conjugate of $\mathrm{q}_i$.
-
-> **TODO (surjectivity — the load-bearing lemma for every exclusion claim):**
-> The multiplicity-free restriction above is exactly the gap that makes any
-> "exhaustive to $B$" claim unprovable (see `drafts/critical_review.md` §"failure
-> modes", S3): a norm with a square factor $p^2$, $p\equiv1\pmod4$, admits
-> *primitive* solutions (one root pair uses the $q^2$ representation, another
-> $q\bar q$), and $\sim39\%$ of integers are non-squarefree. Extend the
-> parameterization to all admissible norms — exponent vectors $0\le e_i\le b_i$
-> (including the real factor $q\bar q = p$), unit twists, and the ramified prime
-> $2$ — and prove surjectivity. This is a joint math+code obligation (§6).
+For the sake of exposition, in the next two subsections we describe the parameterization for norms without multiplicities, so that $\mathbf{e}$ is a binary vector and taking the logical NOT of the $e_i$ is complex conjugation of $\mathrm{q}_i$. This is a simplification of presentation only: Proposition 5.1 below extends the parameterization to *arbitrary* admissible norms — repeated split primes (exponent vectors $0 \le e_i \le b_i$, including the real factor $\mathrm{q}\overline{\mathrm{q}} = p$), unit twists, and the ramified prime $2$ — and proves it surjective. Multiplicity costs no expressive power; what it does cost is *uniqueness* of the description, which is the concern of the canonization lemma below, together with a coverage obligation on the enumerator of §6.
 
 ### Joint Parameterization of $n$ Norm-like Gaussian Integers
 
@@ -273,6 +263,24 @@ Each of the coefficients $A,B,C,D,E,F,G,H$ can be thought of as a degree 8 polyn
 
 This generalizes to any number of integers. The exponential ($2^{n-1}$) growth of the number of possible syndromes rapidly makes the parameterizations hard to utilize. For e.g., in light of the $E_5$ problem, we can parameterize an octet of norm-like Gaussian integers. The expressions for the $L_2$ and $L_3$ conditions would result in dense polynomials with $2^8 = 256$ variables of degree no less than $512$ and $1024$ respectively.
 
+### Surjectivity of the Parameterization
+
+The quadruplet parameterization was written for a fixed reference $n_1$ and a multiplicity-free norm; we now show it captures *every* quadruplet. Write $\Phi(X_0, \dots, X_7) = (n_1, n_2, n_3, n_4)$ for the map defined above, where $n_1 = \prod_{t=0}^7 X_t$ and each $n_j$ ($j = 2,3,4$) conjugates the buckets recorded in the display — $n_2$ conjugates $X_4 X_5 X_6 X_7$, $n_3$ conjugates $X_2 X_3 X_6 X_7$, $n_4$ conjugates $X_1 X_3 X_5 X_7$. Indexing buckets by $t = 4\beta_2 + 2\beta_3 + \beta_4$, integer $n_j$ conjugates $X_t$ iff $\beta_j = 1$; so as $t$ runs over $\{0, \dots, 7\}$ the **conjugation set** $\sigma(t) = \{\, j : \beta_j = 1 \,\} \subseteq \{2,3,4\}$ runs over all eight subsets exactly once.
+
+**Proposition 5.1 (surjectivity for all admissible norms).** *Let $n_1, n_2, n_3, n_4 \in \mathbb{Z}[i]$ have equal norm. Then there exist $X_0, \dots, X_7 \in \mathbb{Z}[i]$ and units $u_1, \dots, u_4$ with $n_j = u_j\, \Phi_j(X_0, \dots, X_7)$ for every $j$. In particular every $E_4$ solution equals $\Phi(\mathbf{X})$ up to units, for some $\mathbf{X}$; the multiplicity-free assumption costs no generality.*
+
+*Proof.* Norm is multiplicative and conjugation-invariant, so it suffices to match, one rational prime $\ell$ at a time, the contribution of $\ell$ to all four $n_j$ up to units, using the $\ell$-parts of the $X_t$.
+
+*Split $\ell = p \equiv 1 \pmod 4$, $p = \mathrm{q}\,\overline{\mathrm{q}}$.* Put $b = v_p\big(N(n_1)\big)$. Every Gaussian integer of $p$-norm $p^b$ is $\mathrm{q}^{\,c}\overline{\mathrm{q}}^{\,b-c}$ up to a unit, so the $p$-part of $n_j$ is $\mathrm{q}^{\,c_j}\overline{\mathrm{q}}^{\,b-c_j}$ for some $c_j \in \{0, \dots, b\}$ — one exponent per $n_j$, *a priori* unrelated across $j$. Assign the $b$ available prime factors as independent **tokens**. A single $\mathrm{q}$ placed in bucket $t$ raises $c_1$ by $1$ and raises $c_j$ ($j \in \{2,3,4\}$) by $1$ exactly when $j \notin \sigma(t)$; a single $\overline{\mathrm{q}}$ in bucket $t$ leaves $c_1$ fixed and raises $c_j$ by $1$ exactly when $j \in \sigma(t)$. Since $\sigma(t)$ ranges over all subsets of $\{2,3,4\}$, a $\mathrm{q}$-token contributes an arbitrary vector of $\{1\} \times \{0,1\}^3$ and a $\overline{\mathrm{q}}$-token an arbitrary vector of $\{0\} \times \{0,1\}^3$ to $(c_1, c_2, c_3, c_4)$ — jointly, every vector of $\{0,1\}^4$. With $b$ tokens, coordinate $c_j$ is simply the number of tokens carrying a $1$ in slot $j$; assigning to each slot $j$ any $c_j$ of the $b$ tokens realizes an arbitrary target $(c_1, c_2, c_3, c_4) \in \{0, \dots, b\}^4$. This fixes the $p$-part $\mathrm{q}^{\alpha_t}\overline{\mathrm{q}}^{\gamma_t}$ of each $X_t$ and matches the $p$-part of all four $n_j$ exactly.
+
+*Inert $\ell = p \equiv 3 \pmod 4$.* Here $N(p) = p^2$, so $p^b \parallel N(n_j)$ forces $p^{b/2} \parallel n_j$ for every $j$ — a common factor; absorb $p^{b/2}$ into $X_0$ (inherited un-conjugated by all $n_j$). A primitive solution has no such prime.
+
+*Ramified $\ell = 2 = -i(1+i)^2$.* Every Gaussian integer of $2$-norm $2^a$ is $(1+i)^a$ up to a unit, again common to all $n_j$; absorb $(1+i)^a$ into $X_0$ — in the canonical primitive form ($L_1$ odd, §7) a single factor $1+i$.
+
+Multiplying the per-prime assignments gives $X_0, \dots, X_7$ with $\Phi_j(\mathbf{X}) = n_j$ up to a unit for each $j$. $\square$
+
+The invariants that follow — $L_1$ and the constraint $W$ below — are unchanged under $n_j \mapsto (\text{unit})\, n_j$ and $n_j \mapsto \overline{n_j}$ (these only permute or sign-flip the entries of $A^2 B^2, \dots, G^2 H^2$), so the unit ambiguity in Proposition 5.1 is immaterial to everything that follows. What multiplicity *does* cost is uniqueness: for $b \ge 2$ the same quadruplet arises from many token distributions, so the "syndrome pattern" of §7 must be recorded as a multiset over buckets — the object the canonization lemma below must pin down. Constructively, the proof is also the recipe the enumerator of §6 must follow to cover non-squarefree norms; we verified that it reconstructs $\Phi^{-1}$ on both a squarefree exemplar and a primitive $p^2$-norm quadruplet — one pair using the rational factor $\mathrm{q}\overline{\mathrm{q}} = p$ — in `drafts/verify_claims.py`.
+
 ### Formulation of the $E_4$ Problem Using a Single Constraint
 
 The $L_2$ condition can be written as (Here is the $L_{2,b}$ form, but the result is agnostic to this augmentation):
@@ -292,7 +300,17 @@ A(\mathbf{X})^2 + B(\mathbf{X})^2 = C(\mathbf{X})^2 + D(\mathbf{X})^2 \\
 \end{gathered}
 $$
 
-is automatically satisfied. Therefore the $E_4$ problem now translates to finding the zeros of $W(\mathbf{X})$, a degree 32 polynomial in 16 variables.
+is automatically satisfied. Therefore the $E_4$ problem now translates to finding the zeros of $W(\mathbf{X})$, a degree 32 polynomial in 16 variables. We make this precise.
+
+**Proposition 5.2 (single-constraint reduction).** *Let $(n_1, n_2, n_3, n_4) = \Phi(X_0, \dots, X_7)$ with $n_1 = A + iB$, $n_2 = C + iD$, $n_3 = E + iF$, $n_4 = G + iH$. The four have equal norm $2L_1 = \prod_{t} N(X_t)$, so the $L_1$ condition holds identically; and, whenever the eight roots are distinct, $\Phi(\mathbf{X})$ is an $E_4$ solution if and only if*
+
+$$
+W(\mathbf{X}) = A^2 B^2 + C^2 D^2 - E^2 F^2 - G^2 H^2 = 0 .
+$$
+
+*Proof.* Equal norms are the identity $N(n_j) = \prod_t N(X_t)$ of Proposition 5.1, i.e. the $L_1$ condition with $2L_1 := \prod_t N(X_t)$. Any two equal-norm Gaussian integers are the bottom pair of nodes of an $E_3$ tower on this $L_1$ (the Brahmagupta–Fibonacci parameterization above; Dilcher [\[Dil\]](#ref-Dil)); its middle coefficient, in the $L_{2,b}$ form of §2, is $L_2^{(1)} = L_1^2 - \tfrac12(A^2 B^2 + C^2 D^2)$ for the pair $\{n_1, n_2\}$ and $L_2^{(2)} = L_1^2 - \tfrac12(E^2 F^2 + G^2 H^2)$ for $\{n_3, n_4\}$ (using $A^2 + B^2 = \cdots = 2L_1$). By the Key Property of §2, two $E_3$ towers already sharing $L_1$ assemble into a single $E_4$ — with $\sqrt{L_4} = (L_3^{(2)} - L_3^{(1)})/2$ — exactly when they also share $L_2$, i.e. $L_2^{(1)} = L_2^{(2)}$, which rearranges to $A^2 B^2 + C^2 D^2 = E^2 F^2 + G^2 H^2$, that is $W(\mathbf{X}) = 0$. Finally $A, B$ are the real and imaginary parts of the degree-$8$ product $\prod_t X_t$, so $W$ has degree $32$ in the $16$ real coordinates of $\mathbf{X}$. $\square$
+
+Together, Propositions 5.1 and 5.2 identify the $E_4$ problem with a single Diophantine hypersurface: **up to units and the pair symmetries, the $E_4$ solutions with distinct roots are exactly the $\mathbb{Z}[i]$-points of $\{W = 0\}$.** Surjectivity is what makes this an equivalence rather than an inclusion — without it $W = 0$ would only be necessary.
 
 That $E_4$ reduces to a *single* scalar constraint is not new: it is Dilcher's condition $a_1^2 b_1^2 + a_2^2 b_2^2 = a_3^2 b_3^2 + a_4^2 b_4^2$ among four equal-norm representations [\[Dil, (3-2)\]](#ref-Dil) (the same relation he used, incorrectly, to argue $E_4$ impossible), and the underlying locus is Bremner's degree-$32$ threefold in $\mathbb{P}^7$ cut by three quadrics and one quartic [\[Bre, §2\]](#ref-Bre). Our contribution is the *multiplicative* parameterization: by construction it trivializes the three $L_1$ (quadric) conditions, turning the single constraint into a polynomial identity $W(\mathbf X) = 0$ in the free variables $\mathbf X$, rather than a relation among constrained representations. This is what makes the syndrome analysis below and the enumeration of §6 possible.
 
@@ -348,7 +366,7 @@ $$
 
 The factorization of this degree-$8$ form into four quadratic factors has arithmetic consequences, which explain an empirical regularity of §7.
 
-**Theorem 5.1 ($\mathbb{Z}[\sqrt2]$ constraint on $L_{2,d}$).** *For a primitive $E_4$ solution, every odd prime dividing $L_{2,d}$ is $\equiv \pm 1 \pmod 8$.*
+**Theorem 5.3 ($\mathbb{Z}[\sqrt2]$ constraint on $L_{2,d}$).** *For a primitive $E_4$ solution, every odd prime dividing $L_{2,d}$ is $\equiv \pm 1 \pmod 8$.*
 
 *Proof.* Each quadratic factor above is $m^2 \pm 2mn - n^2 = (m \pm n)^2 - 2n^2$, a value $N_{\mathbb{Z}[\sqrt2]}(x + y\sqrt2) = x^2 - 2y^2$ of the norm form of $\mathbb{Z}[\sqrt2]$ (discriminant $8$), with $x = m \pm n$, $y = n$; likewise for the $p, q$ factors. Let $\pi$ be an odd prime dividing $L_{2,d} = 2\,\mathrm{Re}(g^4)\,\mathrm{Re}(h^4)$, hence dividing one such value $x^2 - 2y^2$. If $\pi \nmid y$, then $2 \equiv (x y^{-1})^2 \pmod \pi$ is a quadratic residue, so $\pi \equiv \pm 1 \pmod 8$. If $\pi \mid y$ then $\pi \mid x$, forcing a common factor of the corresponding Gaussian integer $g$ (or $h$); for a primitive solution this is excluded. $\square$
 
@@ -408,8 +426,10 @@ This refactors the degree 32 equation into degree 8 terms, each involving only 8
 > **TODO (additional algorithms — see `drafts/critical_review.md` §6 and
 > Front 1):**
 >
-> - **Non-squarefree extension** of the enumerator (the surjectivity gap in §5);
->   every exclusion claim depends on it.
+> - **Non-squarefree extension** of the enumerator: iterate exponent vectors
+>   $0 \le e_i \le b_i$ per the constructive proof of Proposition 5.1 (the math is
+>   now discharged; this is the code half, on which every exclusion claim depends).
+>   A reference reconstruction is in `drafts/verify_claims.py` §6.
 > - **Top-collision** hash-join on $(L_1,L_2,L_3)$ across catalog and families.
 > - **Bottom-lift** divisor join with the parity wheel ($\mu$ up to
 >   $10^5\text{–}10^6$).

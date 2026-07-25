@@ -138,3 +138,115 @@ rhs_r = sp.expand(((xx**2 - L2)**2 - L3)**2 - L4)   # L4 here is the true L4 (pe
 print("prod(x^2-u_k^2) == ((x^2-L2)^2-L3)^2 - L4 (derived E3):", sp.expand(lhs_r-rhs_r)==0)
 print("congruum L1 +- u_k all perfect squares:",
       all(sp.sqrt(L1 + s*uk).is_Integer for uk in uu for s in (1,-1)))
+
+print("\n"+"="*70)
+print("6. CH.5: single-constraint W=0 + SURJECTIVITY of the parameterization")
+print("="*70)
+import math
+
+# --- minimal exact Gaussian-integer arithmetic (re,im) tuples ---
+def gmul(z, w): return (z[0]*w[0]-z[1]*w[1], z[0]*w[1]+z[1]*w[0])
+def gconj(z):   return (z[0], -z[1])
+def gnorm(z):   return z[0]*z[0]+z[1]*z[1]
+def gdiv(z, w):
+    """z/w if exact in Z[i], else None."""
+    n = gnorm(w)
+    a = z[0]*w[0]+z[1]*w[1]      # Re(z*conj(w))
+    b = -z[0]*w[1]+z[1]*w[0]     # Im(z*conj(w))
+    if a % n == 0 and b % n == 0: return (a//n, b//n)
+    return None
+def gval(z, q):
+    """(valuation of q in z, cofactor)."""
+    v = 0
+    while True:
+        d = gdiv(z, q)
+        if d is None: return v, z
+        z = d; v += 1
+def is_unit(z):      return gnorm(z) == 1
+def associate(z, w): 
+    d = gdiv(z, w)
+    return d is not None and is_unit(d)
+def split_prime(p):
+    """q=(a,b), a>=b>0, a^2+b^2=p, for p==1 mod 4."""
+    for a in range(1, math.isqrt(p)+1):
+        b2 = p - a*a
+        b = math.isqrt(b2)
+        if b > 0 and b*b == b2:
+            return (max(a, b), min(a, b))
+    raise ValueError(p)
+
+# the fixed conjugation pattern of the paper's quadruplet parameterization:
+#   n1 conjugates none; n2 -> X4X5X6X7; n3 -> X2X3X6X7; n4 -> X1X3X5X7
+CONJ = {2: {4,5,6,7}, 3: {2,3,6,7}, 4: {1,3,5,7}}
+def phi(bk):
+    """Phi(X_0..X_7) -> (n1,n2,n3,n4)."""
+    def build(cset):
+        z = (1,0)
+        for t in range(8):
+            xt = bk[t]
+            z = gmul(z, gconj(xt) if t in cset else xt)
+        return z
+    return (build(set()), build(CONJ[2]), build(CONJ[3]), build(CONJ[4]))
+
+def bucket_of(sigma):
+    """subset sigma of {2,3,4} -> bucket index t (n2<->4, n3<->2, n4<->1)."""
+    return 4*(2 in sigma) + 2*(3 in sigma) + 1*(4 in sigma)
+
+def reconstruct(quad):
+    """Given 4 equal-norm Gaussian ints, build X_0..X_7 with Phi ~ quad (Prop 5.1)."""
+    n1 = quad[0]
+    N = gnorm(n1)
+    assert all(gnorm(z) == N for z in quad), "not equal-norm"
+    bk = [(1,0)]*8
+    for p, e in factorint(N).items():
+        if p == 2:                                  # ramified: (1+i)^a common -> X_0
+            a = gval(n1, (1,1))[0]
+            for _ in range(a): bk[0] = gmul(bk[0], (1,1))
+        elif p % 4 == 3:                            # inert: p^(e/2) common -> X_0
+            for _ in range(e//2): bk[0] = gmul(bk[0], (p,0))
+        else:                                       # split: token-distribute q,qbar
+            q = split_prime(p); b = e
+            c = [gval(z, q)[0] for z in quad]        # (c1,c2,c3,c4) in {0..b}^4
+            for r in range(b):                       # r-th token
+                m = [1 if r < c[j] else 0 for j in range(4)]   # m[0]=c1-bit ...
+                if m[0] == 1:                        # q-token
+                    sigma = {j for j in (2,3,4) if m[j-1] == 0}
+                    fac = q
+                else:                                # qbar-token
+                    sigma = {j for j in (2,3,4) if m[j-1] == 1}
+                    fac = gconj(q)
+                t = bucket_of(sigma)
+                bk[t] = gmul(bk[t], fac)
+    return bk
+
+def W(quad):
+    (A,B),(C,D),(E,Fx),(G,Hh) = quad
+    return A*A*B*B + C*C*D*D - E*E*Fx*Fx - G*G*Hh*Hh
+
+# 6a. single constraint on the exemplar (equal norms + W=0)
+exemplar = [(A,B),(C,D),(E,F),(G,H)]
+print("exemplar equal norms:", len({gnorm(z) for z in exemplar})==1,
+      " W = A^2B^2+C^2D^2-E^2F^2-G^2H^2 =", W(exemplar), " (==0:", W(exemplar)==0, ")")
+
+# 6b. surjectivity: reconstruct buckets, check Phi ~ inputs up to units
+def check_surj(quad, label):
+    bk = reconstruct(quad)
+    out = phi(bk)
+    ok = all(associate(quad[j], out[j]) for j in range(4))
+    occ = [t for t in range(8) if not is_unit(bk[t])]
+    print(f"  [{label}] Phi(X) ~ inputs (up to units): {ok}   occupied buckets: {occ}")
+    return ok
+
+print("SURJECTIVITY reconstruction (Prop 5.1):")
+ok1 = check_surj(exemplar, "exemplar (squarefree norm 2*13*89*173*233*709)")
+
+# non-squarefree test: norm 5^2 * 13 * 17 = 5525, with a root pair using the REAL
+# factor 5 = q*qbar (c=1) and another using q^2 (c=2) -> the primitive p^2 case (S3).
+nsq = [(-14,73), (70,25), (22,-71), (74,7)]   # built from q=2+i,(3+2i),(4+i); see notes
+print("  non-squarefree norms all == 5525:", {gnorm(z) for z in nsq})
+q5 = split_prime(5)
+print("  q=2+i exponents (c1..c4) incl the c=1 'real 5' pair:",
+      [gval(z, q5)[0] for z in nsq])
+ok2 = check_surj(nsq, "non-squarefree 5^2*13*17 (S3 primitive case)")
+
+print("\nALL CH.5 CHECKS PASS:", (W(exemplar)==0) and ok1 and ok2)

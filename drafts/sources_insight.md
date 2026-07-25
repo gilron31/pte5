@@ -274,6 +274,55 @@ input but the cleanest one-stop history + bibliography for §1.
 Two "we introduce" claims to **retract/hedge**: the recursion (→ BMR sym-perfect)
 and the single-constraint reduction (→ Bremner's variety $V$).
 
+## 5b. Chapter 5 proved: surjectivity + single-constraint reduction
+
+Both §5 load-bearing claims are now proven in `paper.md` (Prop 5.1, Prop 5.2) and
+checked in `drafts/verify_claims.py` §6.
+
+- **Single constraint (Prop 5.2).** Under the multiplicative parameterization
+  $\Phi(X_0,\dots,X_7)$, equal norms (the $L_1$ condition) hold identically and the
+  quadruplet is an $E_4$ solution **iff** $W = A^2B^2 + C^2D^2 - E^2F^2 - G^2H^2 = 0$.
+  Proof: each pair is an $E_3$ (Brahmagupta/Dilcher) with second coefficient
+  $L_2^{(i)} = L_1^2 - \tfrac12(\cdot)$; two $E_3$'s already sharing $L_1$ glue into an
+  $E_4$ iff they also share $L_2$ (the §2 Key Property), which is exactly $W=0$. This is
+  the *exhaustive* form of Dilcher (3-2); attribution unchanged.
+- **Surjectivity (Prop 5.1) — for ALL admissible norms.** The review's trichotomy
+  (`critical_review.md` §1) is the right frame: **S1** ("every equal-norm quadruple has
+  a multiplicative description") is conceded as trivial; what we add is the
+  *constructive, multiplicity-complete* version. Key idea (**token argument**): for a
+  split prime $p = \mathrm{q}\overline{\mathrm{q}}$ with $v_p = b$, distribute the $b$
+  prime factors as independent tokens over the 8 buckets $\times$ the
+  $\mathrm{q}/\overline{\mathrm{q}}$ choice; a single token realizes **any** vector in
+  $\{0,1\}^4$ of exponent-increments $(c_1,c_2,c_3,c_4)$, so $b$ tokens realize **any**
+  $(c_1,\dots,c_4) \in \{0,\dots,b\}^4$ — every exponent quadruple, including the
+  primitive $p^2$ case (one pair uses the real factor $\mathrm{q}\overline{\mathrm{q}}=p$,
+  $c=1$; another uses $\mathrm{q}^2$, $c=2$). Inert primes and the ramified
+  $2 = -i(1+i)^2$ are global common factors ($\to X_0$). CRT over primes $\Rightarrow$
+  surjectivity up to units.
+- **What this does NOT close.** Surjectivity is expressive completeness, not uniqueness
+  or code-coverage:
+  - **Uniqueness / canonization** (still a TODO): for $b \ge 2$ the token distribution
+    is non-unique, so the "syndrome pattern" is a *multiset* over buckets; the
+    canonization lemma (well-defined §7 census) is still owed.
+  - **Enumerator coverage "S3"** (still a §6 code TODO): the *implemented* Stage-1–3
+    enumerator must iterate exponent vectors $0 \le e_i \le b_i$, exactly as Prop 5.1's
+    proof prescribes, or "exhaustive to $B$" keeps its asterisk. The math half is now
+    discharged; the code half is not.
+- **Bit convention (reproducibility).** Bucket $t = 4\beta_2 + 2\beta_3 + \beta_4$;
+  $n_2$ conjugates $X_{4,5,6,7}$, $n_3$ conjugates $X_{2,3,6,7}$, $n_4$ conjugates
+  $X_{1,3,5,7}$. Reconstruction verified: exemplar (squarefree) $\to$ occupied buckets
+  $\{0,1,4,7\}$; primitive $5^2\cdot13\cdot17$ quadruple $\to \Phi$ reproduces inputs up
+  to units. The occupied-bucket set is reference/labeling dependent — hence the need for
+  canonization; it is not literally §7's $\{0,1,3,5\}$, which is computed *after* the §7
+  canonization steps.
+
+**Novelty-ledger delta** (supersedes the two `angle` rows in §5): the multiplicative
+parameterization *with proved surjectivity for all admissible norms* is **ours
+(proved + verified)** — constructive token argument, makes Dilcher (3-2) exhaustive; the
+$W=0$ reduction inside $\Phi$ (Prop 5.2) is **ours as packaging** (Dilcher (3-2) is the
+constraint, ours is the $\Phi$-identity form plus the exhaustiveness that upgrades
+"necessary" to "iff").
+
 ## 6. Verified computations (`drafts/verify_claims.py`)
 
 - Exemplar $E_4$ (`A=252885,...,H=148453`): four pair-norms all $=66131993434$,
@@ -290,6 +339,13 @@ and the single-constraint reduction (→ Bremner's variety $V$).
   both perfect squares ✓.
 - $E_5$: $\sqrt{L_5}\ge C'_{16}/2=2437428918743498865144960000$; review's
   $1.43\times10^{26}$ omitted the prime 17.
+- **Ch.5 (§6 of the script):** exemplar has equal norms and $W = 0$ exactly
+  (single-constraint, Prop 5.2); the surjectivity reconstruction ($\Phi^{-1}$ via the
+  token argument) reproduces the inputs up to units for both the squarefree exemplar
+  and a primitive $5^2\cdot13\cdot17$ quadruple with $q$-exponents $(2,1,0,2)$ — the
+  $c=1$ entry being the pair that uses the rational factor $5 = \mathrm{q}\overline{\mathrm{q}}$
+  (the non-squarefree/S3 case). The reconstruction code doubles as the §6 enumerator's
+  non-squarefree recipe.
 
 ---
 

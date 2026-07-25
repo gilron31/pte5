@@ -31,9 +31,13 @@ W1 (theory) and W2 (code) in parallel, then the campaign, then W3 write-up.
 - [ ] Medium: §4 divisibility ladder theorem + E₅ lower-bound corollary;
       **independently re-derive** the constants (√L₅ ≥ 1.43×10²⁶, root > 3400,
       L₁ > 5.8×10⁶) from CMSV's C′₁₆.
-- [ ] Hard: §5 **surjectivity for all admissible norms** (repeated primes,
-      units, ramified 2) — the load-bearing lemma; + canonization lemma; +
-      degenerate locus of W.
+- [x] §5 **surjectivity for all admissible norms** (repeated primes, units,
+      ramified 2) — the load-bearing lemma. DONE: Prop 5.1 (constructive token
+      argument), verified `verify_claims.py` §6.
+- [x] §5 **single-constraint reduction** $E_4 \iff W=0$. DONE: Prop 5.2; with
+      Prop 5.1 gives "$E_4$ solutions = ℤ[i]-points of $\{W=0\}$".
+- [ ] Hard: §5 canonization lemma (unique syndrome representative; the b≥2
+      multiset case) + degenerate locus of W — still open, blocks the §7 census.
 - [ ] Medium: §5 ℤ[√2] theorem (L₂,d odd primes ≡ ±1 mod 8) + smoothness
       explanation.
 - [ ] Hard: §8 density heuristic / multidegree computation; geometry framing.
@@ -44,7 +48,9 @@ W1 (theory) and W2 (code) in parallel, then the campaign, then W3 write-up.
 - [ ] Verification harness: tower recovery, degree-16 polynomial-identity check,
       ladder-divisibility check for every cataloged solution (correctness spine).
 - [ ] Extend the enumerator to **non-squarefree norms** (the S3 hole); every
-      exclusion claim rests on this.
+      exclusion claim rests on this. Math now discharged (Prop 5.1); implement the
+      exponent-vector iteration per its proof — reference recipe in
+      `verify_claims.py` §6 (`reconstruct`).
 - [ ] Family self-test: re-find all of [3]'s members incl. non-squarefree k.
 - [ ] Meet-in-the-middle in the extended form, in C/C++/CUDA.
 - [ ] Exhaustive campaign, two pre-registered regimes: (i) exhaustive over
