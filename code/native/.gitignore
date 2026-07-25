@@ -1,0 +1,12 @@
+# CMake / Ninja build trees (one per preset, plus build/pip for scikit-build-core)
+build/
+
+# Editable-install and packaging leftovers
+*.egg-info/
+dist/
+
+# Compiled extension modules, in case anything lands in the source tree
+*.so
+
+__pycache__/
+.pytest_cache/

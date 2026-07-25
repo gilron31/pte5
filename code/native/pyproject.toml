@@ -1,0 +1,42 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pte-native"
+version = "0.1.0"
+description = "C++/CUDA sandbox for the pte5 project: GMP big integers and matrix multiply, on CPU and GPU"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.23"]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.scikit-build]
+minimum-version = "0.10"
+build-dir = "build/pip"
+wheel.packages = ["python/pte_native"]
+# Deliberately off. editable.rebuild bakes the absolute path of the cmake that
+# performed the install into build/pip/build.ninja; under pip's default build
+# isolation that is an ephemeral /tmp/pip-build-env-*/ path, so the install
+# succeeds and every later import then fails when the rebuild is attempted.
+# Opt in only together with --no-build-isolation:
+#   pip install -e . --no-build-isolation \
+#     --config-settings=editable.rebuild=true
+editable.rebuild = false
+editable.verbose = false
+# The C++/CUDA unit tests need GoogleTest from the network; a pip install should
+# not depend on that. Run them through CMake instead (see README).
+cmake.define.PTE_BUILD_TESTS = "OFF"
+# Same pinning as CMakePresets.json: /usr/bin/nvcc is CUDA 12.0 and rejects
+# GCC 13, so the 12.9 toolkit has to be named explicitly.
+cmake.define.CMAKE_CXX_COMPILER = "/usr/bin/g++-13"
+cmake.define.CMAKE_CUDA_COMPILER = "/usr/local/cuda/bin/nvcc"
+cmake.define.CMAKE_CUDA_HOST_COMPILER = "/usr/bin/g++-13"
+cmake.define.CMAKE_CUDA_ARCHITECTURES = "89"
+
+[tool.pytest.ini_options]
+# Tests live next to the code they cover and are named *_test.py rather than
+# pytest's default test_*.py.
+python_files = ["*_test.py"]
+testpaths = ["python"]
