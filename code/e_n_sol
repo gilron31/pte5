@@ -1,0 +1,20 @@
+class E_n_Solution:
+    """
+    - Canonize
+    - Analyze syndromes (maybe this needs specialization to E_4)
+
+    """
+
+    @classmethod
+    def from_L_coeffs(Ls):
+        """
+        Construct the roots and verify along the way
+        """
+        pass
+
+    @classmethod
+    def from_roots(roots):
+        """
+        Construct the L_i coeffs and verify along the way.
+        """
+        pass

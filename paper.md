@@ -1,4 +1,4 @@
-# Split Iterated-Squaring Polynomials and Norm-like Gaussian Integers - A Research Proposal
+# Split Iterated-Squaring Polynomials and Norm-like Gaussian Integers
 
 Gil Ronen[^1], Roi Garnett[^2]
 
