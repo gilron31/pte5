@@ -385,6 +385,54 @@ A reviewer/advisor pass over the whole paper. Fixes applied unless noted.
 - **The campaign (§7) is a pilot, not a run.** Everything computational above is
   design, not results.
 
+## 5d. Enumeration/implementation insights (→ `drafts/gpu_algorithms.md`)
+
+Found while drafting the GPU algorithm spec; all verified numerically.
+
+- **The whole $E_4$ search collapses to one invariant.** At the norm-$L_1$ level
+  (not the root level), with $z=m+ni$, $N(z)=L_1$, define $\nu(z):=\mathrm{Re}(z^2)=m^2-n^2$.
+  Then $\nu = r\cdot s$ for the twisted root pair $(r,s)=(m-n,m+n)$ (norm $2L_1$), and
+  the $E_4$ condition is exactly $\nu_1^2+\nu_2^2=\nu_3^2+\nu_4^2$. $\nu^2$ is invariant
+  under units **and** conjugation, so it is well defined on octant-canonized points.
+  ⇒ **$E_4$ enumeration = a disjoint-pair-sum collision on $D$ integers.** Verified on
+  the exemplar ($\nu_0 = 11810488155 = A\cdot B$; both sides $=1207464164080651264050$).
+- **The pair key FACTORS (the real lever).** For a pair with $g=\gcd(z_1,z_2)$, $h=z_1/g$:
+  $L_{2,d} = 2\,\mathrm{Re}(g^4)\mathrm{Re}(h^4)$, and $L_{2,d}=8L_1^2-8L_{2,b}$ (both
+  verified; $g=165+467i$, $h=259-450i$). Since $L_1$ is fixed per norm, $L_{2,b}$ and
+  $L_{2,d}$ are interchangeable keys — but only $L_{2,d}$ exposes that **the key is a
+  product of two independent, unit- and conjugation-invariant factors**, one per side of
+  a splitting of the prime multiset. This is the §5 "prism" in computational form.
+  Whether it gives a sub-quadratic collision search is **open**, and is the highest-value
+  algorithmic question for the champion regime.
+- **Workload shape (exact sieve counts, not estimates).** Admissible $L_1\le B$
+  (products of split primes, $D\ge4$): $B{=}10^6\to$ 11,083 norms / 99K pairs;
+  $10^7\to$ 131,437 / 1.34M; $10^8\to$ 1,464,114 / 16.8M. Growth $\approx11\times$
+  per decade (norms), $\approx12.5\times$ (pairs) ⇒ extrapolated $B{=}10^{12}$:
+  $\sim2\times10^{10}$ norms, $\sim4\times10^{11}$ pair-sums. **The campaign is
+  feasible**; the binding constraint is not FLOPs.
+- **The $D$-distribution is top-heavy, which sets the kernel design.** At $10^8$:
+  $D{=}4$ is 75.5% of norms, $D\in\{4,6,8\}$ is 96.4%. $D{=}4$ has exactly **3**
+  disjoint pair-partitions ⇒ a register-only, hash-free, branch-free kernel covers
+  three-quarters of all work. Disjoint-pair-pairs number $D(D{-}1)(D{-}2)(D{-}3)/8$,
+  so direct comparison beats hashing up to $D\approx8$–$10$ (~97% of norms).
+  ⇒ S-A is a **throughput problem over $10^{10}$ tiny uniform tasks**, not a
+  compute-bound one.
+- **64-bit is not enough.** The key $\nu_1^2+\nu_2^2 \le 2L_1^2$ is **71 bits already at
+  the exemplar** and 81 bits at $B=10^{12}$. Policy: filter mod the Mersenne prime
+  $2^{61}-1$, verify exactly. Crucially **modular filtering has no false negatives** —
+  equal keys are always congruent — so the failure mode is extra work, never a silent
+  miss. That is precisely the asymmetry an exclusion claim needs (§6.8).
+- **Largest-prime-outer enumeration is the key structural choice.** Emit each norm once
+  as $n = c\cdot p^e$ ($p$ = largest prime, $c$ from a small precomputed table of
+  split-products $\le B/p$). This amortizes Cornacchia to **once per prime**
+  ($3\times10^8$) instead of once per norm ($2\times10^{10}$), inherits $U(cp)$ from
+  $U(c)$ with one Gaussian multiply per point, needs no factoring at all, and streams
+  perfectly. The binding resource becomes the **factor-base table** ($\pi_1(1.5\times10^{10})
+  \approx 3\times10^8$ primes $\approx$ 4 GB vs 8 GB device memory) — segment or compress it.
+- **Hardware on hand:** RTX 4060 Laptop, 8 GB, sm_89, CUDA 12.9. `double` runs at 1/64
+  rate ⇒ integer-only kernels. `code/native/` is a proven scaffold (GMP/CUDA/pybind/CTest)
+  but a *sandbox*, not the enumerator.
+
 ## 6. Verified computations (`drafts/verify_claims.py`)
 
 - Exemplar $E_4$ (`A=252885,...,H=148453`): four pair-norms all $=66131993434$,
