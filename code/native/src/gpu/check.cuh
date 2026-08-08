@@ -30,6 +30,9 @@ inline void ThrowIfCudaError(cudaError_t err, const char *expr,
 // Owning device allocation; frees on scope exit so a thrown error mid-sequence
 // does not leak. cudaFree in the destructor is deliberately unchecked, since
 // throwing from a destructor during unwinding would terminate.
+
+// #GILRO: This should be under device_buffer.h, not check.h, let's invest in
+// the correct directory structure.
 template <typename T> class DeviceBuffer {
 public:
   explicit DeviceBuffer(std::size_t count) : count_(count) {
@@ -65,6 +68,13 @@ private:
   T *ptr_ = nullptr;
   std::size_t count_ = 0;
 };
+
+// #GILRO: i also want to have a HostBuffer<T> class that will mirror the device
+// class but that will allocate pinned memory via cudaHostMalloc. Each cpu input
+// should be first moved into a preallocated HostBuffer, and only then to a
+// DeviceBuffer. This will allow us in time to use cudaMemcpyAsync, and in some
+// platforms the memcpy itself is faster. It is best if we build a test or
+// example that demonstrates why we need HostBuffer.
 
 } // namespace pte::gpu
 

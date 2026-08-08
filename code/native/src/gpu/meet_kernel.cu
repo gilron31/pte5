@@ -15,6 +15,7 @@
 // Keys are compared modulo 2^64 by unsigned wraparound. Equal keys are always
 // congruent, so the kernel has no false negatives -- only false positives, left
 // for the host to reject in wider arithmetic.
+
 #include "check.cuh"
 #include "gpu.h"
 
@@ -22,6 +23,9 @@
 
 namespace pte::gpu {
 namespace {
+
+// GILRO: define types with informative names `using coord_t = unsigned long
+// long` And also use <cstdint> for types.
 
 __device__ inline unsigned long long PairKey(unsigned long long x,
                                              unsigned long long y) {
@@ -31,6 +35,9 @@ __device__ inline unsigned long long PairKey(unsigned long long x,
 // Appends (norm, a, b, c, d) when `matched`. A slot is reserved even once the
 // buffer is full, so the returned count tells the caller how much room a retry
 // needs.
+
+// GILRO: make the hash table a class of it's own, and add dedicated tests to
+// it. we are not animals, this c type programming is very error prone.
 __device__ inline void Emit(bool matched, int norm, int a, int b, int c, int d,
                             int *hits, int max_hits, unsigned int *hit_count) {
   if (!matched)
@@ -46,6 +53,10 @@ __device__ inline void Emit(bool matched, int norm, int a, int b, int c, int d,
   }
 }
 
+// GILRO: always use launch_bounds as well. We don't want to take chances.
+// GILRO: This is a very specific MeetKernel (D=4), we should mention that.
+// GILRO: I am sorry I let you rush to this demo, it doesn't teach us a lot. the
+// nu's could be precomputed squares anyway.
 __global__ void MeetKernel(const unsigned long long *nu, const int *offsets,
                            int num_norms, int *hits, int max_hits,
                            unsigned int *hit_count) {
@@ -66,6 +77,10 @@ __global__ void MeetKernel(const unsigned long long *nu, const int *offsets,
           // The three pairings of {i,j,k,l}, tested independently: a 4-subset
           // can match in more than one pairing, and the host reference reports
           // each, so the two must agree.
+
+          // GILRO: we could amortize the calculation of some of the squarings
+          // and save on the arithmetic, maybe the compiler does that anyway but
+          // it we should not count on that.
           Emit(kij == PairKey(v[k], v[l]), b, i, j, k, l, hits, max_hits,
                hit_count);
           Emit(kik == PairKey(v[j], v[l]), b, i, k, j, l, hits, max_hits,
@@ -93,6 +108,8 @@ int meet_batch(const std::uint64_t *nu, const std::int32_t *offsets,
 
   const std::size_t nu_count = static_cast<std::size_t>(offsets[num_norms]);
 
+  // GILRO: let's standardize types. should be in meet.h
+  // GILRO: this signature should be in meet.h
   DeviceBuffer<unsigned long long> d_nu(nu_count);
   DeviceBuffer<int> d_offsets(static_cast<std::size_t>(num_norms) + 1);
   DeviceBuffer<int> d_hits(static_cast<std::size_t>(max_hits) * kMeetHitStride);
@@ -104,8 +121,11 @@ int meet_batch(const std::uint64_t *nu, const std::int32_t *offsets,
   d_count.Zero();
   d_hits.Zero(); // unwritten tail is copied back too; keep it deterministic
 
+  // next three lines should remain in meet_impl.cu
   constexpr int kThreads = 128;
   const int blocks = (num_norms + kThreads - 1) / kThreads;
+
+  // GILRO: We should ad a macro PTE_CUDA_LAUNCH_KERNEL
   MeetKernel<<<blocks, kThreads>>>(d_nu.get(), d_offsets.get(), num_norms,
                                    d_hits.get(), max_hits, d_count.get());
   PTE_CUDA_CHECK(cudaGetLastError());

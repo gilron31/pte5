@@ -8,10 +8,18 @@
 // Big-integer convention, shared with src/cpu/bigint.h: an operand is a
 // fixed-width array of 32-bit limbs, least-significant limb first.
 #ifndef PTE_GPU_GPU_H_
-#define PTE_GPU_GPU_H_
+#define PTE_GPU_GPU_H_ // GILRO: use pragma once, not this pattern.
 
 #include <cstdint>
 #include <string>
+
+// GILRO: i dislike this monolithic pattern. Each application should have the
+// following source tree: app.h - defines the signatures that recieves
+// std::vector  (cpu types). allocates HostBuffer and DeviceBuffer, performes
+// the necessary copies and invokes the app_impl.h signature. app_impl.h -
+// exposes the signature that recieves device buffers. the actual implemenation
+// is in app_impl.cu app_impl.cu - The actual implementation.
+// Tests should generally go through the app.h path.
 
 namespace pte::gpu {
 
@@ -26,6 +34,10 @@ int device_count();
 
 // Name of device `index`. Throws std::runtime_error if unavailable.
 std::string device_name(int index = 0);
+
+// GILRO: explicitly, no per-app signature definitions, each should have live in
+// a app.h source which invokes a device-side signature defined in app_imp.h and
+// implemented at app_imp.cu
 
 // Batched big-integer multiply: for each t < batch,
 //   out[t*2*nlimbs ...] = a[t*nlimbs ...] * b[t*nlimbs ...]
