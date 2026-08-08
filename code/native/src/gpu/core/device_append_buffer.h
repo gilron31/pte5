@@ -1,47 +1,56 @@
 // An append-only device output buffer with an atomic bump allocator.
 //
-// Only included from .cu translation units.
+// Includable from both .cc and .cu: push() is guarded by __CUDACC__, so a host
+// translation unit sees the view as a plain aggregate and is never dragged into
+// nvcc. That is what keeps meet.cc ordinary C++ while push() stays a member,
+// where it belongs, rather than a free function taking the view as its first
+// argument.
+//
+// The guard does mean the class has a different definition in host and device
+// translation units, which is formally an ODR violation. It is benign here and
+// bounded: the members are identical, so layout and the by-value kernel
+// argument are unaffected; push() is inline and __device__, so it is only ever
+// emitted into device code; and there is no virtual function or static member
+// for the two definitions to disagree about. This is the standard CUDA idiom --
+// Thrust and CUB are built on it. Keep it that way: anything added inside the
+// guard must not touch layout.
 //
 // This replaces passing (pointer, capacity, counter) around as three loose
-// kernel arguments. The overflow contract is the part worth having in one
-// place and testing directly:
+// kernel arguments. The overflow contract is the part worth having in one place
+// and testing directly:
 //
 //   *every* append bumps the counter, including the ones that do not fit.
 //
 // So `total()` is the number of items the kernel *wanted* to write, which is
 // exactly what a caller needs to size a retry, while only the first `capacity`
 // of them were stored. A caller that ignores the distinction and reads
-// `capacity` items is still safe; a caller that wants completeness must
-// compare total() against capacity() and retry.
+// `capacity` items is still safe; a caller that wants completeness must compare
+// total() against capacity() and retry.
 #pragma once
 
-#include "gpu/core/device_buffer.cuh"
+#include "gpu/core/device_buffer.h"
 #include "gpu/core/types.h"
 
 #include <cstddef>
 
 namespace pte::gpu {
 
-// GILRO: as a rule, we should separate the "view-ish" behaviour from the
-// "kernel" behaviour. They should live on two different files. If we don't it
-// destroys the separation we are trying to do and enforoces unpleasant .cuh
-// files everywhere where they coudl have been .h files. Let's discuss what
-// should be the proper separation here.
-
 // The device-side handle. Trivially copyable, so it is passed to kernels by
 // value.
-
 template <typename T> struct DeviceAppendView {
   T *data = nullptr;
   index_t capacity = 0;
   count_t *counter = nullptr;
 
-  // Could add __host__
+#ifdef __CUDACC__
+  // Appends `value`, if it fits. The counter is bumped either way; see the
+  // overflow contract above.
   __device__ void push(const T &value) const {
     const count_t slot = atomicAdd(counter, count_t{1});
     if (slot < static_cast<count_t>(capacity))
       data[slot] = value;
   }
+#endif
 };
 
 // The host-side owner.

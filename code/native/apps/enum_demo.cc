@@ -3,7 +3,7 @@
 // sets, the GPU finds the key collisions, the CPU verifies every hit exactly.
 //
 // Compiled by g++, not nvcc: it reaches the kernel only through the plain-C++
-// src/gpu/gpu.h.
+// gpu/meet/meet.h.
 //
 // This is deliberately the *naive hybrid* split. The timing breakdown below is
 // meant to show why: the meet moves ~8 bytes per point to do a handful of
@@ -73,11 +73,11 @@ int main() {
   // Context creation costs tens of milliseconds on the first launch; pay it
   // here so it is not billed to the meet.
   {
-    const pte::gpu::nu_t nu[4] = {1, 4, 7, 8};
-    const pte::gpu::index_t offsets[2] = {0, 4};
-    pte::gpu::MeetHit hit{};
+    const std::array<pte::gpu::nu_t, 4> nu = {1, 4, 7, 8};
+    const std::array<pte::gpu::index_t, 2> offsets = {0, 4};
+    std::array<pte::gpu::MeetHit, 1> hit{};
     const auto start = Clock::now();
-    pte::gpu::meet_batch(nu, 4, offsets, 1, &hit, 1);
+    pte::gpu::meet_batch(nu, offsets, hit);
     std::printf("Device warm-up (context creation): %.2f ms\n",
                 MillisSince(start));
   }
@@ -131,10 +131,7 @@ int main() {
   pte::gpu::index_t found = 0;
   while (true) {
     raw.assign(static_cast<std::size_t>(capacity), pte::gpu::MeetHit{});
-    found = pte::gpu::meet_batch(
-        flat_nu.data(), static_cast<pte::gpu::index_t>(flat_nu.size()),
-        offsets.data(), static_cast<pte::gpu::index_t>(work.size()),
-        raw.data(), capacity);
+    found = pte::gpu::meet_batch(flat_nu, offsets, raw);
     if (found <= capacity)
       break;
     capacity = found * 2; // the count reports what a retry needs
@@ -189,8 +186,7 @@ int main() {
   std::printf("  CPU verify hits     %8.2f ms\n", verify_ms);
   std::printf("  CPU reference meet  %8.2f ms\n", cpu_ms);
   std::printf("\n");
-  std::printf("  raw GPU hits        %10lld\n",
-              static_cast<long long>(found));
+  std::printf("  raw GPU hits        %10lld\n", static_cast<long long>(found));
   std::printf("    rejected, key mismatch in wide arithmetic %d\n",
               rejected_by_verify);
   std::printf("    rejected, imprimitive (scaled duplicate)  %d\n",

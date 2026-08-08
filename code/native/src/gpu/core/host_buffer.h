@@ -1,6 +1,7 @@
 // Owning page-locked (pinned) host allocation.
 //
-// Only included from .cu translation units.
+// Host-only: cudaHostAlloc/cudaFreeHost are runtime-API calls, so ordinary C++
+// translation units can use this. No device code here.
 //
 // Why this exists, rather than just handing cudaMemcpy a std::vector:
 //
@@ -22,14 +23,12 @@
 // machine.
 #pragma once
 
-#include "gpu/core/check.cuh"
+#include "gpu/core/check.h"
 
 #include <cstddef>
 #include <utility>
 
 namespace pte::gpu {
-
-// GILRO: .h
 
 template <typename T> class HostBuffer {
 public:

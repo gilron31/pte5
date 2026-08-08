@@ -29,7 +29,7 @@ if(PTE_ENABLE_CUDA)
   if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     find_package(CUDAToolkit REQUIRED)
-    set(CMAKE_CUDA_STANDARD 17)
+    set(CMAKE_CUDA_STANDARD 20)  # meet.h uses std::span; nvcc 12.9 supports C++20
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
     if(NOT CMAKE_CUDA_ARCHITECTURES)
       set(CMAKE_CUDA_ARCHITECTURES 89)  # RTX 4060 (Ada)

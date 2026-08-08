@@ -3,7 +3,7 @@
 // The overflow contract is the part worth pinning down: every append bumps the
 // counter, including the ones that do not fit, so total() reports what the
 // kernel wanted to write while only the first capacity() items were stored.
-#include "gpu/core/device_append_buffer.cuh"
+#include "gpu/core/device_append_buffer.h"
 
 #include "gpu/core/device.h"
 

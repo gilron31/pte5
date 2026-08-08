@@ -6,8 +6,8 @@
 // needing __umul64hi.
 #include "gpu/bigint/bigint.h"
 
-#include "gpu/core/check.cuh"
-#include "gpu/core/device_buffer.cuh"
+#include "gpu/core/launch.cuh"
+#include "gpu/core/device_buffer.h"
 
 #include <stdexcept>
 

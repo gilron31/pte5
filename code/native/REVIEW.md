@@ -410,3 +410,464 @@ remain the silent-failure risks, none of which are style:
    `kExactKeyBound` is still never read anywhere.
 2. **C2** — `decompose_prime` and `point_set` still fail silently.
 3. **C11** — no CPU-vs-GPU unit test; the `bound/65` cutoff is still untested.
+
+---
+---
+
+# Round 2
+
+Responses to the second batch of inline `GILRO:` comments. Same convention as
+Part A: agreement where I agree, pushback where I don't, and a number attached
+to every claim that has one.
+
+Two comments asked for a design rather than a fix ("let's discuss what should be
+the proper separation here", "suggest a refactor together with `enumerate/`"), so
+those get a proposal rather than a patch.
+
+## Part D — responses
+
+### D1. `.cuh` → `.h`, and `meet.cu` → `meet.cc` — **agreed, all six**
+
+`check.cuh:11`, `device_buffer.cuh:11`, `host_buffer.cuh:32`, `meet.cu:16`,
+`meet_impl.cuh:21`, and the separation comment at `device_append_buffer.cuh:25`.
+
+You are right on every one of them, and the reason is worth writing down as a
+rule because I got it wrong by default:
+
+> **`.cu`/`.cuh` iff the file contains device code** — a `__device__`/`__global__`
+> definition, `<<< >>>`, or a device intrinsic like `atomicAdd`. Everything
+> else is `.cc`/`.h`, *including every call to the CUDA runtime API*.
+
+`cudaMalloc`, `cudaMemcpy`, `cudaHostAlloc`, `cudaGetErrorString` are a C
+library. They need `<cuda_runtime.h>` and `-lcudart`; they do not need nvcc. I
+had been treating "mentions CUDA" as the test, which is why four host-only files
+were `.cuh`.
+
+The rule matters more than it looks, and this is the part I'd underweighted:
+**one `__device__` function in a header promotes every translation unit that
+includes it, transitively, to nvcc.** `DeviceAppendView::push` was doing exactly
+that — it dragged `device_append_buffer` → `meet_impl` → `meet` into nvcc, which
+is why `meet.cu` had to be a `.cu` even though it contains no device code at all.
+That is the coupling your separation comment identifies, and it propagates.
+
+What that bought once fixed, measured on this tree:
+
+- `pte_gpu_meet` now has **one** nvcc translation unit (`meet_impl.cu`) instead
+  of two.
+- Three files moved to the host compiler — `meet.cc`, `meet_test.cc`,
+  `host_buffer_test.cc` — and thereby **gained `-Wpedantic`**, which CUDA
+  translation units in this project do not get (see `pte_warnings` in the root
+  `CMakeLists.txt`: CXX gets `-Wall -Wextra -Wpedantic`, CUDA gets only
+  `-Xcompiler=-Wall,-Wextra`).
+- `meet_test.cc` being a `.cc` is now *mechanical* proof of the seam rule: a
+  test that cannot contain device code cannot accidentally reach past `meet.h`.
+
+Not done, and worth knowing: `bigint/bigint_kernel.cu` and
+`matmul/matmul_kernel.cu` still mix host wrappers and kernels in one `.cu`. They
+are scaffold kernels and the split is mechanical; I left them rather than widen
+this round.
+
+### D2. The view/kernel separation — **agreed, and there is a trap in the obvious version**
+
+`device_append_buffer.cuh:25`. The split is: POD in the `.h`, the one device
+operation in the `.cuh`.
+
+```
+core/device_append_buffer.h     DeviceAppendView<T> (data members only)
+                                DeviceAppendBuffer<T> (the host owner)
+core/device_append_buffer.cuh   __device__ push(view, value)
+```
+
+Host code needs to *name* and *construct* a view — `meet.cc` does
+`d_hits.view()` and passes it to the launcher — and both are pure C++. Only
+*writing through* it needs nvcc.
+
+The trap, which is why `push` became a free function rather than staying a
+member: the natural fix is to keep it a member and guard it with
+`#ifdef __CUDACC__`. That gives the class **a different definition in host and
+device translation units** — a textbook ODR violation, and one no compiler will
+diagnose. A free function has neither problem: one type everywhere, only the
+operation is device-side.
+
+Your "could add `__host__`" on the same line: **not yet, and not this way.** A
+`__host__ __device__` `push` would still call `atomicAdd`, which has no host
+implementation, so the host half would need a `std::atomic` version operating on
+host memory — a different object, not the same view. The real version of that
+idea is a host type satisfying the same concept, so one kernel body can be
+compiled for both. That is a genuine technique and worth doing when we have a
+kernel body we want to share; it is not a one-line addition.
+
+### D3. Scope of `types.h` — **agreed, and it should be narrower still**
+
+`types.h:17`. Right — `nu_t` and `key_t` are meet concepts, not infrastructure.
+Checking actual usage, the split is sharper than "move them to meet":
+
+| type | used by | now lives in |
+| --- | --- | --- |
+| `index_t` | meet **and** the append buffer's capacity | `core/types.h` |
+| `count_t` | the atomic counter only | `core/types.h` |
+| `nu_t` | meet's public signature | `meet/meet.h` |
+| `key_t` | **the kernel body, and nothing else** | `meet_impl.cu`, file-local |
+
+The key type never crosses any API. It had no business being visible at all,
+let alone project-wide.
+
+`core/types.h` is also where I put the extension rule from D1, since that is
+where a reader goes looking for conventions.
+
+### D4. `key_t` → `trunc_key_t` — **agreed**
+
+`types.h:25`. Better name, for the reason you give. It is now file-local in
+`meet_impl.cu` with the danger spelled out at the declaration: above
+`kExactKeyBound` a match on this type is a *candidate*, and the only thing
+between it and a wrong answer is the host re-check.
+
+(`key_mod64_t` would be more literally accurate — it is a reduction, not a
+truncation of a computed value — but "trunc" carries the warning better, which
+is the whole point of the rename.)
+
+### D5. `MeetHit` sharing `pte::cpu::Quadruple` — **pushing back**
+
+`meet.h:19`. (The type you mean is in `enumerate.h`, not `gaussian.h`.)
+
+My objection is not the duplication — it is the **dependency edge**. Sharing the
+type makes `pte_gpu_meet` link `pte_cpu_enumerate`, and:
+
+- `pte_cpu` pulls in GMP and Boost. The GPU half stops being buildable or
+  testable on its own.
+- The CPU enumerator is the **oracle** the kernel is checked against. The value
+  of `meet_test.cc` is that it links `pte_gpu_meet` *alone* and writes its own
+  host loop, so the two implementations cannot share a bug. Pointing them at a
+  common header weakens the fixture that the whole CPU-vs-GPU cross-check rests
+  on.
+
+They are also not the same type: `MeetHit` carries a norm index because the GPU
+works in batches; `Quadruple` does not because the CPU works per norm.
+
+If a third consumer ever wants one type, the right home is a neutral
+`src/core/` that both halves depend on — not `cpu/`. For five fields I would not
+pay for that yet. The conversion belongs in the app layer (`enum_demo.cc`),
+which is allowed to depend on both.
+
+### D6. Launch bounds, both arguments, as template parameters — **agreed, and the measurement changed my answer**
+
+`meet_impl.cu:33`. Done: `E4MeetDirectKernel<kThreads, kMinBlocksPerSM>`.
+
+I was going to leave the second argument at 1 and call that "unconstrained".
+**That is wrong, and `-Xptxas -v` says so.** Measured on sm_89, 128 threads/block:
+
+| `minBlocksPerSM` | registers | spilled | blocks/SM | occupancy |
+| --- | --- | --- | --- | --- |
+| *(absent)* | 56 | 0 | 9 | 75% |
+| 1 | 66 | 0 | 7 | 58% |
+| 6 | 62 | 0 | 8 | 67% |
+| 9 | 56 | 0 | 9 | 75% |
+| 12 | 40 | **68 B** | 12 | 100% |
+
+`1` is not "no constraint" — it *promises only one resident block*, so nvcc
+happily spends 66 registers and occupancy drops to 58%. `12` buys full occupancy
+by spilling, which for a loop this ALU-heavy is the wrong trade.
+
+Set to **9**: reproduces what nvcc picks unaided, and pinning it means a later
+edit to the kernel body cannot silently drift to the 7-block configuration.
+Caveat recorded at the constant: it is tuned for sm_89 specifically, and
+occupancy here is a proxy, not a timing — the kernel is microseconds against a
+transfer-bound demo, so these rows are not yet distinguishable in wall clock.
+
+### D7. Fixed-width types everywhere, GMP for validation — **agreed on the principle; the boundary is not where you put it**
+
+`enumerate.cc:20`, `gaussian.cc:11`, `gaussian.cc:18`.
+
+The principle is right and it is the single most important thing in this review:
+**an exclusion claim dies from silent overflow**, so the project needs a visible
+split between a fast path that is allowed to be a *filter* and an exact path
+that is the *arbiter*, with a stated soundness relation between them. The meet
+already has that (uint64 wraparound + `__int128` re-check); your comment is
+asking to make it a policy instead of an accident. Agreed, and it should live in
+one header that states the bound for every quantity.
+
+Where I disagree is the claim that GMP is what the exact path needs. The
+arithmetic, at `B = 10^12`:
+
+| quantity | bound | bits | exact in |
+| --- | --- | --- | --- |
+| Gauss coordinates `m, n` | `sqrt(B)` = 10^6 | 20 | **int32** |
+| `L1`, `nu = m²−n²` | `B` | 40 | int64 |
+| pair key `nu_a² + nu_b²` | `2B²` | **81** | **`__int128`** |
+
+The exactness thresholds for the pair key:
+
+```
+uint64  (2^64):  L1 < 3_037_000_499        <- kExactKeyBound, today's filter boundary
+__int128 (2^127): L1 < 9_223_372_036_854_775_808
+```
+
+So `__int128` is exact for the pair key up to `L1 < 9.2×10^18` — **nine million
+times past `B = 10^12`**. There is no plausible campaign in which the meet or
+the point-set layer needs GMP, and putting it there would cost a heap allocation
+per operation in the one loop that must not have one.
+
+GMP *is* required, and we will need it — one layer further out. Verifying a
+recovered ideal symmetric PTE of size 16 means power sums to `k = 15` of 16
+integers of size `~sqrt(2·L1) ≈ 1.4×10^6`: **~311 bits**. Well past `__int128`.
+A size-32 identity would need ~638.
+
+So the boundary I'd propose is:
+
+```
+enumeration + meet          int32/int64 fixed width, wraparound where documented
+candidate confirmation      __int128, exact to L1 < 9.2e18   (verify_exact today)
+certificate / PTE identity  GMP                              (not yet written)
+```
+
+which is a *three*-way split, not two. The thing your comment is really pointing
+at — "it should be clear" — I'd fix with a single `precision.h` naming each
+quantity, its bound, and `static_assert`s tying the types to `B`. That kills the
+`using u64` buried in a `.cc` (`gaussian.cc:11`) at the same time, which is fair
+criticism: that alias is load-bearing and invisible.
+
+### D8. Templating `Gauss` on the integer type — **agreed, but the payoff runs the other way**
+
+`gaussian.h:20`. Worth doing. The motivation you give is future width; the
+near-term win is the opposite direction. Coordinates are `< 10^6` — 20 bits —
+so `Gauss<int32_t>` **halves the bytes** of every point. In a pipeline the demo
+measures at **0.25 ops/byte**, transfer-bound by a factor of ~80, that is not a
+micro-optimization.
+
+One trap to get right, and it is exactly the class of bug the exact/fast split
+exists to prevent: `norm()` and `nu()` of a `Gauss<int32_t>` **do not fit in
+int32** (they reach `B` = 10^12). The template needs a separate, wider result
+type or it silently overflows the moment anyone instantiates it narrow:
+
+```cpp
+template <typename T> struct Gauss {
+  using wide = std::conditional_t<sizeof(T) <= 4, std::int64_t, __int128>;
+  T re{}, im{};
+  wide norm() const { return wide{re} * re + wide{im} * im; }
+  wide nu()   const { return wide{re} * re - wide{im} * im; }
+};
+```
+
+### D9. Member functions and operator overloading — **agreed**
+
+`gaussian.h:33/36/39/69`. `canonize()`, `conj()`, `norm()`, `nu()` as members and
+`operator*` for `mul` — all better, and they fall out of D8 anyway.
+
+One exception: **`mul_and_conj_mul` stays a free function.** It returns two
+results from four multiplies (both `z·q` and `z·q̄`), which is the fused trick at
+the centre of point-set construction. There is no operator for that shape, and
+splitting it into two operators throws away the saving it exists for.
+
+### D10. `point_set` recomputes decompositions; wants an `Enumerator` — **agreed, and it is a real cost, not just shape**
+
+`gaussian.cc:101`, with `enumerate.cc:35` and `:70`. This is the best catch in
+the round. Measured:
+
+| bound | admissible norms | `decompose_prime` calls | distinct primes | redundancy |
+| --- | --- | --- | --- | --- |
+| 10^6 | 11,083 | 36,675 | 891 | **41×** |
+| 10^7 | 131,437 | 436,126 | 7,072 | **62×** |
+
+And directly, at the demo's `B = 2×10^6` (78,047 calls):
+
+```
+point_set total          8.12 ms
+  decompose_prime only   4.90 ms   = 60.4% of it
+```
+
+**Three fifths of point-set construction is recomputing the same few thousand
+Cornacchia descents.** Point-set construction is in turn the largest CPU cost in
+the demo (11.8 ms of ~19 ms).
+
+Two levels of fix, and the second is the one you're describing:
+
+1. **Memoize.** The factor base is already materialized; carry a parallel
+   `std::vector<Gauss>` of decompositions. Cuts that 60% to nothing. Half a day.
+2. **The `Enumerator` class.** The deeper waste is that each norm rebuilds its
+   *entire* point set from scratch, when a DFS node's point set is its parent's
+   doubled by one prime. An object owning the factor base, the decomposition
+   table, and a stack of partial point sets along the DFS spine makes the
+   incremental structure available. This is exactly §A2 (largest-prime-outer) in
+   `drafts/gpu_algorithms.md` — so your instinct here and the written plan agree,
+   which is reassuring for both.
+
+I'd sequence memoization first (cheap, immediate, no design risk) and fold the
+`Enumerator` into the CPU-implementation round, since it is the natural owner of
+the batching that C12 wants anyway.
+
+### D11. `std::function` → template — **agreed; honest about the size**
+
+`enumerate.cc:70`. This is C7 from Part B, so we agree. Templating the callback
+also lets the DFS body inline, which `std::function` blocks entirely.
+
+Sizing it honestly, though: the indirect call is ~2 ns against ~700 ns of
+`point_set` work per norm, so **this is not measurable today** — `point_set`
+(D10) is where the time is. It becomes real at the 2×10^10 iterations the
+campaign implies. Worth doing, worth doing after D10.
+
+### D12. `verify_exact` "should live under test" — **disagreeing, and this one matters**
+
+`enumerate.cc:149`. `verify_exact` is not a test helper. Above `kExactKeyBound`
+(`L1 > 3.037×10^9`) the kernel compares keys modulo 2^64 and therefore emits
+**candidates**; `verify_exact` is the step that turns candidates into results.
+Move it to test code and the production path silently accepts false positives —
+which is precisely **C3**, the highest-severity open item.
+
+Your instinct is still telling you something true: it is *named* like a test
+helper, and today it is only ever called by the demo, so nothing forces it. Both
+of those are the actual defect. The fix is the other direction:
+
+- rename it to something that carries its role — `confirm_candidate`, or
+  `is_true_collision`;
+- make it **unskippable**, by having the enumerator return confirmed hits only,
+  so an unverified candidate cannot escape the API.
+
+### D13. `decompose_prime` should return `Gauss` and throw — **agreed**, and it is the same bug as the magic number
+
+`gaussian.cc:56` and `:66`, plus **C5** from Part B. These three are one defect.
+
+`sqrt_minus_one` trials `n < 1000` for a non-residue. Half of all residues are
+non-residues, so for a genuine prime `p ≡ 1 (mod 4)` the chance of 1000
+consecutive failures is ~2^-1000. It cannot happen. Which means:
+
+> **if that loop ever exhausts, `p` is not prime.**
+
+The magic number and the missing primality check are the same thing — the loop
+*is* an (accidental, unreadable) primality test whose failure is currently
+swallowed into `return 0` → `return false` → `point_set` returns `{}` → the norm
+contributes zero points and is skipped in silence. In an exclusion search that
+is the worst available failure mode.
+
+So: `Gauss decompose_prime(u64 p)`, throwing `std::invalid_argument` on a
+non-split-prime input, with the bound named (`kMaxNonResidueTrials`) and the
+2^-1000 argument at the declaration. Not `std::optional` — the factor base
+contains only split primes by construction, so a failure here is a programming
+error at the call site, not an expected outcome.
+
+### D14. `isqrt` and GMP — **pushing back on the reason, agreeing with the instinct**
+
+`gaussian.cc:26`. Two things in the comment, and they point opposite ways.
+
+"Reinventing the wheel **in a very inefficient manner**" — this one I think is
+backwards. The current `isqrt` seeds from `std::sqrt(double)` and corrects,
+which is one or two iterations for any 64-bit input: tens of nanoseconds.
+`mpz_sqrt` on a value this small costs an `mpz` init and a library call, which
+is several times *more*. Swapping it in would slow down a function that D10 just
+showed is 60% of point-set time.
+
+But "don't trust a hand-rolled `isqrt`" is right, and has a track record here —
+an earlier version of this exact function in this project had a malformed
+correction loop. The resolution that gets both: **keep the fixed-width version,
+and test it against `mpz_sqrt`.** GMP is already a dependency (`pkg_check_modules
+... gmp gmpxx`), so a property test over random `u64` plus the boundaries
+(perfect squares, `n²−1`, `2^64−1`) costs nothing and gives us the wheel's
+authority without its call overhead. That belongs in the same test round as C11.
+
+### D15. `std::span` instead of raw pointers — **agreed, and it deleted four tests**
+
+`meet.h:66`. Right, and it pays for itself immediately. Before and after:
+
+```cpp
+index_t meet_batch(const nu_t *nu, index_t nu_count, const index_t *offsets,
+                   index_t num_norms, MeetHit *hits, index_t max_hits);
+
+index_t meet_batch(std::span<const nu_t> nu, std::span<const index_t> offsets,
+                   std::span<MeetHit> hits);
+```
+
+Six parameters to three. Each of the three that vanished was a *count the caller
+could get wrong independently of the data it described* — and note that **C4,
+the out-of-bounds device read from round 1, was exactly that bug**: `nu_count`
+had to be added last round precisely because `meet_batch` could not otherwise
+know how long `nu` was. With a span the question cannot be asked. `num_norms`
+likewise becomes `offsets.size() - 1`, enforced by the type rather than by a
+comment.
+
+The visible measure: `RejectsBadArguments` lost four of its six cases —
+negative `num_norms`, negative `max_hits`, null `nu`, null `hits` — because they
+can no longer be *written*. What survives is the one class a span cannot cover:
+`offsets` is a *description of* `nu`, so only a cross-check between the two
+catches a malformed one. That test is renamed `RejectsMalformedOffsets` and
+keeps the three real cases (past the end, non-monotonic, negative).
+
+Two notes on the edges:
+
+- **This required `CMAKE_CUDA_STANDARD` 17 → 20.** `meet.h` is included by
+  `meet_impl.cu`, and `std::span` is C++20. Verified nvcc 12.9 compiles C++20
+  with `<span>` before making the change; host code was already C++20.
+- **Raw pointers stay at the device contract** (`meet_impl.h`,
+  `LaunchE4MeetDirect`). Those address device memory, and `std::span`'s members
+  are not `__device__`, so a span cannot be indexed inside a kernel. The honest
+  boundary is: std types at the host API, raw pointers at the device seam.
+
+"Lvalue refs" I read as the same request; for array arguments `std::span` is the
+form that carries it, and there is no scalar out-parameter left to take by
+reference.
+
+---
+
+## Round 2 outcome — what shipped
+
+Everything in D1–D6 and D15, which is the whole GPU-side batch. D7–D14 are CPU-side and
+are a redesign (`Enumerator`, templated `Gauss`, `precision.h`); those are
+written up above as a proposal and **not implemented** — they want your call
+first, and they land naturally in the CPU-implementation round.
+
+| Item | Disposition |
+| --- | --- |
+| D1 extensions | done — `check.h`, `device_buffer.h`, `host_buffer.h`, `meet_impl.h`, `meet.cc`, `meet_test.cc`, `host_buffer_test.cc`; rule documented in `core/types.h` |
+| D1 launch macro | `PTE_CUDA_LAUNCH_KERNEL` split into `core/launch.cuh` — `<<< >>>` is the one thing in `check.cuh` that actually needed nvcc |
+| D2 view/kernel split | done — `device_append_buffer.h` (POD + owner) / `.cuh` (`__device__ push`) |
+| D2 `__host__` on push | not done — would need a host `atomicAdd`; see above |
+| D3 type scope | done — `nu_t` → `meet.h`, `key_t` → file-local in `meet_impl.cu`, `core/types.h` keeps only `index_t`/`count_t` |
+| D4 `trunc_key_t` | done |
+| D5 share `Quadruple` | **not done — pushing back**, see above |
+| D6 launch bounds | done — both as template parameters, `minBlocksPerSM = 9` from measurement |
+| D15 `std::span` API | done — `meet_batch` 6 params → 3; `CMAKE_CUDA_STANDARD` 17 → 20 |
+| D7–D14 | proposals above; awaiting your call |
+
+Verification: warning-free build, **8/8 test binaries pass**, both demos
+unchanged (same two solutions at `L1 = 67405` and `600445`, same one imprimitive
+rejection, CPU and GPU sets identical).
+
+Also closed, carried over from round 1: **`compute-sanitizer --tool memcheck` is
+clean on all four GPU test binaries.**
+
+Still not done from round 1: the pageable-vs-pinned bandwidth demonstration in
+`hybrid_demo.cc`, and the per-call `cudaHostAlloc` regression (0.92 ms → ~4 ms)
+that needs the session object to fix.
+
+## Part E — updated TODO
+
+**Tier 1 — silent-wrong-answer risks. Unchanged, and still first.**
+
+1. **C3** Test the wraparound false-positive path with the constructed fixture
+   (`nu = [2^33, 3, 2^32, 2^63−3]`); make `kExactKeyBound` load-bearing.
+2. **C2 + D12 + D13** One change, not three: `decompose_prime` returns `Gauss`
+   and throws; the trial bound gets a name and doubles as the primality signal
+   (**C5**); `verify_exact` is renamed and made unskippable.
+3. **C11 + D14** CPU-vs-GPU unit test; the `bound/65` cutoff test; `isqrt`
+   against `mpz_sqrt`.
+
+**Tier 2 — the CPU implementation round.**
+
+4. **D7** `precision.h`: name every quantity, its bound, and the three-way
+   exact/filter/certificate split, with `static_assert`s.
+5. **D10** Memoize `decompose_prime` (cheap, 60% of point-set time), then the
+   `Enumerator` owning factor base + decomposition table + DFS point-set stack.
+6. **D8 + D9** Template `Gauss`, with the wider result type; members and
+   `operator*`; `mul_and_conj_mul` stays free.
+7. **D11 / C7** Template the callback once `Enumerator` exists.
+8. **C6** `Norm::primes` aliasing — document or hand out a value type.
+
+**Tier 3 — performance, gated on the architecture decision.**
+
+9. Session object owning staging buffers (fixes the per-call `cudaHostAlloc`).
+10. **A2** Pageable-vs-pinned benchmark, then decide how much staging machinery
+    to keep.
+11. **A8 + C9** Precomputed squares and D-bucketing together.
+12. **C8, C10, C12** Segment the sieve, trim the copies, batch the demo.
+
+**Still the open question** from round 1, now more pointed: naive hybrid or
+device-resident generation. D8 (narrow `Gauss` halving transfer bytes) is worth
+real money under the first and nearly nothing under the second.

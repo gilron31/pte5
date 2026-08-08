@@ -4,8 +4,8 @@
 // so dimensions that are not multiples of kTile are handled correctly.
 #include "gpu/matmul/matmul.h"
 
-#include "gpu/core/check.cuh"
-#include "gpu/core/device_buffer.cuh"
+#include "gpu/core/launch.cuh"
+#include "gpu/core/device_buffer.h"
 
 #include <stdexcept>
 

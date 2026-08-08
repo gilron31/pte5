@@ -2,7 +2,7 @@
 //
 // Also provides the limb export/import used to hand values to the GPU kernels:
 // a fixed-width array of 32-bit limbs, least-significant limb first. That
-// layout is the contract shared with src/gpu/gpu.h.
+// layout is the contract shared with src/gpu/bigint/bigint.h.
 #ifndef PTE_CPU_BIGINT_H_
 #define PTE_CPU_BIGINT_H_
 

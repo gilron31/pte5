@@ -1,6 +1,6 @@
 #include "gpu/core/device.h"
 
-#include "gpu/core/check.cuh"
+#include "gpu/core/check.h"
 
 namespace pte::gpu {
 

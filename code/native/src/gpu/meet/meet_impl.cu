@@ -18,20 +18,30 @@
 // positives for the host to reject in wider arithmetic.
 //
 // No disjointness test appears anywhere: nu is injective on a point set (see
-// src/cpu/gaussian.h), so two distinct pairs with equal key cannot share a
-// point.
-#include "gpu/core/check.cuh"
-#include "gpu/meet/meet_impl.cuh"
+// src/cpu/gaussian/gaussian.h), so two distinct pairs with equal key cannot
+// share a point.
+#include "gpu/core/device_append_buffer.h"
+#include "gpu/core/launch.cuh"
+#include "gpu/meet/meet_impl.h"
 
 namespace pte::gpu {
 namespace {
 
-__device__ inline key_t PairKey(nu_t x, nu_t y) {
-  return static_cast<key_t>(x) * x + static_cast<key_t>(y) * y; // wraps
+// The pair key nu_a^2 + nu_b^2 reduced modulo 2^64 by unsigned wraparound.
+//
+// The name says "truncated" because that is the only thing standing between
+// this kernel and a wrong answer: above pte::cpu::kExactKeyBound the exact key
+// needs more than 64 bits, so a match here is a *candidate*, and the host must
+// re-check it in wider arithmetic. Never let this type escape the kernel under
+// a name that suggests it is the key.
+using trunc_key_t = std::uint64_t;
+
+__device__ inline trunc_key_t PairKey(nu_t x, nu_t y) {
+  return static_cast<trunc_key_t>(x) * x + static_cast<trunc_key_t>(y) * y;
 }
 
-// GILRO: lauch bounds also blocks per sm, both as template argument.
-__global__ __launch_bounds__(kMeetThreadsPerBlock) void E4MeetDirectKernel(
+template <int kThreads, int kMinBlocksPerSM>
+__global__ __launch_bounds__(kThreads, kMinBlocksPerSM) void E4MeetDirectKernel(
     const nu_t *__restrict__ nu, const index_t *__restrict__ offsets,
     index_t num_norms, DeviceAppendView<MeetHit> out) {
   const index_t b = static_cast<index_t>(blockIdx.x) * blockDim.x + threadIdx.x;
@@ -44,9 +54,9 @@ __global__ __launch_bounds__(kMeetThreadsPerBlock) void E4MeetDirectKernel(
 
   for (int i = 0; i < n; ++i) {
     for (int j = i + 1; j < n; ++j) {
-      const key_t kij = PairKey(v[i], v[j]);
+      const trunc_key_t kij = PairKey(v[i], v[j]);
       for (int k = j + 1; k < n; ++k) {
-        const key_t kik = PairKey(v[i], v[k]);
+        const trunc_key_t kik = PairKey(v[i], v[k]);
         for (int l = k + 1; l < n; ++l) {
           // The three pairings of {i,j,k,l}, tested independently: a 4-subset
           // can match in more than one pairing, and the host reference reports
@@ -65,14 +75,20 @@ __global__ __launch_bounds__(kMeetThreadsPerBlock) void E4MeetDirectKernel(
 
 } // namespace
 
-void LaunchE4MeetDirect(const nu_t *d_nu, const index_t *d_offsets,
-                        index_t num_norms, DeviceAppendView<MeetHit> out) {
-  if (num_norms <= 0)
-    return;
+void LaunchE4MeetDirect(const DeviceBuffer<nu_t> &d_nu,
+                        const DeviceBuffer<index_t> &d_offsets,
+                        DeviceAppendView<MeetHit> out) {
+  if (d_offsets.count() < 2)
+    return; // fewer than two offsets describes no norms
+  const auto num_norms = static_cast<index_t>(d_offsets.count() - 1);
   const index_t blocks =
       (num_norms + kMeetThreadsPerBlock - 1) / kMeetThreadsPerBlock;
-  PTE_CUDA_LAUNCH_KERNEL(E4MeetDirectKernel, static_cast<unsigned>(blocks),
-                         kMeetThreadsPerBlock, d_nu, d_offsets, num_norms, out);
+  // The one place raw device pointers appear: a kernel argument list cannot
+  // take anything else.
+  PTE_CUDA_LAUNCH_KERNEL(
+      (E4MeetDirectKernel<kMeetThreadsPerBlock, kMeetMinBlocksPerSM>),
+      static_cast<unsigned>(blocks), kMeetThreadsPerBlock, d_nu.get(),
+      d_offsets.get(), num_norms, out);
 }
 
 } // namespace pte::gpu

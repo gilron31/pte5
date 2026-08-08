@@ -68,11 +68,8 @@ std::vector<MeetHit> HostMeet(const std::vector<nu_t> &nu,
 std::vector<MeetHit> DeviceMeet(const std::vector<nu_t> &nu,
                                 const std::vector<index_t> &offsets,
                                 index_t max_hits, index_t *reported) {
-  const index_t num_norms = static_cast<index_t>(offsets.size()) - 1;
-  std::vector<MeetHit> hits(static_cast<std::size_t>(std::max<index_t>(max_hits, 1)));
-  const index_t found = pte::gpu::meet_batch(
-      nu.data(), static_cast<index_t>(nu.size()), offsets.data(), num_norms,
-      hits.data(), max_hits);
+  std::vector<MeetHit> hits(static_cast<std::size_t>(max_hits));
+  const index_t found = pte::gpu::meet_batch(nu, offsets, hits);
   if (reported != nullptr)
     *reported = found;
   hits.resize(static_cast<std::size_t>(std::min(found, max_hits)));
@@ -112,7 +109,7 @@ TEST_F(GpuMeet, FindsNothingWhenThereIsNothing) {
 }
 
 TEST_F(GpuMeet, HandlesEmptyAndUndersizedNorms) {
-  EXPECT_EQ(pte::gpu::meet_batch(nullptr, 0, nullptr, 0, nullptr, 0), 0);
+  EXPECT_EQ(pte::gpu::meet_batch({}, {}, {}), 0);
 
   // Norms with fewer than four points can never produce a hit.
   const std::vector<nu_t> nu = {3, 5, 7, 11, 13};
@@ -158,9 +155,7 @@ TEST_F(GpuMeet, ReportsTruncationWithoutOverrunning) {
 
   constexpr index_t kRoom = 2;
   std::vector<MeetHit> hits(kRoom, MeetHit{-1, -1, -1, -1, -1});
-  const index_t found =
-      pte::gpu::meet_batch(nu.data(), static_cast<index_t>(nu.size()),
-                           offsets.data(), 4, hits.data(), kRoom);
+  const index_t found = pte::gpu::meet_batch(nu, offsets, hits);
   EXPECT_EQ(found, 4) << "the count must report every hit, not just the stored";
   // Exactly the first kRoom slots were filled, and with real hits.
   for (index_t t = 0; t < kRoom; ++t) {
@@ -169,35 +164,30 @@ TEST_F(GpuMeet, ReportsTruncationWithoutOverrunning) {
   }
 }
 
-TEST_F(GpuMeet, RejectsBadArguments) {
+// What is left to reject once the signature takes spans.
+//
+// The four cases that used to be here -- negative num_norms, negative max_hits,
+// a null nu, a null hits buffer -- are gone because they can no longer be
+// written: a span carries its own extent, so there is no separate count to
+// contradict it and no bare pointer to pass as null. That is the argument for
+// spans, and deleting these four tests is what it looks like when it works.
+//
+// The two that remain are the ones a span cannot express: `offsets` is a
+// *description of* the nu array, so only a cross-check between them catches it.
+TEST_F(GpuMeet, RejectsMalformedOffsets) {
   const std::vector<nu_t> nu = {1, 4, 7, 8};
-  const std::vector<index_t> offsets = {0, 4};
   std::vector<MeetHit> hits(1);
-  const index_t n = static_cast<index_t>(nu.size());
-
-  EXPECT_THROW(
-      pte::gpu::meet_batch(nu.data(), n, offsets.data(), -1, hits.data(), 1),
-      std::invalid_argument);
-  EXPECT_THROW(
-      pte::gpu::meet_batch(nu.data(), n, offsets.data(), 1, hits.data(), -1),
-      std::invalid_argument);
-  EXPECT_THROW(
-      pte::gpu::meet_batch(nullptr, n, offsets.data(), 1, hits.data(), 1),
-      std::invalid_argument);
-  EXPECT_THROW(
-      pte::gpu::meet_batch(nu.data(), n, offsets.data(), 1, nullptr, 1),
-      std::invalid_argument);
 
   // Offsets running past the nu array would be an out-of-range device read.
   const std::vector<index_t> too_long = {0, 99};
-  EXPECT_THROW(
-      pte::gpu::meet_batch(nu.data(), n, too_long.data(), 1, hits.data(), 1),
-      std::invalid_argument);
+  EXPECT_THROW(pte::gpu::meet_batch(nu, too_long, hits), std::invalid_argument);
 
   const std::vector<index_t> not_sorted = {0, 3, 2};
-  EXPECT_THROW(
-      pte::gpu::meet_batch(nu.data(), n, not_sorted.data(), 2, hits.data(), 1),
-      std::invalid_argument);
+  EXPECT_THROW(pte::gpu::meet_batch(nu, not_sorted, hits),
+               std::invalid_argument);
+
+  const std::vector<index_t> negative = {-1, 4};
+  EXPECT_THROW(pte::gpu::meet_batch(nu, negative, hits), std::invalid_argument);
 }
 
 TEST_F(GpuMeet, LargePointSetMatchesTheHost) {

@@ -1,5 +1,5 @@
 # The hybrid demo is ordinary C++ (compiled by g++, not nvcc); it reaches the
-# kernels only through src/gpu/gpu.h.
+# kernels only through the plain-C++ per-app headers under src/gpu.
 add_executable(hybrid_demo hybrid_demo.cc)
 target_link_libraries(hybrid_demo PRIVATE pte_cpu pte_gpu pte_warnings)
 

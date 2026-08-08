@@ -4,10 +4,13 @@
 // directly, so it transfers faster and is what cudaMemcpyAsync needs to overlap
 // at all -- is a bandwidth claim, and bandwidth is measured in
 // apps/hybrid_demo.cc rather than asserted in a unit test.
-#include "gpu/core/host_buffer.cuh"
+// This file is a .cc, not a .cu, and that is the point: HostBuffer and
+// DeviceBuffer are pure runtime-API wrappers, so the host compiler builds them
+// -- with -Wpedantic, which CUDA translation units do not get.
+#include "gpu/core/host_buffer.h"
 
 #include "gpu/core/device.h"
-#include "gpu/core/device_buffer.cuh"
+#include "gpu/core/device_buffer.h"
 
 #include <gtest/gtest.h>
 

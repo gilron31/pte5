@@ -1,14 +1,14 @@
 // Owning device allocation.
 //
-// Only included from .cu translation units.
+// Host-only: cudaMalloc/cudaFree/cudaMemcpy are runtime-API calls, so ordinary
+// C++ translation units can use this. No device code here.
 #pragma once
 
-#include "gpu/core/check.cuh"
+#include "gpu/core/check.h"
 
 #include <cstddef>
 #include <utility>
 
-// GILRO: don't see a reason for it to be a .cuh and not a .h file.
 namespace pte::gpu {
 
 // Frees on scope exit, so a thrown error mid-sequence does not leak. cudaFree

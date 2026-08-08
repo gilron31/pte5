@@ -2,7 +2,8 @@
 // arithmetic, the CPU verifies the results against GMP again.
 //
 // This is the program that ties the two halves together: it is compiled by g++
-// (not nvcc) and reaches the kernels only through the plain-C++ src/gpu/gpu.h.
+// (not nvcc) and reaches the kernels only through the plain-C++ per-app headers
+// under src/gpu (gpu/bigint/bigint.h, gpu/matmul/matmul.h).
 //
 // Exits non-zero if any GPU result disagrees with the CPU reference.
 #include "cpu/bigint/bigint.h"

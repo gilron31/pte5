@@ -185,7 +185,6 @@ by include-path order.
 
 Dependencies point one way only: apps depend on `core`, never on each other.
 
-
 Tests live next to the code they cover (`bigint.cc` ↔ `bigint_test.cc`).
 
 ### The seam: the per-app `*.h`
@@ -197,9 +196,36 @@ Each GPU app exposes one plain-C++ header — [`gpu/meet/meet.h`](src/gpu/meet/m
 `__global__`, and no CUDA types in any signature. Everything outside a `.cu` is
 therefore compiled by `g++`, including the demos, the bindings and the CPU tests.
 
-Anything that must name a CUDA type lives in a `.cuh` included only from `.cu`
-files: `gpu/core/check.cuh`, `device_buffer.cuh`, `host_buffer.cuh`,
-`device_append_buffer.cuh`, and each app's `*_impl.cuh`.
+### The file-extension rule
+
+> **`.cu`/`.cuh` iff the file contains device code** — a `__device__`/`__global__`
+> definition, `<<< >>>`, or a device intrinsic like `atomicAdd`. Everything else
+> is `.cc`/`.h`, *including every call to the CUDA runtime API*.
+
+`cudaMalloc`, `cudaMemcpy`, `cudaHostAlloc` and friends are a C library: they
+need `<cuda_runtime.h>` and `-lcudart`, not nvcc. So `gpu/core/check.h`,
+`device_buffer.h`, `host_buffer.h` and `device_append_buffer.h` are all ordinary
+headers, and only three files in `src/gpu` are `.cu` at all.
+
+The rule is load-bearing rather than cosmetic: **an unguarded `__device__`
+function in a header promotes every translation unit that includes it,
+transitively, to nvcc.** `PTE_CUDA_LAUNCH_KERNEL` is therefore split out of
+`check.h` into [`launch.cuh`](src/gpu/core/launch.cuh) — `<<< >>>` is the one
+thing in it that genuinely needs nvcc.
+
+The escape hatch, where a type wants both a host owner and a device method, is
+`#ifdef __CUDACC__` around the method:
+[`DeviceAppendView::push`](src/gpu/core/device_append_buffer.h) is a `__device__`
+member that host translation units simply do not see, so the header stays a
+plain `.h` and `meet.cc` stays ordinary C++. This gives the class different
+definitions in host and device TUs — formally an ODR violation, benign here
+because the members are identical (layout and the by-value kernel argument are
+unaffected) and `push` is inline `__device__`, emitted only into device code.
+It is the standard CUDA idiom; Thrust and CUB are built on it. **Anything added
+inside such a guard must not touch layout.**
+
+Practical payoff: host-side files get `-Wpedantic`, which CUDA translation units
+in this project do not.
 
 That one constraint buys three things:
 
@@ -212,15 +238,23 @@ That one constraint buys three things:
 An app with a kernel follows a three-layer shape, `meet` being the worked
 example:
 
-| Layer | File | Sees |
-|---|---|---|
-| public API | `meet.h` | plain C++ only |
-| host side | `meet.cu` | validation, staging, device buffers, launch |
-| device contract | `meet_impl.cuh` | device pointers |
-| kernel | `meet_impl.cu` | the kernel itself |
+| Layer | File | Sees | Compiler |
+|---|---|---|---|
+| public API | `meet.h` | `std::span`, plain C++ only | — |
+| host side | `meet.cc` | validation, staging, device buffers, launch | `g++` |
+| device contract | `meet_impl.h` | `DeviceBuffer<T>`, the append view | — |
+| kernel | `meet_impl.cu` | the kernel itself | `nvcc` |
+
+Neither API takes a `(pointer, count)` pair. The public one takes `std::span`
+and the device contract takes `const DeviceBuffer<T>&`; both carry their own
+extent, so a caller cannot pass a length that disagrees with its data — which
+had been the substance of most of the validation. **Raw device pointers appear
+exactly once in the app, in the kernel's argument list**, which cannot take
+anything else.
 
 Tests go through the public header, so they cover validation and staging rather
-than just the kernel.
+than just the kernel — and `meet_test.cc` being a `.cc` is mechanical proof of
+the seam: a test that cannot contain device code cannot reach past `meet.h`.
 
 The contract crossing the big-integer seam is the limb layout: **a big integer
 is a fixed-width array of 32-bit limbs, least-significant limb first.**
