@@ -15,6 +15,8 @@ namespace pte::gpu {
 //
 // A quadruple is a candidate, not a confirmed solution: keys are compared
 // modulo 2^64, so the host must re-check in wider arithmetic (see below).
+
+// GILRO: If we could share the cpu type from gaussian it is preferable.
 struct MeetHit {
   index_t norm = 0;
   std::int32_t a = 0;

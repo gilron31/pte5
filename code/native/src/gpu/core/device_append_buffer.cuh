@@ -22,13 +22,21 @@
 
 namespace pte::gpu {
 
+// GILRO: as a rule, we should separate the "view-ish" behaviour from the
+// "kernel" behaviour. They should live on two different files. If we don't it
+// destroys the separation we are trying to do and enforoces unpleasant .cuh
+// files everywhere where they coudl have been .h files. Let's discuss what
+// should be the proper separation here.
+
 // The device-side handle. Trivially copyable, so it is passed to kernels by
 // value.
+
 template <typename T> struct DeviceAppendView {
   T *data = nullptr;
   index_t capacity = 0;
   count_t *counter = nullptr;
 
+  // Could add __host__
   __device__ void push(const T &value) const {
     const count_t slot = atomicAdd(counter, count_t{1});
     if (slot < static_cast<count_t>(capacity))

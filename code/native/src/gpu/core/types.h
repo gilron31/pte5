@@ -14,13 +14,17 @@
 
 namespace pte::gpu {
 
-// Point invariant nu(z) = Re(z^2), and the pair key nu_a^2 + nu_b^2.
+// GILRO: no, these types are not project wide, their scope should be narrower
+// (look for the suitable application, specifially here it is meet)
+//  Point invariant nu(z) = Re(z^2), and the pair key nu_a^2 + nu_b^2.
 //
-// The key is deliberately computed modulo 2^64 by unsigned wraparound: equal
-// keys are always congruent, so the comparison has no false negatives, only
-// false positives for the host to reject in wider arithmetic.
+//  The key is deliberately computed modulo 2^64 by unsigned wraparound: equal
+//  keys are always congruent, so the comparison has no false negatives, only
+//  false positives for the host to reject in wider arithmetic.
 using nu_t = std::uint64_t;
-using key_t = std::uint64_t;
+using key_t = std::uint64_t; // GILRO: mmm... trunc_key/nu is a better name
+                             // since it prevents us from forgettign that they
+                             // are truncated for performance.
 
 // Indices and sizes of batched work: CSR offsets, norm counts, buffer
 // capacities. 64-bit because a full campaign batch has far more than 2^31

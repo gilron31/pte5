@@ -13,6 +13,8 @@
 namespace pte::gpu {
 namespace {
 
+// Why is this a .cu ? it should be a .cc
+
 // Staging a pageable input through pinned memory before the H2D copy lets the
 // driver DMA it directly instead of bouncing it through its own pinned buffer.
 // See host_buffer.cuh, and apps/hybrid_demo.cc for the measured difference.

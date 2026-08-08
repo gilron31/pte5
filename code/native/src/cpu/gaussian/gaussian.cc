@@ -8,16 +8,23 @@
 namespace pte::cpu {
 namespace {
 
+// GILRO: it is weird to declare this in the .cc file when it should be
+// "elevated" to a higher status, it is this type that the precision of the
+// entire package relies on. It should be clear.
 using u64 = std::uint64_t;
 // __int128 is a GNU extension; the opt-in keeps -Wpedantic quiet.
 __extension__ using u128 = unsigned __int128;
 
+// GILRO: This is nice, but someday we will want to use larger numbers, guess
+// what we will use then (GMP).
 u64 mulmod(u64 a, u64 b, u64 m) {
   return static_cast<u64>((static_cast<u128>(a) * b) % m);
 }
 
 // Floor of the square root of n. Seeded from the floating-point value, then
 // corrected, so it is exact for every 64-bit input.
+// GILRO: isn't there a GMP function for this? let's don't reinvent the wheel
+// (in a very inefficient manner).
 u64 isqrt(u64 n) {
   if (n == 0)
     return 0;
@@ -46,6 +53,7 @@ u64 powmod(u64 base, u64 exp, u64 m) {
 // criterion. Returns 0 if no non-residue is found below the (never reached in
 // practice) search bound.
 u64 sqrt_minus_one(u64 p) {
+  // GILRO: magic number is unacceptable.
   for (u64 n = 2; n < 1000; ++n) {
     if (powmod(n, (p - 1) / 2, p) == p - 1)
       return powmod(n, (p - 1) / 4, p);
@@ -55,6 +63,9 @@ u64 sqrt_minus_one(u64 p) {
 
 } // namespace
 
+// GILRO: we are in C++, return std::optional,no, better, throw an error if it
+// doesn't decompose and enforce the calling function to check it be itself.
+// return a Gauss
 bool decompose_prime(u64 p, Gauss *out) {
   if (p % 4 != 1 || p < 5)
     return false;
@@ -87,6 +98,10 @@ bool decompose_prime(u64 p, Gauss *out) {
   return true;
 }
 
+// GILRO: this is weird. this is way to "robust" and memoryless. We compute the
+// entire prime decompositions for every norm, very weird. It should be handled
+// by a "Enumerator" class or something. SUggest a refactor together with
+// enumerate/
 std::vector<Gauss> point_set(const std::vector<u64> &primes) {
   std::vector<Gauss> points{{1, 0}};
   points.reserve(std::size_t{1} << std::min<std::size_t>(primes.size(), 20));

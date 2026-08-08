@@ -17,6 +17,14 @@ i128 pair_key(std::int64_t x, std::int64_t y) {
 
 // True if the rational prime p divides z. A prime dividing *every* point of a
 // candidate is what makes it a scaled duplicate; see is_primitive.
+// GILRO: I dislike it, let's work with multiprecision integers (mpz or smth).
+// We need a clear separation between the exact logic and procedures (like the
+// ones we will use for validation) and "fast" functions and procedures (only if
+// they are really the bottleneck). That fact that everything is hardcoded
+// u/int64 is disturbing. it should be mpz_int (gmp_int) for all those
+// validations. For functions that are called in the critical loop, let's make a
+// clear distinction and let them use dedicated types. Btw, if we could go by
+// using templatic functions and reuse the code, that is the best.
 bool divides(std::uint64_t p, const Gauss &z) {
   const std::int64_t q = static_cast<std::int64_t>(p);
   return z.re % q == 0 && z.im % q == 0;
@@ -24,6 +32,8 @@ bool divides(std::uint64_t p, const Gauss &z) {
 
 } // namespace
 
+// GILRO: watch my comment in gaussian.h, this  should be a method of a class
+// (that takes B, etc).
 std::vector<std::uint64_t> split_primes_up_to(std::uint64_t limit) {
   std::vector<std::uint64_t> primes;
   if (limit < 5)
@@ -57,6 +67,10 @@ std::size_t point_count(const std::vector<std::uint64_t> &primes) {
   return (divisors + 1) / 2;
 }
 
+// GILRO I like universal referneces way more than i like std::function, it is
+// compile time, and thus faster.
+// GILRO: this is exactly the type of code which is currently terribly
+// intertwined and should be handled in a more OOPy fashion.
 void for_each_admissible_norm(std::int64_t bound,
                               const std::function<void(const Norm &)> &cb) {
   // The largest prime factor an admissible norm can have. With exponent 1 its
@@ -132,6 +146,7 @@ std::vector<Quadruple> meet_reference(const std::vector<std::int64_t> &nu) {
   return hits;
 }
 
+// GILRO: should live under test
 bool verify_exact(const std::vector<std::int64_t> &nu, const Quadruple &q) {
   const int n = static_cast<int>(nu.size());
   if (q.a < 0 || q.b < 0 || q.c < 0 || q.d < 0)

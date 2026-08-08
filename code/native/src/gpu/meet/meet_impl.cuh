@@ -2,8 +2,8 @@
 #pragma once
 
 #include "gpu/core/device_append_buffer.cuh"
-#include "gpu/meet/meet.h"
 #include "gpu/core/types.h"
+#include "gpu/meet/meet.h"
 
 namespace pte::gpu {
 
@@ -17,3 +17,5 @@ void LaunchE4MeetDirect(const nu_t *d_nu, const index_t *d_offsets,
                         index_t num_norms, DeviceAppendView<MeetHit> out);
 
 } // namespace pte::gpu
+
+// GILRO: SHould be a .h

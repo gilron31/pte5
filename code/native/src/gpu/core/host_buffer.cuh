@@ -29,6 +29,8 @@
 
 namespace pte::gpu {
 
+// GILRO: .h
+
 template <typename T> class HostBuffer {
 public:
   HostBuffer() = default;

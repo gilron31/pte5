@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <utility>
 
+// GILRO: don't see a reason for it to be a .cuh and not a .h file.
 namespace pte::gpu {
 
 // Frees on scope exit, so a thrown error mid-sequence does not leak. cudaFree

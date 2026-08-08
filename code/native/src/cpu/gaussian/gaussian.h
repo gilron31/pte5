@@ -17,6 +17,7 @@ namespace pte::cpu {
 
 // A Gaussian integer. 64-bit coordinates are ample: an admissible L1 <= 1e12
 // has |m|, |n| < 1e6.
+// GILRO: let's be future compatible, it should be templatic on integer type.
 struct Gauss {
   std::int64_t re = 0;
   std::int64_t im = 0;
@@ -29,10 +30,13 @@ struct Gauss {
   friend bool operator<(const Gauss &a, const Gauss &b) {
     return a.re != b.re ? a.re < b.re : a.im < b.im;
   }
+  // GILRO: add canonize().
 };
 
+// GILRO: turn to member functions.
 inline Gauss conj(const Gauss &z) { return {z.re, -z.im}; }
 
+// GILRO: op overloading
 inline Gauss mul(const Gauss &a, const Gauss &b) {
   return {a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re};
 }
@@ -62,6 +66,7 @@ inline Gauss canonize(const Gauss &z) {
   return a >= b ? Gauss{a, b} : Gauss{b, a};
 }
 
+// GILRO: also member function why not.
 // nu(z) = Re(z^2) = m^2 - n^2. On canonized points this is non-negative, and it
 // is *injective*: m^2 + n^2 = L1 together with m^2 - n^2 = nu determines (m,n).
 // Injectivity is why a key collision between two distinct pairs is

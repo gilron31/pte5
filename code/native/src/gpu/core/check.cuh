@@ -8,7 +8,7 @@
 
 #include <stdexcept>
 #include <string>
-
+// GILRO: this file has no reason to be a .cuh, it should be an .h file.
 namespace pte::gpu {
 
 inline void ThrowIfCudaError(cudaError_t err, const char *expr,

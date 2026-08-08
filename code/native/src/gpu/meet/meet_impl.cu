@@ -30,11 +30,11 @@ __device__ inline key_t PairKey(nu_t x, nu_t y) {
   return static_cast<key_t>(x) * x + static_cast<key_t>(y) * y; // wraps
 }
 
+// GILRO: lauch bounds also blocks per sm, both as template argument.
 __global__ __launch_bounds__(kMeetThreadsPerBlock) void E4MeetDirectKernel(
     const nu_t *__restrict__ nu, const index_t *__restrict__ offsets,
     index_t num_norms, DeviceAppendView<MeetHit> out) {
-  const index_t b =
-      static_cast<index_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+  const index_t b = static_cast<index_t>(blockIdx.x) * blockDim.x + threadIdx.x;
   if (b >= num_norms)
     return;
 
