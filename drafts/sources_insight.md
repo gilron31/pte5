@@ -433,6 +433,62 @@ Found while drafting the GPU algorithm spec; all verified numerically.
   rate ⇒ integer-only kernels. `code/native/` is a proven scaffold (GMP/CUDA/pybind/CTest)
   but a *sandbox*, not the enumerator.
 
+### 5d.1 Second pass (rev. 2 of `gpu_algorithms.md`) — four new results
+
+- **$\nu$ is INJECTIVE on canonized points** (proof: $m^2{+}n^2{=}L_1$ and
+  $m^2{-}n^2{=}\nu$ determine $m,n$; checked on 300 random norms). Consequence:
+  **two distinct pairs with equal key are automatically disjoint** — if they shared a
+  point, $\nu_b^2=\nu_c^2 \Rightarrow b=c$. So *every* key collision is a genuine
+  four-point configuration and the disjointness test disappears from every kernel.
+  Also lets a point be stored as its $\nu$ alone (one word).
+- **A4′ product form, verified generally at the norm-$L_1$ level** (12,088 pairs, 0
+  mismatches): with $g$ = agree-part, $h$ = differ-part,
+  $$\nu_1^2+\nu_2^2 = \mathrm{Re}(g^4)\,\mathrm{Re}(h^4) + L_1^2 .$$
+  Derivation: $\mathrm{Re}(z^4)=2\nu^2-L_1^2$ and $z_1^4+z_2^4=g^4(h^4+\bar h^4)$.
+  ⇒ **the $E_4$ condition is exactly a PRODUCT equality**
+  $\mathrm{Re}(g_1^4)\mathrm{Re}(h_1^4)=\mathrm{Re}(g_2^4)\mathrm{Re}(h_2^4)$.
+  *Status after exploration:* buys a ~2× constant (one multiply + two table loads vs.
+  two squarings + add) and a **structural** prime-content filter (Thm 5.3 confines the
+  primes to $\equiv\pm1\bmod8$, halving the basis; each $\mathrm{Re}(g^4)$ is a product
+  of two $\mathbb{Z}[\sqrt2]$ norm values of size $\sim L_1^{1/2}$, cheap to factor).
+  **No asymptotic gain yet** — $\sum_S 2^{s-2}=2^{2s-3}$ equals the naive pair count.
+  Live direction: collisions are equalities of *factorizations over a restricted prime
+  set*, so the natural framing is index-calculus (exponent vectors + linear algebra for
+  4-term relations) rather than enumeration. Champion-regime tool only; in the
+  exhaustive regime $D\le8$ and the naive key is already 3 ALU ops.
+- **Modulus choice — plain $2^{64}$ wins; the Mersenne idea was wrong.** Key differences
+  carry forced 2- and 3-adic content (Dilcher Rmk 3). Measured on 4,000 random
+  differences: $\min v_2 = 6$, $\min v_3 = 2$, so $2^6\cdot3^2=576$ divides *every*
+  difference. A mod-$2^k$ filter therefore loses exactly its bottom 6 bits:
+  $2^{16}\to$ 10 effective bits (useless), $2^{32}\to$ 26 ($\sim6{\times}10^3$ false
+  positives over the campaign, usable as a pre-filter), $2^{64}\to$ **58 effective bits,
+  $\sim10^{-6}$ false positives, and free** (natural unsigned overflow). No-false-negative
+  property is unaffected.
+- **Multiplicities / imprimitivity (the subtle one).** For $L_1=p^bM$, a point with
+  $p$-exponent $c$ is divisible by $p$ iff $1\le c\le b-1$, so the imprimitive share of
+  $U$ is exactly $(b-1)/(b+1)$ — **1/3 at $b=2$** — and that family *is*
+  $p\cdot U(M)$ (verified at $L_1=5^2\cdot13\cdot17$: $|U|=6$, imprimitive $=2=|U(13\cdot17)|$,
+  sets coincide after scaling). The dedup rule is **not** "skip imprimitive points":
+  - all four points imprimitive ⇒ $p^2\times$ a solution at $M$ ⇒ **duplicate, reject**
+    (otherwise every solution reappears at $p^2M,q^2M,\dots$ and corrupts catalog counts
+    and any density fit);
+  - *some but not all* imprimitive ⇒ **primitive, keep** — this is precisely the S3 case
+    (one pair uses $\mathfrak p\bar{\mathfrak p}=p$, another $\mathfrak p^2$), so
+    discarding it reopens the hole Prop 5.1 exists to close.
+  Implement as $\gcd(z_1,\dots,z_4)\ne1$ via a bitmask on the exponent vectors, on hits
+  only. Non-squarefree norms are 17–21% of admissible norms but carry 35–37% of pair
+  work; recoverable waste is only ~4%, so this is a **correctness fix, not an optimization**.
+- **Scheduling by factor overlap is what makes it GPU-shaped** (Gil's suggestion). Order
+  norms along the cofactor DFS tree, assign one block per subtree, keep the ancestor
+  path's point sets in shared memory ($\le 8$ levels $\times D_{\max}{=}192 \times 8$B
+  $= 12$ KB at $B{=}10^{12}$). A child's $U$ costs one Gaussian multiply per point from
+  its parent, and the block emits thousands of norms with **zero global traffic**. This
+  raises arithmetic intensity from 0.5 ops/byte (the naive "CPU generates, GPU meets"
+  split, which is ~80× PCIe-bound and slower than not using the GPU) by ~3 orders of
+  magnitude — it is what makes a device-resident design viable at all.
+- $D_{\max}=192$ at $B=10^{12}$ (attained at $5^2\cdot13\cdot17\cdot29\cdot37\cdot41\cdot53\cdot61$).
+  **$D$ stays small** — the single most important engineering fact for the kernels.
+
 ## 6. Verified computations (`drafts/verify_claims.py`)
 
 - Exemplar $E_4$ (`A=252885,...,H=148453`): four pair-norms all $=66131993434$,
