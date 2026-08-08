@@ -25,7 +25,7 @@ literature workstreams (see TODO.md). Do NOT treat TODO'd claims as proven.
 
 ## Abstract
 
-For integers $L_1, \dots, L_n$ let $E_n(x) = ((\cdots(x^2 - L_1)^2 - L_2)^2 \cdots)^2 - L_n$, a polynomial of degree $2^n$; we call $(L_1, \dots, L_n)$ an **$E_n$ solution** when $E_n$ splits completely over $\mathbb{Z}$. Such polynomials are exactly the *skew $2^n$-gems* of Borchert, McKenzie and Reinhardt, and — in pairs sharing $L_1, \dots, L_{n-1}$ — they yield ideal symmetric solutions of the Prouhet–Tarry–Escott (PTE) problem of size $2^{n-1}$. No $E_5$ solution (PTE size $16$) is known, and none exists below the extensive symmetric searches of Coppersmith, Mossinghoff, Scheinerman and VanderKam. We first correct a folklore correspondence: $E_n$ solutions are precisely the **sym-perfect** pairs of [\[BMR\]](#ref-BMR), a *proper* subclass of symmetric ideal solutions — Tarry's 1913 degree-$7$ solution is symmetric ideal but is not an $E_4$. As the headline result we prove the first explicit arithmetic lower bounds for an $E_5$: a **divisibility ladder** cascades the PTE-constant divisors of [\[CMSV\]](#ref-CMSV) through the nested radicals of the tower, forcing any $E_5$ over $\mathbb{Z}$ to satisfy $\sqrt{L_5} \ge C'_{16}/2 \approx 2.44 \times 10^{27}$, hence $L_5 \ge 5.9 \times 10^{54}$; combined with [\[CMSV\]](#ref-CMSV)'s exhaustive size-$16$ search, its largest root exceeds $850$ and $L_1 > 3.6 \times 10^{5}$. Supporting this we give a self-similar recursion identifying $E_n$ solutions with congruum-lifted $E_{n-1}$ value systems; a multiplicative parameterization over $\mathbb{Z}[i]$ reducing the $E_4$ conditions to a single polynomial constraint $W(\mathbf X) = 0$ (making explicit the scalar constraint of Dilcher and the variety of Bremner); and a proof that the fourth-power invariant $L_{2,d}$ factors through the norm form of $\mathbb{Z}[\sqrt 2]$, so its odd prime divisors are $\equiv \pm 1 \pmod 8$. We then give per-norm enumeration and top-/bottom-collision search algorithms and report an exhaustive catalog of $E_4$ solutions.
+For integers $L_1, \dots, L_n$ let $E_n(x) = ((\cdots(x^2 - L_1)^2 - L_2)^2 \cdots)^2 - L_n$, a polynomial of degree $2^n$; we call $(L_1, \dots, L_n)$ an **$E_n$ solution** when $E_n$ splits completely over $\mathbb{Z}$. Such polynomials are exactly the *skew $2^n$-gems* of Borchert, McKenzie and Reinhardt, and each yields, via its top split, an ideal symmetric solution of the Prouhet–Tarry–Escott (PTE) problem of size $2^{n-1}$. No $E_5$ solution (PTE size $16$) is known, and none exists below the extensive symmetric searches of Coppersmith, Mossinghoff, Scheinerman and VanderKam. We first correct a folklore correspondence: $E_n$ solutions are precisely the **sym-perfect** pairs of [\[BMR\]](#ref-BMR), a *proper* subclass of symmetric ideal solutions — Tarry's 1913 degree-$7$ solution is symmetric ideal but is not an $E_4$. As the headline result we prove the first explicit arithmetic lower bounds for an $E_5$: a **divisibility ladder** cascades the PTE-constant divisors of [\[CMSV\]](#ref-CMSV) through the nested radicals of the tower, forcing any $E_5$ over $\mathbb{Z}$ to satisfy $\sqrt{L_5} \ge C'_{16}/2 \approx 2.44 \times 10^{27}$, hence $L_5 \ge 5.9 \times 10^{54}$; combined with [\[CMSV\]](#ref-CMSV)'s exhaustive size-$16$ search, its largest root exceeds $850$ and $L_1 > 3.6 \times 10^{5}$. Supporting this we give a self-similar recursion identifying $E_n$ solutions with congruum-lifted $E_{n-1}$ value systems; a multiplicative parameterization over $\mathbb{Z}[i]$ reducing the $E_4$ conditions to a single polynomial constraint $W(\mathbf X) = 0$ (making explicit the scalar constraint of Dilcher and the variety of Bremner); and a proof that the fourth-power invariant $L_{2,d}$ factors through the norm form of $\mathbb{Z}[\sqrt 2]$, so its odd prime divisors are $\equiv \pm 1 \pmod 8$. We then give per-norm enumeration and top-/bottom-collision search algorithms and report an exhaustive catalog of $E_4$ solutions.
 
 ## 1. Introduction
 
@@ -51,7 +51,7 @@ $$
 
 a monic polynomial of degree $2^n$. We call $(L_1, \dots, L_n)$ an **$E_n$ solution** when $E_n$ factors completely into linear factors over $\mathbb{Z}$. The $E_3$ case was parameterized by Dilcher [\[Dil\]](#ref-Dil), who reduced it to writing an integer as a sum of two squares in two ways; the same reduction underlies the recent density results of Tsai, Lee and Takahashi [\[TLT\]](#ref-TLT) for degree-$3$ symmetric PTE (our $E_3$). The $E_4$ case is exactly Bremner's problem of splitting $(((X^2 - P)^2 - Q)^2 - R)^2 - S^2$ [\[Bre\]](#ref-Bre); he constructed two infinite families via elliptic curves and posed the existence of $E_5$ (five nested squares) as **open**. Notably, Dilcher had earlier *claimed $E_4$ impossible* — an assertion refuted by Bremner and by an example of Symes.
 
-Iterated-squaring polynomials also carry algebraic-complexity content. In the terminology of Borchert, McKenzie and Reinhardt [\[BMR\]](#ref-BMR), an $E_n$ solution is a **skew $2^n$-gem**: a $\{+,-,\times\}$-circuit computing a degree-$2^n$ polynomial with $2^n$ distinct integer roots using the minimum $n$ product gates. Skew $2^n$-gems for infinitely many $n$ would refute the Bürgisser $L$-conjecture and the Blum–Cucker–Shub–Smale $\tau$-conjecture (hence $\mathrm{P}_{\mathbb{C}} \ne \mathrm{NP}_{\mathbb{C}}$), and connect to integer factoring. Gems are known through $n = 4$; a skew $32$-gem ($E_5$) would be the first at $n = 5$, and [\[BMR\]](#ref-BMR) report failing to find one.
+Iterated-squaring polynomials also carry algebraic-complexity content. In the terminology of Borchert, McKenzie and Reinhardt [\[BMR\]](#ref-BMR), an $E_n$ solution is a **skew $2^n$-gem**: a $\{+,-,\times\}$-circuit computing a degree-$2^n$ polynomial with $2^n$ distinct integer roots using the minimum $n$ product gates. Skew $2^n$-gems for infinitely many $n$ would refute the Blum–Cucker–Shub–Smale $\tau$-conjecture — that the number of integer roots of a polynomial is polynomially bounded in its straight-line complexity — and Bürgisser's related $L$-conjecture; since the $\tau$-conjecture is one of the statements known to imply $\mathrm{P}_{\mathbb{C}} \ne \mathrm{NP}_{\mathbb{C}}$, its status is of central interest, and the construction also connects to integer factoring. Gems are known through $n = 4$; a skew $32$-gem ($E_5$) would be the first at $n = 5$, and [\[BMR\]](#ref-BMR) report failing to find one.
 
 ### Contributions
 
@@ -94,11 +94,11 @@ $$
 r_{2k}^2 + r_{2k+1}^2 = 2L_1 \\
 (r_{4k}^2 - r_{4k+1}^2)^2 + (r_{4k+2}^2 - r_{4k+3}^2)^2 = 8L_2 \\
 ((r_{8k}^2 - r_{8k+1}^2)^2 - (r_{8k+2}^2 - r_{8k+3}^2)^2)^2 \\
-\qquad {} + ((r_{8k+4}^2 - r_{8k+5}^2)^2 - (r_{8k+6}^2 - r_{8k+7}^2)^2)^2 = 32L_3
+\qquad {} + ((r_{8k+4}^2 - r_{8k+5}^2)^2 - (r_{8k+6}^2 - r_{8k+7}^2)^2)^2 = 128L_3
 \end{gathered}
 $$
 
-We refer to a constraint at the $n$-th level as the **$L_n$ condition**. Note that an $L_{n>1}$ condition possesses certain degrees of freedom arising from the lower conditions in the tree. These are exactly the **litter conditions** of [\[BMR, Def. 5.2\]](#ref-BMR) (whence the name): on the squared roots $r_0^2, \dots, r_{2^{n-1}-1}^2$, labelling each internal node of the tree by the product of the leaves below it, the litter conditions require the two children of every node at a fixed level to have equal sum; the $L_1$ and $L_2$ rows above are [\[BMR\]](#ref-BMR)'s first two litter conditions verbatim. Useful augmentations of the $L_2$ condition include:
+We refer to a constraint at the $n$-th level as the **$L_n$ condition**. Nesting the recursion of §3 shows the level-$k$ normalizing constant is $2^{2^k-1}$ — the values $2, 8, 128, \dots$ (not the arithmetic $2, 8, 32$; the constant doubles its exponent, not increments it). Note that an $L_{n>1}$ condition possesses certain degrees of freedom arising from the lower conditions in the tree. These are exactly the **litter conditions** of [\[BMR, Def. 5.2\]](#ref-BMR) (whence the name): on the squared roots $r_0^2, \dots, r_{2^{n-1}-1}^2$, labelling each internal node of the tree by the product of the leaves below it, the litter conditions require the two children of every node at a fixed level to have equal sum; the $L_1$ and $L_2$ rows above are [\[BMR\]](#ref-BMR)'s first two litter conditions verbatim. Useful augmentations of the $L_2$ condition include:
 
 $$
 \begin{gathered}
@@ -159,7 +159,7 @@ This is the headline of the paper: an $E_5$ solution, if it exists, is forced to
 
 ### The PTE constant and its required divisors
 
-For an ideal PTE solution $(A, B)$ of size $n$, the polynomial difference $\prod_i(x - a_i) - \prod_i(x - b_i)$ is a constant, denoted $C_n(A, B)$. Let $C_n$ (resp. $C'_n$) be the greatest common divisor of $C_n(A, B)$ over all ideal (resp. symmetric ideal) solutions of size $n$. Kleiman, Rees–Smyth, Caley, Filaseta–Markovich and [\[CMSV\]](#ref-CMSV) established that these constants are highly composite; [\[CMSV, Table 1\]](#ref-CMSV) records the required divisors. The two rows we need are
+For an ideal PTE solution $(A, B)$ of size $n$, the polynomial difference $\prod_i(x - a_i) - \prod_i(x - b_i)$ is a constant, denoted $C_n(A, B)$. Let $C_n$ (resp. $C'_n$) denote the largest integer proven to divide $C_n(A, B)$ for *every* ideal (resp. symmetric ideal) solution of size $n$ — a **required divisor**, established by local and $2$-adic arguments rather than by exhibiting solutions, so that it is meaningful even at sizes (such as $16$) where no solution is known. Kleiman, Rees–Smyth, Caley, Filaseta–Markovich and [\[CMSV\]](#ref-CMSV) showed these required divisors are highly composite; [\[CMSV, Table 1\]](#ref-CMSV) records them. The two rows we need are
 
 $$
 C'_8 \supseteq 2^6 \cdot 3^3 \cdot 5^2 \cdot 7^2 \cdot 11 \cdot 13, \qquad
@@ -191,7 +191,7 @@ $$
 
 This bound on the tower depth is complemented by a bound on the tower *height* coming from [\[CMSV\]](#ref-CMSV)'s exhaustive search. Their symmetric size-$16$ search found no solution of height $\le 850$. Since the top split of an $E_5$ is a symmetric ideal size-$16$ solution whose height is the largest root $r_{\max}$, we get $r_{\max} > 850$; and as $r_{\max}^2 = L_1 + \sqrt{L_2 + \cdots} \in [L_1, 2L_1]$ (the smallest root being real), this gives $L_1 > 850^2/2 = 361{,}250$. We record this separately because the two arguments are independent: the ladder bounds $L_5$ from *below* via local arithmetic; the exhaustive search bounds the height. (The ladder alone yields only $L_1 \ge (C'_{16}/2)^{1/8} \approx 2.7 \times 10^3$ through the chain $\sqrt{L_5} \le L_1^{8}$, weaker than the search.)
 
-**A correction.** An earlier estimate of this bound used $C'_{16}/2 \approx 1.43 \times 10^{26}$; that value omits the prime $17$ (equivalently, it computes $C'_{16}/(2 \cdot 17)$). Since $17 \mid C_{16}$ in [\[CMSV, Table 1\]](#ref-CMSV), the correct value is the one above, larger by a factor of $17$. The exponents in $C'_{16}$ should be re-checked directly against [\[CMSV, Table 1\]](#ref-CMSV) before publication; the primes are what dominate the magnitude.
+**Remark.** The constant $C'_{16}/2$ uses the full prime content of [\[CMSV, Table 1\]](#ref-CMSV), including the factor $17 \mid C_{16}$; dropping that prime gives the smaller $\approx 1.43 \times 10^{26}$, understating the bound seventeenfold. The magnitude is dominated by the primes present rather than by their exponents.
 
 **Congruence sieve.** Beyond the magnitude bound, Theorem 4.1 forces specific prime content at every level of any $E_5$ tower (e.g. $18 \mid \sqrt{L_3 \pm \sqrt{L_4}}$ at each level-$3$ node). These forced divisors are a congruence pre-sieve for the searches of §6.
 
@@ -340,12 +340,27 @@ $$
 
 And the $L_2$ condition is agnostic to the order within the pairs and between them. This imposes an equivalence on some of the syndrome patterns, inviting us to canonize the syndrome patterns with respect to this equivalence.
 
+### The Degenerate Locus of $W$
+
+Not every zero of $W$ is a genuine solution: the parameterization introduces spurious components that any counting or enumeration must discard.
+
+**Proposition 5.4 (genuine vs. degenerate zeros).** *Let $A, \dots, H$ be the coordinates of $\Phi(\mathbf{X})$. Then $\Phi(\mathbf{X})$ is a genuine $E_4$ solution — a skew $16$-gem with $16$ distinct nonzero roots — if and only if $W(\mathbf{X}) = 0$ and the eight integers $|A|, |B|, \dots, |H|$ are nonzero and pairwise distinct. The remaining zeros of $W$ form the **degenerate locus***
+$$
+D = \{ W = 0 \} \cap \{ \Delta = 0 \}, \qquad
+\Delta(\mathbf{X}) := \Big( \prod_{\rho} \rho \Big) \Big( \prod_{\rho < \rho'} (\rho^2 - \rho'^2) \Big), \quad \rho, \rho' \in \{ A, \dots, H \},
+$$
+*a proper closed subvariety of positive codimension. It contains the coordinate loci $X_t = 0$ (on which all $n_j$ vanish), the loci where some $n_j$ has a zero real or imaginary part (a root at $0$), and the coincidence loci $n_i = \zeta n_j$ or $n_i = \zeta \overline{n_j}$ for a unit $\zeta$ and $i \ne j$ (repeated roots).*
+
+*Proof.* By Proposition 5.2, $W(\mathbf{X}) = 0$ closes the tower with integer $L_1, \dots, L_4$, and the resulting $E_4$ has the sixteen roots $\pm A, \dots, \pm H$; these are distinct and nonzero exactly when $|A|, \dots, |H|$ are, i.e. when $\Delta(\mathbf{X}) \ne 0$, and only then is it a skew $16$-gem (§1). Each listed locus forces $\Delta = 0$: $X_t = 0$ makes every $n_j = \prod_t X_t^{(\pm)}$ vanish; a zero coordinate places a root at $0$; and $n_i = \zeta n_j$ (or $\zeta \overline{n_j}$) equates two root pairs up to the symmetries fixing the root set, repeating roots. The locus is proper — not all of $\{W = 0\}$ — as witnessed by the exemplar of §7, a point with $\Delta \ne 0$. $\square$
+
+The enumeration therefore keeps only zeros with $\Delta \ne 0$, a distinctness test costing one pass over the eight coordinates, and the census below is taken on the complement of $D$.
+
 > **TODO (canonization lemma — makes the syndrome census well-defined):** Prove
 > a unique canonical syndrome representative under unit twists, relabeling, and
-> the pair/pair-of-pairs symmetry. Without it the "syndrome patterns" statistic
-> in §7 is not well-defined. Also characterize and saturate away the
-> **degenerate locus** of $W=0$ (repeated roots, coincident $n_i$, zero
-> coordinates) before any zero-counting use. (`drafts/critical_review.md` §3.)
+> the pair/pair-of-pairs symmetry — for norms with a repeated split prime
+> ($b \ge 2$) the representative is a *multiset* over buckets (Proposition 5.1).
+> Without it the "syndrome patterns" statistic in §7 is not well-defined. (The
+> degenerate locus is now handled by Proposition 5.4; `drafts/critical_review.md` §3.)
 
 ### The $L_{2,d}$ Condition and Fourth Powers
 
@@ -387,9 +402,11 @@ $$
 
 This refactors the degree 32 equation into degree 8 terms, each involving only 8 variables, thus potentially simplifying numerical searches.
 
-## 6. Algorithms
+## 6. Algorithms and Search Design
 
-### Implementation-Aware Enumeration of $E_4$ Solutions
+The structure theory affords three independent ways to hunt for an $E_5$, which we combine. Per-norm enumeration (§6.1, from the parameterization of §5) builds the catalog of $E_4$ solutions; the **top-collision** search (§6.3, from the Key Property of §2) and the **bottom-lift** search (§6.4, from Corollary 3.2) then seek the $E_5$ above the catalog from two ends, with the meet-in-the-middle cut points of §3 in between. The divisibility ladder of §4 supplies a congruence pre-sieve (§6.5), and an $\mathbb{F}_p$ model (§6.6) supplies local densities, sieve wheels, and a potential nonexistence certificate. Everything runs in two pre-registered regimes (§6.2) — exhaustive-to-$B$, which licenses exclusion, and champion-norm, which supports discovery — under a hardening protocol (§6.8) appropriate to a headline null result.
+
+### 6.1 Per-Norm Enumeration of $E_4$ Solutions
 
 **Goal:** Find all $E_4$ solutions for a given norm $N$.
 
@@ -403,6 +420,7 @@ This refactors the degree 32 equation into degree 8 terms, each involving only 8
 - Construct the set $U$ of all Gaussian integers with norm $\tilde{N} = q_1^{b_1} \dots q_s^{b_s}$. We compute $U$ in a tree-like fashion, branching over each factor and its conjugate.
   - Start with $U = \{1\}$
   - For each $q_1$ in $\tilde{N}$'s factorization (including multiplicities): $U \ \longleftarrow \ \mathrm{q_1}U  \bigcup \overline{\mathrm{q_1}}U$
+  - Branching over *each copy* of a repeated prime realizes every exponent $\mathrm{q}_i^{c}\overline{\mathrm{q}}_i^{\,b_i-c}$, $0 \le c \le b_i$, so $U$ is complete for non-squarefree norms too (Proposition 5.1) — the coverage the exhaustive regime of §6.2 requires.
 - Canonize elements to the first octant ($a + ib: 0 \le b \le a$) and remove duplicates.
 - Compute $r_{x,y} = (xy)^2$ (using two integer multiplications)
 
@@ -423,24 +441,44 @@ This refactors the degree 32 equation into degree 8 terms, each involving only 8
 - Computing the decompositions of the gaussian factors can be done as a preliminary stage and reused.
 - We are likely to enumerate large sets of norms, therefore we should not find it hard to parallelize the search. Furthermore, jointly enumerating certain norms together allows us to amortize some of the work, for e.g., if the norms share factors that saves some of arithmetic in Stage 2.
 
-> **TODO (additional algorithms — see `drafts/critical_review.md` §6 and
-> Front 1):**
->
-> - **Non-squarefree extension** of the enumerator: iterate exponent vectors
->   $0 \le e_i \le b_i$ per the constructive proof of Proposition 5.1 (the math is
->   now discharged; this is the code half, on which every exclusion claim depends).
->   A reference reconstruction is in `drafts/verify_claims.py` §6.
-> - **Top-collision** hash-join on $(L_1,L_2,L_3)$ across catalog and families.
-> - **Bottom-lift** divisor join with the parity wheel ($\mu$ up to
->   $10^5\text{–}10^6$).
-> - **Ladder congruence pre-sieve** (the forced divisors of §4) baked in
->   downstream.
-> - **Symbolic family intersection** via resultants/Gröbner (blocked on
->   identifying [\[Bre\]](#ref-Bre)'s families symbolically — now available, see `drafts/sources_insight.md` §1).
-> - **Hardening protocol** for the exclusion certificate: two independent
->   implementations, synthetic solution injection, the family self-test
->   (re-find [\[Bre\]](#ref-Bre)'s members incl. non-squarefree $k$), $\mathbb{F}_p$
->   density cross-checks, pre-registered bounds, checkpointed logs.
+### 6.2 The Exhaustive Regime and the $E_5$ Exclusion
+
+We run the search in two **pre-registered regimes**, kept rigorously separate because they support different claims.
+
+- **(i) Exhaustive-to-$B$ (licenses exclusion).** Enumerate every admissible canonical $L_1 \le B$ and run §6.1 to completion on each. An *admissible* $L_1$ is one whose norm $2L_1$ has at least two representations as a sum of two squares — equivalently at least two split-prime factors counted with multiplicity, so a single repeated split prime $p^2$ qualifies (whence the non-squarefree case of §6.1 is mandatory). Generating the admissible $L_1 \le B$ is a linear sieve over products of primes $\equiv 1 \pmod 4$.
+- **(ii) Champion norms (supports discovery only).** Target norms with many small split primes ($s \approx 20$), where $|U| = 2^s$ is large and level-$2$ collisions are likeliest, on GPU. These do **not** certify exhaustiveness at any $L_1$ bound.
+
+The exclusion statement is then exact and elementary.
+
+**Proposition 6.1 (exclusion).** *An exhaustive $E_4$ catalog over all admissible $L_1 \le B$ in which no two entries share $(L_1, L_2, L_3)$ proves that no $E_5$ solution has $L_1 \le B$.*
+
+*Proof.* By the Key Property (§2) an $E_5$ is a pair of $E_4$ solutions sharing $(L_1, L_2, L_3)$; both constituents carry the same $L_1$, which is the $L_1$ of the $E_5$. Were that $\le B$, both $E_4$ halves would lie in the catalog and collide on $(L_1, L_2, L_3)$. $\square$
+
+The completeness of "catalog over all admissible $L_1 \le B$" rests on §6.1's coverage of non-squarefree norms (Proposition 5.1) — hence the family self-test of §6.8. Within $B = 10^{12}$ an admissible $L_1$ has at most nine split-prime factors (the product of the first ten primes $\equiv 1 \pmod 4$ already exceeds $10^{13}$), so $|U| \le 2^8$ per norm and the per-norm pair count is small; the cost is dominated by the $\sim 10^{10}$–$10^{11}$ admissible norms. Exhaustive-to-$10^{12}$ beats the unconditional $L_1 > 3.6 \times 10^5$ of §4 by seven orders of magnitude.
+
+### 6.3 Top-Collision $E_5$ Search
+
+The direct route (Key Property). For each catalogued $E_4$, recover its tower $(L_1, L_2, L_3, \sqrt{L_4})$ by the peeling of §3 and hash on the key $(L_1, L_2, L_3)$; a collision between two entries with distinct $L_4$ is an $E_5$, with common inner coefficient $\tfrac12(L_4^{(1)} + L_4^{(2)})$ and $\sqrt{L_5} = \tfrac12(L_4^{(2)} - L_4^{(1)})$. This runs over the catalog and over the symbolic families of §6.7, whose parameters range past $B$.
+
+### 6.4 Bottom-Lift $E_5$ Search
+
+The dual route (Corollary 3.2). For each catalogued $E_4$ with positive roots $r'_0, \dots, r'_7$, seek a scaling $\mu$ and integer $L$ with $L \pm \mu r'_k$ both perfect squares for all eight $k$ — an $E_5$ sitting above it. Writing $L + \mu r'_k = a_k^2$ and $L - \mu r'_k = b_k^2$ gives $a_k^2 - b_k^2 = 2\mu r'_k$, a divisor enumeration of $2\mu r'_k$ tied together by the shared $L = (a_k^2 + b_k^2)/2$; the eight conditions are an $8$-way divisor/hash join. The parity wheel prunes hard: under the odd-$L_1$ normalization the roots are odd, forcing $\mu \equiv 0 \pmod 4$ (so $\mu = 1, 2, 3$ give nothing). Screen the whole catalog with $\mu$ up to $10^5$–$10^6$, pre-registered so the expected null is publishable.
+
+### 6.5 The Ladder Congruence Pre-Sieve
+
+The forced divisors of §4 are a cheap upstream filter: any $E_5$ tower has $2^5 \cdot 3^3 \cdot 5^2 \cdot 7^2 \cdot 11 \cdot 13 \mid \sqrt{L_4}$ at each level-$4$ node, $18 \mid \sqrt{L_3 \pm \sqrt{L_4}}$ at each level-$3$ node, and $C'_{16}/2 \mid \sqrt{L_5}$ at the top, so norms whose towers cannot meet these congruences are discarded before enumeration. **Caveat: completeness is a theorem.** A congruence pre-sieve trades exhaustiveness for speed — "we skip these $L_1$ because provably no solution lives there" is itself a claim requiring proof, and an over-aggressive sieve silently voids the exclusion. We sieve only on the provably necessary congruences of §4 and cross-check surviving counts against §6.6.
+
+### 6.6 The $\mathbb{F}_p$ Tower Sieve
+
+Enumerating full-splitting towers over a finite field is cheap dynamics: for each prime $p \le 10^3$ and depth $3 \le d \le 5$, count the $(L_1, \dots, L_d) \in \mathbb{F}_p^d$ for which $E_d$ splits completely over $\mathbb{F}_p$. This yields three products at once: (a) the **local densities** $\sigma_p$ feeding the singular series of §8; (b) **sieve wheels** — residue classes of $L_1$ carrying no local tower, pruning §6.2; and (c) the **nonexistence branch** — a single prime admitting *zero* full-splitting depth-$5$ towers would prove unconditionally that no $E_5$ exists over $\mathbb{Z}$. Per-norm $E_4$ counts are cross-checked against this model, where a systematic deviation flags a bug rather than a discovery.
+
+### 6.7 Symbolic Family Intersection
+
+Bremner's two $E_4$ families are available in closed form ([\[Bre\]](#ref-Bre); `drafts/sources_insight.md` §1): the first parameterized by the rank-$1$ elliptic curve $Y^2 = (X-4)(X-3)(X+6)$, the second by the rank-$1$ curve $Y^2 = X^3 - X^2 - 8X + 112$. An $E_5$ containing two family members is a rational solution of $L_1(k) = L_1'(m)$, $L_2(k) = L_2'(m)$, $L_3(k) = L_3'(m)$ — three equations in two curve-parameters — solvable by resultants or Gröbner bases, including self-collisions within a family and automorphisms fixing $(L_1, L_2, L_3)$ but moving $L_4$. This is finite and decisive: any rational point is an $E_5$, and its absence rules the families out. No prior work has intersected the *families*; the pilot of §7 compared only finitely many numerical members.
+
+### 6.8 Hardening Protocol
+
+The headline deliverable is a null, and a null is a *certificate* whose validity is mathematics: a bug in an exclusion search returns "nothing found" indistinguishably from a true absence. We therefore adopt the standard record-computation protocol: (1) **two independent implementations** (ideally two authors); (2) **synthetic-solution injection** — plant known $E_4$'s and a fabricated $E_5$ over a small auxiliary ring, and confirm recovery; (3) the **family self-test** — re-derive every member of [\[Bre\]](#ref-Bre)'s families, *including the non-squarefree $L_1(k)$*, the test that exposes an S3 coverage hole (Proposition 5.1); (4) **$\mathbb{F}_p$ count cross-checks** (§6.6); (5) **pre-registered bounds and checkpointed logs**, fixing the frontier $B$ before the run and making it reproducible.
 
 ## 7. Computational Results — The Exhaustive Campaign
 
@@ -513,19 +551,43 @@ $$
 
 ## 8. A Density Heuristic
 
-> **TODO (new section):** Multidegree / circle-method count (see
-> `drafts/critical_review.md` §4(iii), §8). Start at $E_4$ ([\[TLT\]](#ref-TLT) cover
-> $E_3$):
->
-> - $E_4$ is a type $(2,2,2,4)$ complete intersection in $\mathbb{P}^7$
->   (canonical class $\mathcal{O}(2)$, general type); circle-method exponent
->   $H^{8-10}=H^{-2}$ — yet infinite families exist, so the families live on
->   special rational subvarieties (Lang–Vojta).
-> - $E_5$ is type $(2^7,4^3,8)$ in $\mathbb{P}^{15}$ ($\mathcal{O}(18)$, very
->   general type); exponent $H^{16-34}=H^{-18}$: essentially no accidental
->   solutions.
-> - State as a conjecture with constants from the $\mathbb{F}_p$ run (§6/R7);
->   hedge on smoothness.
+How many $E_n$ solutions should exist below a given height, and why does the count collapse between $E_4$ (infinite families) and $E_5$ (none known)? We sketch a heuristic that makes the transition quantitative; it is the $E_4/E_5$ generalization of the rigorous $E_3$ count of [\[TLT\]](#ref-TLT), with constants to be pinned down by the $\mathbb{F}_p$ run of §6.6. Every statement in this section is heuristic or conjectural, as marked; §8 is a research plan, not a theorem.
+
+### 8.1 The multidegree count
+
+In root coordinates the $E_n$ solutions form a projective variety $V_n$ cut out by the tree conditions of §2. For $E_4$ this is Bremner's threefold: a complete intersection of type $(2,2,2,4)$ in $\mathbb{P}^7$ — the three quadric $L_1$-conditions and one quartic $L_2$-condition [\[Bre\]](#ref-Bre) — with canonical class $\mathcal{O}(2 + 2 + 2 + 4 - 8) = \mathcal{O}(2)$, hence of general type. The naive circle-method expectation for the number of integer points of height $\le H$ on a codimension-$c$ complete intersection of multidegree $(d_1, \dots, d_c)$ in $\mathbb{P}^N$ is
+$$
+\#\{ \text{height} \le H \} \;\sim\; \mathfrak{S} \cdot H^{\,(N+1) - \sum_i d_i},
+$$
+the exponent being (number of variables) $-$ (total degree). For $E_4$: $(N{+}1) - \sum d_i = 8 - 10 = -2$, an $H^{-2} \to 0$ expectation of *accidental* solutions — yet Bremner's two infinite families exist. The families therefore do not arise from the generic count; they lie on special rational subvarieties (rational curves, §9), exactly as Lang–Vojta predicts for a general-type variety, whose rational/integral points are conjecturally confined to a proper closed **special locus**.
+
+For $E_5$ the variety $V_5 \subset \mathbb{P}^{15}$ has type $(2^7, 4^3, 8)$ — seven $L_1$-quadrics, three $L_2$-quartics, one $L_3$-octic — total degree $14 + 12 + 8 = 34$, canonical class $\mathcal{O}(18)$, exponent $16 - 34 = -18$. An $H^{-18}$ expectation says accidental $E_5$ solutions essentially never occur, and any that existed would again live on a special locus. **Honestly framed, the $E_5$ problem is the problem of deciding whether the special locus of $V_5$ carries a primitive integral point — not a needle-in-a-haystack enumeration.** (The exact codimension and canonical class of $V_5$ are to be confirmed as part of §9; the qualitative $H^{-18}$ scaling is robust to the bookkeeping.)
+
+### 8.2 The sum-of-two-squares refinement
+
+The multidegree count treats the $L_1$-conditions as generic quadrics, but they are the *equal-norm* condition, whose solution count is governed by the sum-of-two-squares function $r_2$ rather than a generic local density. This is the mechanism [\[TLT\]](#ref-TLT) make rigorous for $E_3$: after centering, a symmetric ideal degree-$3$ solution is an equality $x^2 + y^2 = u^2 + v^2$, and the count to height $H$ is
+$$
+N_{\mathrm{sym}}(H) = \frac{4 \log 2}{3\pi^2}\, H^3 \log H + O(H^3),
+$$
+the $\log H$ enhancement being the **second moment** $\sum_{n \le X} r_2(n)^2 \asymp X \log X$ (Borwein–Choi [\[BC\]](#ref-BC)): an $E_3$ exists at norm $n$ precisely when $n$ has two essentially different representations as a sum of two squares, and the number of representation *pairs* is the second moment of $r_2$. Our $E_4$ count is the next moment up: an $E_4$ at norm $2L_1$ needs two *pairs* of equal-norm representations meeting the additional $L_2$-condition, so the leading term is a correlation sum of $r_2$ over norms carrying the quartic constraint. Identifying that sum and its main term is the analytic core of §8, and lifting [\[TLT\]](#ref-TLT)'s second-moment method from $E_3$ to $E_4$ is itself an open problem.
+
+### 8.3 The conjecture and the plan
+
+Assembling the archimedean density, the singular series $\mathfrak{S} = \prod_p \sigma_p$ from §6.6, and the $r_2$-weighting yields a conjecture of the shape
+$$
+\#\{ E_4 \text{ solutions}, \ L_1 \le B \} \;\sim\; c\, B^{\theta} (\log B)^{\kappa},
+$$
+for explicit $\theta, \kappa$ and a constant $c$ read off the $\mathbb{F}_p$ run, to be tested against the catalog counts of §7. For $E_5$ the same machinery predicts a convergent-to-zero count — the conjecture that **no primitive $E_5$ exists over $\mathbb{Z}$**, consistent with §4's lower bounds and framed as Lang–Vojta finiteness on $V_5$.
+
+Concretely, §8 is realized in dependence order:
+
+1. **Confirm the geometry.** Verify the multidegree, codimension and canonical class of $V_4$ (done, via [\[Bre\]](#ref-Bre)) and $V_5$; locate the singular locus (feeds §9).
+2. **Local densities.** Compute $\sigma_p$ from the §6.6 $\mathbb{F}_p$ tower enumeration; check $\prod_p \sigma_p$ converges, folding in the forced-divisor content of §4–§5 that biases the small-$p$ factors — the observed smoothness of $L_{2,d}$ (§5, §7) *is* this bias.
+3. **Archimedean factor.** The real density (volume of the height-$\le 1$ real solution set).
+4. **The $r_2$ moment.** Identify the correlation sum of $r_2$ governing paired equal-norm representations under the $L_2$-condition; extract $\theta, \kappa$.
+5. **Fit and falsify.** Compare $c\, B^\theta (\log B)^\kappa$ to the §7 catalog; a mismatch is a bug signal (§6.8) or a genuine correction to the heuristic.
+
+We state the $E_4$ density as a conjecture, not a theorem: the smoothness bias and the special-subvariety contributions — which *dominate* for $E_4$, since the families live there — are not controlled by the circle method.
 
 ## 9. Future Directions
 

@@ -28,19 +28,25 @@ W1 (theory) and W2 (code) in parallel, then the campaign, then W3 write-up.
       symmetric subclass" framing.
 - [ ] Medium: §3 tower recursion theorem (uₖ = (r²₂ₖ − r²₂ₖ₊₁)/2) with explicit
       2-power bookkeeping + parity corollary + bottom-lift criterion.
-- [ ] Medium: §4 divisibility ladder theorem + E₅ lower-bound corollary;
-      **independently re-derive** the constants (√L₅ ≥ 1.43×10²⁶, root > 3400,
-      L₁ > 5.8×10⁶) from CMSV's C′₁₆.
+- [x] §4 divisibility ladder (Thm 4.1) + E₅ lower-bound corollary (4.2) — DRAFTED.
+      Constants independently re-derived and **corrected**: √L₅ ≥ C′₁₆/2 ≈ 2.44×10²⁷
+      (the review's 1.43×10²⁶ dropped the prime 17); root > 850, L₁ > 3.6×10⁵ from
+      CMSV's height-850 search (the ladder alone gives only L₁ ≳ 2650). Remaining:
+      confirm C′₁₆ exponents directly vs CMSV Table 1.
 - [x] §5 **surjectivity for all admissible norms** (repeated primes, units,
       ramified 2) — the load-bearing lemma. DONE: Prop 5.1 (constructive token
       argument), verified `verify_claims.py` §6.
 - [x] §5 **single-constraint reduction** $E_4 \iff W=0$. DONE: Prop 5.2; with
       Prop 5.1 gives "$E_4$ solutions = ℤ[i]-points of $\{W=0\}$".
+- [x] §5 degenerate locus of W — DONE (Prop 5.4: genuine E₄ ⟺ W=0 ∧ Δ≠0, where
+      Δ = the coordinate discriminant; D = {W=0}∩{Δ=0} is proper closed).
 - [ ] Hard: §5 canonization lemma (unique syndrome representative; the b≥2
-      multiset case) + degenerate locus of W — still open, blocks the §7 census.
-- [ ] Medium: §5 ℤ[√2] theorem (L₂,d odd primes ≡ ±1 mod 8) + smoothness
-      explanation.
-- [ ] Hard: §8 density heuristic / multidegree computation; geometry framing.
+      multiset case) — still open, blocks the §7 census.
+- [x] §5 ℤ[√2] theorem (L₂,d odd primes ≡ ±1 mod 8) + smoothness — DRAFTED (Thm 5.3).
+- [ ] §8 density heuristic — research PLAN drafted (multidegree H⁻²/H⁻¹⁸, r₂
+      second-moment lift of [TLT], 5-step plan). Computation pending: confirm V₅
+      multidegree/canonical class; σ_p singular series (needs §6.6 Fₚ run); the r₂
+      correlation-sum main term for E₄.
 - [ ] Misc: trace the etymology of the "Litter" conditions.
 
 ## W2 — Code / campaign (paper §§6–7)
@@ -66,6 +72,13 @@ W1 (theory) and W2 (code) in parallel, then the campaign, then W3 write-up.
 
 ## W3 — Writing / infra
 
+- [x] §6 rewritten as a full search design (6.1–6.8, incl. Prop 6.1 exclusion);
+      §8 drafted as a density research plan. (Prose only — the runs are W2.)
+- [x] Defect fixes (critical pass, see `drafts/sources_insight.md` §5c): §2
+      level-3 tree constant **32L₃ → 128L₃** (verified; general constant 2^{2^k-1});
+      abstract correspondence (single E_n → size 2^{n-1}, not "in pairs"); §1
+      τ-conjecture implication direction; §4 required-divisor definition; trimmed
+      §4 internal "correction" note.
 - [ ] Rewrite the abstract bounds-forward.
 - [ ] Write §1 Introduction (PTE state of the art, CMSV, BMR/gems, TLT, contributions).
 - [ ] Fix references: full citations, identify [3], add [4] CMSV, [5] TLT.

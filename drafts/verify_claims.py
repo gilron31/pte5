@@ -250,3 +250,21 @@ print("  q=2+i exponents (c1..c4) incl the c=1 'real 5' pair:",
 ok2 = check_surj(nsq, "non-squarefree 5^2*13*17 (S3 primitive case)")
 
 print("\nALL CH.5 CHECKS PASS:", (W(exemplar)==0) and ok1 and ok2)
+
+print("\n"+"="*70)
+print("7. TREE-CONDITION CONSTANTS on exemplar (2, 8, 128 = 2^(2^k-1))")
+print("="*70)
+sq = [r*r for r in coords]  # coords = [A,B,C,D,E,F,G,H]
+# L1 (level 1): r_{2k}^2 + r_{2k+1}^2 = 2 L1
+c1 = (sq[0]+sq[1])
+print("L1: (r0^2+r1^2)/L1 =", c1//L1, "rem", c1 % L1, " expect 2")
+# L2 (level 2): (r0^2-r1^2)^2 + (r2^2-r3^2)^2 = 8 L2
+c2 = (sq[0]-sq[1])**2 + (sq[2]-sq[3])**2
+print("L2: LHS/L2       =", c2//L2, "rem", c2 % L2, " expect 8")
+# L3 (level 3): ((r0^2-r1^2)^2-(r2^2-r3^2)^2)^2 + ((r4^2-r5^2)^2-(r6^2-r7^2)^2)^2 = 128 L3
+c3 = ((sq[0]-sq[1])**2-(sq[2]-sq[3])**2)**2 + ((sq[4]-sq[5])**2-(sq[6]-sq[7])**2)**2
+print("L3: LHS/L3       =", c3//L3, "rem", c3 % L3, " expect 128  (paper previously said 32 -- BUG, now fixed)")
+assert c1//L1==2 and c1%L1==0
+assert c2//L2==8 and c2%L2==0
+assert c3//L3==128 and c3%L3==0
+print("TREE-CONDITION CONSTANTS OK: (2, 8, 128)")

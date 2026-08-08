@@ -323,6 +323,68 @@ $W=0$ reduction inside $\Phi$ (Prop 5.2) is **ours as packaging** (Dilcher (3-2)
 constraint, ours is the $\Phi$-identity form plus the exhaustiveness that upgrades
 "necessary" to "iff").
 
+## 5c. Critical-pass findings (correctness / scope / novelty)
+
+A reviewer/advisor pass over the whole paper. Fixes applied unless noted.
+
+**Correctness bug (found + fixed + guarded).**
+- **§2 level-3 tree constant was wrong: `32L_3` → `128L_3`.** Verified on the
+  exemplar (`LHS/L_3 = 128`, remainder 0; `verify_claims.py` §7 now asserts this).
+  The level-$k$ constant is $2^{2^k-1}$ (values $2, 8, 128, \dots$), from nesting
+  the §3 recursion — *not* the arithmetic $2, 8, 32$ the old text assumed. The
+  recursion (§3) and the recovered-tower checks were unaffected (they use the $8L_2$
+  form, which was correct); only the displayed $L_3$ line was wrong. Worth a
+  self-note: **the pattern doubles the exponent each level**, so an $E_5$'s $L_4$
+  condition would carry $2^{15}=32768$.
+
+**Scope / statement precision (fixed).**
+- **Abstract correspondence.** "in pairs sharing $L_1..L_{n-1}$ … size $2^{n-1}$"
+  conflated two facts and mis-indexed. A *single* $E_n$ → symmetric ideal size
+  $2^{n-1}$ (BMR Cor 3.5, via its top split); "pairs sharing $L_1..L_{n-1}$" is the
+  Key Property (→ $E_{n+1}$, size $2^n$). Fixed to "each yields, via its top split,
+  … size $2^{n-1}$", matching the (correct) §2 body.
+- **§1 complexity implication.** "(hence $P_\mathbb{C}\ne NP_\mathbb{C}$)" was
+  backwards: refuting the $\tau$-conjecture does **not** establish the separation —
+  the $\tau$-conjecture *implies* $P_\mathbb{C}\ne NP_\mathbb{C}$, and gems *refute*
+  $\tau$. Reworded so the arrow is unambiguous. **Still to verify against BMR §6 /
+  Bürgisser**: the exact implication direction between the $L$-conjecture and the
+  $\tau$-conjecture (paper now just says gems refute both; safe).
+- **§4 required-divisor definition.** "gcd over all size-16 solutions" is ill-posed
+  when none is known. Fixed to "largest integer *proven* to divide $C_n(A,B)$ for
+  every solution — a required divisor, established by local/2-adic arguments." The
+  bound only needs the required-divisor property. Also trimmed the "should be
+  re-checked before publication" internal note in §4 to a clean remark.
+
+**Progress this pass (chapters 5, 6, 8).**
+- **§5 Proposition 5.4 (degenerate locus of $W$)** — done: genuine $E_4$ ⟺ $W=0$
+  **and** the 8 coordinates nonzero & pairwise-distinct ($\Delta\ne0$); $D=\{W=0\}\cap\{\Delta=0\}$
+  is proper closed (contains $X_t=0$, zero-coordinate, and coincidence loci).
+  Discharges the "degenerate locus" half of the §5 hygiene TODO; **canonization
+  lemma still open** (the multiset-syndrome case for $b\ge2$).
+- **§6 rewritten** into a full search design: 6.1 per-norm enumeration (with the
+  non-squarefree Stage-2 branching = Prop 5.1), 6.2 two regimes + **Prop 6.1
+  (exclusion)**, 6.3 top-collision, 6.4 bottom-lift, 6.5 ladder pre-sieve (with the
+  completeness-is-a-theorem caveat), 6.6 $\mathbb{F}_p$ tower sieve (density + wheels
+  + nonexistence branch), 6.7 symbolic family intersection, 6.8 hardening protocol.
+- **§8 drafted** as a density research plan: multidegree count ($E_4$ type $(2,2,2,4)$,
+  exponent $H^{-2}$ yet families exist → special loci; $E_5$ type $(2^7,4^3,8)$,
+  $\mathcal{O}(18)$, $H^{-18}$), the $r_2$ second-moment refinement (lift [TLT] $E_3$
+  → $E_4$), a 5-step plan. **To confirm:** the exact $V_5$ multidegree/codim/canonical
+  class (stated as research-plan item, not asserted).
+
+**Advisor-level strategic notes (unchanged risks).**
+- The **theorem inventory is still light**: Thm 4.1 (easy cascade of CMSV), Thm 5.3
+  (one-paragraph), Prop 3.1 (reformulation of BMR sym-perfect). The one genuinely
+  fiddly original piece — Prop 5.1 surjectivity — is now done. **Direction 5 (a new
+  required divisor $C^E_{16}$ specific to the towered class) is the only clear shot at
+  a genuinely new arithmetic theorem**; gated on reading CMSV §3 (their local families
+  foreclose some improvements — but not necessarily the towered ones).
+- **Literature pass (W0) is still blocking** the "first/new" framing: is the recursion
+  in Gloden/Dorwart–Brown/Chernick? Are Bremner's two families Chernick/Gloden
+  rediscovered? Identify before any "we introduce."
+- **The campaign (§7) is a pilot, not a run.** Everything computational above is
+  design, not results.
+
 ## 6. Verified computations (`drafts/verify_claims.py`)
 
 - Exemplar $E_4$ (`A=252885,...,H=148453`): four pair-norms all $=66131993434$,
