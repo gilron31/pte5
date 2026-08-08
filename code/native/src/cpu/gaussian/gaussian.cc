@@ -1,4 +1,4 @@
-#include "gaussian.h"
+#include "cpu/gaussian/gaussian.h"
 
 #include <algorithm>
 #include <cmath>

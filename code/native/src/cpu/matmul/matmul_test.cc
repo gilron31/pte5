@@ -1,7 +1,7 @@
 // Unit tests for the CPU matrix multiply.
 //
 // The oracle is Boost.uBLAS's prod(), which shares no code with matmul.cc.
-#include "matmul.h"
+#include "cpu/matmul/matmul.h"
 
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/operation.hpp>

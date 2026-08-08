@@ -5,9 +5,11 @@
 // (not nvcc) and reaches the kernels only through the plain-C++ src/gpu/gpu.h.
 //
 // Exits non-zero if any GPU result disagrees with the CPU reference.
-#include "bigint.h"
-#include "gpu.h"
-#include "matmul.h"
+#include "cpu/bigint/bigint.h"
+#include "cpu/matmul/matmul.h"
+#include "gpu/bigint/bigint.h"
+#include "gpu/core/device.h"
+#include "gpu/matmul/matmul.h"
 
 #include <chrono>
 #include <cmath>

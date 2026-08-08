@@ -3,7 +3,9 @@
 // The oracle is a plain host schoolbook loop written here in the test, so this
 // binary links pte_gpu and nothing else -- in particular no GMP. That is what
 // makes the GPU suite independent of the CPU suite.
-#include "gpu.h"
+#include "gpu/bigint/bigint.h"
+
+#include "gpu/core/device.h"
 
 #include <gtest/gtest.h>
 

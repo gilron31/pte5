@@ -2,7 +2,9 @@
 //
 // Oracle is a host triple loop written here, so this binary depends on pte_gpu
 // alone -- no GMP, no pte_cpu.
-#include "gpu.h"
+#include "gpu/matmul/matmul.h"
+
+#include "gpu/core/device.h"
 
 #include <gtest/gtest.h>
 

@@ -12,9 +12,10 @@
 // "Deferred" section of code/native/README.md.
 //
 // Exits non-zero if the CPU and GPU disagree, or if any hit fails verification.
-#include "enumerate.h"
-#include "gaussian.h"
-#include "gpu.h"
+#include "cpu/enumerate/enumerate.h"
+#include "cpu/gaussian/gaussian.h"
+#include "gpu/core/device.h"
+#include "gpu/meet/meet.h"
 
 #include <algorithm>
 #include <array>
@@ -72,11 +73,11 @@ int main() {
   // Context creation costs tens of milliseconds on the first launch; pay it
   // here so it is not billed to the meet.
   {
-    const std::uint64_t nu[4] = {1, 4, 7, 8};
-    const std::int32_t offsets[2] = {0, 4};
-    std::int32_t hit[pte::gpu::kMeetHitStride] = {};
+    const pte::gpu::nu_t nu[4] = {1, 4, 7, 8};
+    const pte::gpu::index_t offsets[2] = {0, 4};
+    pte::gpu::MeetHit hit{};
     const auto start = Clock::now();
-    pte::gpu::meet_batch(nu, offsets, 1, hit, 1);
+    pte::gpu::meet_batch(nu, 4, offsets, 1, &hit, 1);
     std::printf("Device warm-up (context creation): %.2f ms\n",
                 MillisSince(start));
   }
@@ -111,29 +112,29 @@ int main() {
 
   // --- CPU: pack into the CSR layout the kernel expects --------------------
   start = Clock::now();
-  std::vector<std::uint64_t> flat_nu;
-  std::vector<std::int32_t> offsets;
+  std::vector<pte::gpu::nu_t> flat_nu;
+  std::vector<pte::gpu::index_t> offsets;
   flat_nu.reserve(total_points);
   offsets.reserve(work.size() + 1);
   offsets.push_back(0);
   for (const Work &w : work) {
     for (const std::int64_t v : w.nu)
-      flat_nu.push_back(static_cast<std::uint64_t>(v));
-    offsets.push_back(static_cast<std::int32_t>(flat_nu.size()));
+      flat_nu.push_back(static_cast<pte::gpu::nu_t>(v));
+    offsets.push_back(static_cast<pte::gpu::index_t>(flat_nu.size()));
   }
   const double pack_ms = MillisSince(start);
 
   // --- GPU: the meet -------------------------------------------------------
   start = Clock::now();
-  int capacity = 1024;
-  std::vector<std::int32_t> raw;
-  int found = 0;
+  pte::gpu::index_t capacity = 1024;
+  std::vector<pte::gpu::MeetHit> raw;
+  pte::gpu::index_t found = 0;
   while (true) {
-    raw.assign(static_cast<std::size_t>(capacity) * pte::gpu::kMeetHitStride,
-               0);
-    found = pte::gpu::meet_batch(flat_nu.data(), offsets.data(),
-                                 static_cast<int>(work.size()), raw.data(),
-                                 capacity);
+    raw.assign(static_cast<std::size_t>(capacity), pte::gpu::MeetHit{});
+    found = pte::gpu::meet_batch(
+        flat_nu.data(), static_cast<pte::gpu::index_t>(flat_nu.size()),
+        offsets.data(), static_cast<pte::gpu::index_t>(work.size()),
+        raw.data(), capacity);
     if (found <= capacity)
       break;
     capacity = found * 2; // the count reports what a retry needs
@@ -145,12 +146,10 @@ int main() {
   std::vector<Solution> gpu_solutions;
   int rejected_by_verify = 0;
   int rejected_as_duplicate = 0;
-  for (int t = 0; t < found; ++t) {
-    const std::size_t base =
-        static_cast<std::size_t>(t) * pte::gpu::kMeetHitStride;
-    const Work &w = work[static_cast<std::size_t>(raw[base])];
-    const Quadruple q{raw[base + 1], raw[base + 2], raw[base + 3],
-                      raw[base + 4]};
+  for (pte::gpu::index_t t = 0; t < found; ++t) {
+    const pte::gpu::MeetHit &hit = raw[static_cast<std::size_t>(t)];
+    const Work &w = work[static_cast<std::size_t>(hit.norm)];
+    const Quadruple q{hit.a, hit.b, hit.c, hit.d};
     if (!pte::cpu::verify_exact(w.nu, q)) {
       ++rejected_by_verify;
       continue;
@@ -190,7 +189,8 @@ int main() {
   std::printf("  CPU verify hits     %8.2f ms\n", verify_ms);
   std::printf("  CPU reference meet  %8.2f ms\n", cpu_ms);
   std::printf("\n");
-  std::printf("  raw GPU hits        %10d\n", found);
+  std::printf("  raw GPU hits        %10lld\n",
+              static_cast<long long>(found));
   std::printf("    rejected, key mismatch in wide arithmetic %d\n",
               rejected_by_verify);
   std::printf("    rejected, imprimitive (scaled duplicate)  %d\n",

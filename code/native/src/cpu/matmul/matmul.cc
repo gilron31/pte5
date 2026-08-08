@@ -1,4 +1,4 @@
-#include "matmul.h"
+#include "cpu/matmul/matmul.h"
 
 #include <stdexcept>
 #include <string>

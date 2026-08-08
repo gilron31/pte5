@@ -2,18 +2,19 @@
 //
 // Every global read is bounds-guarded and out-of-range tile entries are zeroed,
 // so dimensions that are not multiples of kTile are handled correctly.
-#include "check.cuh"
-#include "gpu.h"
+#include "gpu/matmul/matmul.h"
+
+#include "gpu/core/check.cuh"
+#include "gpu/core/device_buffer.cuh"
 
 #include <stdexcept>
-#include <string>
 
 namespace pte::gpu {
 namespace {
 
 constexpr int kTile = 16;
 
-__global__ void MatmulKernel(const double *A, const double *B, double *C, int M,
+__global__ __launch_bounds__(kTile *kTile) void MatmulKernel(const double *A, const double *B, double *C, int M,
                              int N, int K) {
   __shared__ double a_tile[kTile][kTile];
   __shared__ double b_tile[kTile][kTile];
@@ -73,8 +74,8 @@ void matmul(const double *A, const double *B, double *C, int M, int N, int K) {
   } else {
     const dim3 threads(kTile, kTile);
     const dim3 blocks((N + kTile - 1) / kTile, (M + kTile - 1) / kTile);
-    MatmulKernel<<<blocks, threads>>>(d_a.get(), d_b.get(), d_c.get(), M, N, K);
-    PTE_CUDA_CHECK(cudaGetLastError());
+    PTE_CUDA_LAUNCH_KERNEL(MatmulKernel, blocks, threads, d_a.get(), d_b.get(),
+                           d_c.get(), M, N, K);
   }
   d_c.CopyToHost(C); // synchronizes, and surfaces execution errors
 }

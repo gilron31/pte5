@@ -2,7 +2,7 @@
 //
 // The oracle is Boost.Multiprecision's cpp_int: an implementation with no
 // shared code with GMP, so agreement is real evidence rather than a tautology.
-#include "bigint.h"
+#include "cpu/bigint/bigint.h"
 
 #include <boost/multiprecision/cpp_int.hpp>
 #include <gtest/gtest.h>

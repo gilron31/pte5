@@ -4,9 +4,9 @@
 // produced independently by the numpy sieve in drafts/verify_gpu_algos.py, so
 // agreement here is a cross-language check on the generator, which is what
 // every exhaustiveness claim rests on.
-#include "enumerate.h"
+#include "cpu/enumerate/enumerate.h"
 
-#include "gaussian.h"
+#include "cpu/gaussian/gaussian.h"
 
 #include <gtest/gtest.h>
 

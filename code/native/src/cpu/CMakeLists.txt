@@ -1,29 +1,12 @@
-# The pure-C++ half: GMP + Boost, no CUDA anywhere.
-add_library(pte_cpu STATIC
-  bigint.cc
-  enumerate.cc
-  gaussian.cc
-  matmul.cc
-)
-target_include_directories(pte_cpu PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(pte_cpu
-  PUBLIC  PkgConfig::GMP      # gmp + gmpxx; mpz_class appears in our headers
-  PRIVATE Boost::headers pte_warnings
-)
+# The pure-C++ half: GMP + Boost, no CUDA anywhere. Each app owns a directory
+# with its own library and test binary, mirroring src/gpu.
+add_subdirectory(bigint)
+add_subdirectory(matmul)
+add_subdirectory(gaussian)
+add_subdirectory(enumerate)
 
-if(PTE_BUILD_TESTS)
-  # One binary per library, gathering the co-located *_test.cc files. It links
-  # pte_cpu and nothing else, so the CPU suite is runnable on a machine with no
-  # GPU and no CUDA toolkit.
-  add_executable(pte_cpu_test
-    bigint_test.cc
-    enumerate_test.cc
-    gaussian_test.cc
-    matmul_test.cc
-  )
-  target_link_libraries(pte_cpu_test
-    PRIVATE pte_cpu Boost::headers GTest::gtest_main pte_warnings
-  )
-  add_test(NAME pte_cpu_test COMMAND pte_cpu_test)
-  set_tests_properties(pte_cpu_test PROPERTIES LABELS cpu)
-endif()
+# Aggregate target, so consumers can link "the CPU half" without naming apps.
+add_library(pte_cpu INTERFACE)
+target_link_libraries(pte_cpu INTERFACE
+  pte_cpu_bigint pte_cpu_matmul pte_cpu_gaussian pte_cpu_enumerate
+)

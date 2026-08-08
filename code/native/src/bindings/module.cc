@@ -7,8 +7,8 @@
 // the module was built without CUDA.
 #include "mpz_caster.h" // must precede any binding that mentions mpz_class
 
-#include "bigint.h"
-#include "matmul.h"
+#include "cpu/bigint/bigint.h"
+#include "cpu/matmul/matmul.h"
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -21,7 +21,9 @@
 #include <vector>
 
 #ifdef PTE_HAVE_CUDA
-#include "gpu.h"
+#include "gpu/bigint/bigint.h"
+#include "gpu/core/device.h"
+#include "gpu/matmul/matmul.h"
 #endif
 
 namespace py = pybind11;

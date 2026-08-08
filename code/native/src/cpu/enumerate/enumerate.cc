@@ -1,4 +1,4 @@
-#include "enumerate.h"
+#include "cpu/enumerate/enumerate.h"
 
 #include <algorithm>
 #include <cstdint>

@@ -12,7 +12,7 @@
 #ifndef PTE_CPU_ENUMERATE_H_
 #define PTE_CPU_ENUMERATE_H_
 
-#include "gaussian.h"
+#include "cpu/gaussian/gaussian.h"
 
 #include <cstdint>
 #include <functional>

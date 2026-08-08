@@ -1,5 +1,9 @@
 # Code review — responses and TODO
 
+**Status: Part A (style and convention) is done and verified; Parts B and C are
+open.** Build is warning-free, all 8 test binaries pass, both demos produce
+identical results to before the refactor.
+
 Working file for the review of `code/native`. Part A answers the inline
 `GILRO:` comments one by one; Part B is my own audit of the same code, which
 turned up things the inline comments did not; Part C is the consolidated,
@@ -9,8 +13,9 @@ Severity labels: **[S]** silent-wrong-answer risk (the failure mode that
 actually threatens an exclusion claim), **[C]** correctness/robustness,
 **[P]** performance, **[A]** architecture/hygiene.
 
-No code has been changed. Every claim below that has a number attached was
-checked; the checks are noted inline.
+Parts A, B and C below were written before any code changed, and are left as
+written so the reasoning can be reviewed against the outcome; what actually
+shipped is recorded at the end. Every claim with a number attached was checked.
 
 ---
 
@@ -348,3 +353,60 @@ doc's §2.2 argues the fix is to generate norms inside the block and stop
 transferring them. If we commit to that, a good deal of the transfer-path work
 (A2 in particular) is optimizing a path we intend to delete. I would settle that
 question first and let it set the scope of the refactor.
+
+
+---
+
+## Round 1 outcome — what shipped
+
+Everything in Part A except the two items explicitly deferred.
+
+| Item | Disposition |
+| --- | --- |
+| A1 `DeviceBuffer` out of `check.cuh` | done — `core/device_buffer.cuh`; `check.cuh` keeps error handling |
+| A2 `HostBuffer<T>` pinned | done — `core/host_buffer.cuh`, used by `meet.cu` for staging. Exposes `begin()/end()/operator[]` so a producer can fill pinned memory directly |
+| A3 `#pragma once` | done — every header |
+| A4/A5 split the monolith | done — `gpu.h` deleted; per-app directories, each with its own library and test binary |
+| A6 named types | done — `core/types.h` (`nu_t`, `key_t`, `index_t`, `count_t`); every `reinterpret_cast` gone |
+| A7 output buffer as a class | done — `core/device_append_buffer.cuh` with its own tests. `MeetHit` replaced the 5-int stride, so no manual index arithmetic survives anywhere |
+| `__launch_bounds__` | done — on all three kernels |
+| `PTE_CUDA_LAUNCH_KERNEL` | done — every launch goes through it |
+| kernel naming | done — `E4MeetDirectKernel`, with the header comment spelling out both senses of "specific" |
+| A8 amortize squarings | **deferred at your request** |
+
+Two things rode along because they were inseparable from A6, and both are
+strict improvements rather than behaviour changes:
+
+- `index_t`/`count_t` widened to 64-bit, closing **C1**. Picking a width was
+  unavoidable once the aliases existed, and leaving 32 bits in place would have
+  entrenched a silent overflow in the signatures being rewritten.
+- `meet_batch` gained a `nu_count` parameter and now validates that offsets are
+  non-decreasing and in range, closing **C4**. Previously a malformed offsets
+  array was an unchecked out-of-range device read.
+
+### One regression worth watching
+
+The demo's GPU stage went from 0.92 ms to 3.77 ms. That is `cudaHostAlloc`
+being called per `meet_batch` invocation for the staging buffer — exactly the
+"pinned allocation is expensive and must be pooled, never per call" caveat from
+A2. It is invisible at the demo's size and would be ruinous at campaign scale.
+The fix is the session object from A4/A5 owning the staging buffers across
+calls; until then, treat the meet timing in the demo as not meaningful.
+
+### Structural decision made along the way
+
+Applying "each app in its own directory" to `src/gpu` exposed a latent hazard:
+`cpu/bigint/bigint.h` and `gpu/bigint/bigint.h` share a basename, and with both
+trees on the include path a bare `#include "bigint.h"` resolved by include-path
+order. The include root is therefore now `src/`, and every header is reached by
+its full path. `src/cpu` got the same per-app treatment for consistency.
+
+### Still open
+
+Parts B and C above, unchanged, minus C1 and C4. The three highest-value items
+remain the silent-failure risks, none of which are style:
+
+1. **C3** — the wraparound false-positive path is still untested, and
+   `kExactKeyBound` is still never read anywhere.
+2. **C2** — `decompose_prime` and `point_set` still fail silently.
+3. **C11** — no CPU-vs-GPU unit test; the `bound/65` cutoff is still untested.

@@ -1,5 +1,5 @@
 // Unit tests for the Gaussian-integer layer.
-#include "gaussian.h"
+#include "cpu/gaussian/gaussian.h"
 
 #include <gtest/gtest.h>
 

@@ -2,8 +2,8 @@
 
 Two things live here:
 
-1. **The E₄ enumeration** — [`src/cpu/gaussian.*`](src/cpu/),
-   [`src/cpu/enumerate.*`](src/cpu/), [`src/gpu/meet_kernel.cu`](src/gpu/meet_kernel.cu)
+1. **The E₄ enumeration** — [`src/cpu/gaussian/`](src/cpu/gaussian/),
+   [`src/cpu/enumerate/`](src/cpu/enumerate/), [`src/gpu/meet/`](src/gpu/meet/)
    and [`apps/enum_demo.cc`](apps/enum_demo.cc). This is search **S-A** of
    [`drafts/gpu_algorithms.md`](../../drafts/gpu_algorithms.md), in its first
    working form — see the section below.
@@ -156,37 +156,74 @@ carrying the recovered towers so results accumulate.
 ## Layout
 
 ```
-src/cpu/     pte_cpu       C++ only: GMP + Boost. Never sees nvcc.
-             gaussian.*    Gaussian arithmetic, Cornacchia, point sets.
-             enumerate.*   Norm generation, the reference meet, primitivity.
-src/gpu/     pte_gpu       CUDA only: cudart. Never sees GMP.
-             meet_kernel.cu  The E4 meet.
-src/bindings/ pte_native._core   pybind11 module linking both.
-apps/        enum_demo     The E4 enumeration, CPU+GPU.
-             hybrid_demo   The original scaffold demo.
-python/pte_native/         The Python package and its tests.
+src/cpu/      per-app directories, GMP + Boost, never sees nvcc
+  bigint/     pte_cpu_bigint     big-integer arithmetic + limb export
+  matmul/     pte_cpu_matmul
+  gaussian/   pte_cpu_gaussian   Gaussian arithmetic, Cornacchia, point sets
+  enumerate/  pte_cpu_enumerate  norm generation, reference meet, primitivity
+src/gpu/      per-app directories, cudart only, never sees GMP
+  core/       pte_gpu_core       error checking, launch macro, host/device
+                                 buffers, device discovery. No kernels.
+  bigint/     pte_gpu_bigint
+  matmul/     pte_gpu_matmul
+  meet/       pte_gpu_meet       the E4 meet
+src/bindings/ pte_native._core   pybind11 module linking both
+apps/         enum_demo          the E4 enumeration, CPU+GPU
+              hybrid_demo        the original scaffold demo
+python/pte_native/               the Python package and its tests
 ```
 
-Tests live next to the code they cover (`bigint.cc` ↔ `bigint_test.cc`), and
-each `src/*/CMakeLists.txt` owns both its library and its test binary.
+Each app directory owns its library *and* its test binary, so a suite links
+only what it covers. `pte_cpu` and `pte_gpu` are INTERFACE targets aggregating
+their halves, so consumers can still link "the CPU half" without naming apps.
 
-### The seam: `src/gpu/gpu.h`
+The include root is `src/`, so every header is reached by its full path —
+`#include "gpu/meet/meet.h"`, `#include "cpu/gaussian/gaussian.h"`. That is not
+cosmetic: `cpu/bigint/bigint.h` and `gpu/bigint/bigint.h` are different headers
+with the same basename, and a bare `#include "bigint.h"` would silently resolve
+by include-path order.
 
-[`src/gpu/gpu.h`](src/gpu/gpu.h) declares only host-callable free functions in
-plain C++ — no `<cuda_runtime.h>`, no `__global__`, no CUDA types in any
-signature. Everything outside `src/gpu/*.cu` is therefore compiled by `g++`,
-including the demo, the bindings and the CPU tests.
+Dependencies point one way only: apps depend on `core`, never on each other.
+
+
+Tests live next to the code they cover (`bigint.cc` ↔ `bigint_test.cc`).
+
+### The seam: the per-app `*.h`
+
+Each GPU app exposes one plain-C++ header — [`gpu/meet/meet.h`](src/gpu/meet/meet.h),
+[`gpu/bigint/bigint.h`](src/gpu/bigint/bigint.h),
+[`gpu/matmul/matmul.h`](src/gpu/matmul/matmul.h),
+[`gpu/core/device.h`](src/gpu/core/device.h) — with no `<cuda_runtime.h>`, no
+`__global__`, and no CUDA types in any signature. Everything outside a `.cu` is
+therefore compiled by `g++`, including the demos, the bindings and the CPU tests.
+
+Anything that must name a CUDA type lives in a `.cuh` included only from `.cu`
+files: `gpu/core/check.cuh`, `device_buffer.cuh`, `host_buffer.cuh`,
+`device_append_buffer.cuh`, and each app's `*_impl.cuh`.
 
 That one constraint buys three things:
 
-1. The GPU test binary links `pte_gpu` alone and the CPU test binary links
-   `pte_cpu` alone, so the two suites are *provably* independent — the GPU tests
-   write their own host oracles rather than calling GMP.
+1. Each test binary links only the app it covers, so the suites are *provably*
+   independent — the GPU tests write their own host oracles rather than calling
+   GMP, and nothing in `src/gpu` can reach `pte_cpu`.
 2. `cmake --preset cpu-only` works on a machine with no CUDA toolkit at all.
 3. Adding a kernel never drags nvcc into the rest of the build.
 
-The contract crossing the seam is the limb layout: **a big integer is a
-fixed-width array of 32-bit limbs, least-significant limb first.**
+An app with a kernel follows a three-layer shape, `meet` being the worked
+example:
+
+| Layer | File | Sees |
+|---|---|---|
+| public API | `meet.h` | plain C++ only |
+| host side | `meet.cu` | validation, staging, device buffers, launch |
+| device contract | `meet_impl.cuh` | device pointers |
+| kernel | `meet_impl.cu` | the kernel itself |
+
+Tests go through the public header, so they cover validation and staging rather
+than just the kernel.
+
+The contract crossing the big-integer seam is the limb layout: **a big integer
+is a fixed-width array of 32-bit limbs, least-significant limb first.**
 `pte::cpu::to_limbs` / `from_limbs` convert to and from `mpz_class`.
 
 ## Presets

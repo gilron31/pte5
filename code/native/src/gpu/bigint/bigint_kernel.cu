@@ -4,11 +4,12 @@
 // Limbs are 32-bit so a partial product plus an accumulator limb plus a carry
 // always fits in a uint64_t, which keeps the carry handling obvious and avoids
 // needing __umul64hi.
-#include "check.cuh"
-#include "gpu.h"
+#include "gpu/bigint/bigint.h"
+
+#include "gpu/core/check.cuh"
+#include "gpu/core/device_buffer.cuh"
 
 #include <stdexcept>
-#include <string>
 
 namespace pte::gpu {
 namespace {
@@ -31,7 +32,7 @@ void ValidateBatchArgs(int nlimbs, int batch) {
   }
 }
 
-__global__ void MulBatchKernel(const std::uint32_t *a, const std::uint32_t *b,
+__global__ __launch_bounds__(kThreadsPerBlock) void MulBatchKernel(const std::uint32_t *a, const std::uint32_t *b,
                                std::uint32_t *out, int nlimbs, int batch) {
   const int t = blockIdx.x * blockDim.x + threadIdx.x;
   if (t >= batch)
@@ -65,7 +66,7 @@ __global__ void MulBatchKernel(const std::uint32_t *a, const std::uint32_t *b,
     dst[i] = acc[i];
 }
 
-__global__ void AddBatchKernel(const std::uint32_t *a, const std::uint32_t *b,
+__global__ __launch_bounds__(kThreadsPerBlock) void AddBatchKernel(const std::uint32_t *a, const std::uint32_t *b,
                                std::uint32_t *out, int nlimbs, int batch) {
   const int t = blockIdx.x * blockDim.x + threadIdx.x;
   if (t >= batch)
@@ -101,9 +102,9 @@ void mul_batch(const std::uint32_t *a, const std::uint32_t *b,
   d_a.CopyFromHost(a);
   d_b.CopyFromHost(b);
 
-  MulBatchKernel<<<BlocksFor(batch, kThreadsPerBlock), kThreadsPerBlock>>>(
-      d_a.get(), d_b.get(), d_out.get(), nlimbs, batch);
-  PTE_CUDA_CHECK(cudaGetLastError());
+  PTE_CUDA_LAUNCH_KERNEL(MulBatchKernel, BlocksFor(batch, kThreadsPerBlock),
+                         kThreadsPerBlock, d_a.get(), d_b.get(), d_out.get(),
+                         nlimbs, batch);
   d_out.CopyToHost(out); // synchronizes, and surfaces execution errors
 }
 
@@ -122,26 +123,11 @@ void add_batch(const std::uint32_t *a, const std::uint32_t *b,
   d_a.CopyFromHost(a);
   d_b.CopyFromHost(b);
 
-  AddBatchKernel<<<BlocksFor(batch, kThreadsPerBlock), kThreadsPerBlock>>>(
-      d_a.get(), d_b.get(), d_out.get(), nlimbs, batch);
-  PTE_CUDA_CHECK(cudaGetLastError());
+  PTE_CUDA_LAUNCH_KERNEL(AddBatchKernel, BlocksFor(batch, kThreadsPerBlock),
+                         kThreadsPerBlock, d_a.get(), d_b.get(), d_out.get(),
+                         nlimbs, batch);
   d_out.CopyToHost(out);
 }
 
-int device_count() {
-  int count = 0;
-  if (cudaGetDeviceCount(&count) != cudaSuccess) {
-    cudaGetLastError(); // clear the sticky error so later calls are not
-                        // poisoned
-    return 0;
-  }
-  return count;
-}
-
-std::string device_name(int index) {
-  cudaDeviceProp prop{};
-  PTE_CUDA_CHECK(cudaGetDeviceProperties(&prop, index));
-  return prop.name;
-}
 
 } // namespace pte::gpu
