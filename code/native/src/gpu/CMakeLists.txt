@@ -3,6 +3,7 @@
 add_library(pte_gpu STATIC
   bigint_kernel.cu
   matmul_kernel.cu
+  meet_kernel.cu
 )
 target_include_directories(pte_gpu PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(pte_gpu PUBLIC CUDA::cudart PRIVATE pte_warnings)
@@ -15,6 +16,7 @@ if(PTE_BUILD_TESTS)
   add_executable(pte_gpu_test
     bigint_kernel_test.cu
     matmul_kernel_test.cu
+    meet_kernel_test.cu
   )
   target_link_libraries(pte_gpu_test
     PRIVATE pte_gpu GTest::gtest_main pte_warnings

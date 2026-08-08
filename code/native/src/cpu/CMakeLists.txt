@@ -1,6 +1,8 @@
 # The pure-C++ half: GMP + Boost, no CUDA anywhere.
 add_library(pte_cpu STATIC
   bigint.cc
+  enumerate.cc
+  gaussian.cc
   matmul.cc
 )
 target_include_directories(pte_cpu PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -15,6 +17,8 @@ if(PTE_BUILD_TESTS)
   # GPU and no CUDA toolkit.
   add_executable(pte_cpu_test
     bigint_test.cc
+    enumerate_test.cc
+    gaussian_test.cc
     matmul_test.cc
   )
   target_link_libraries(pte_cpu_test

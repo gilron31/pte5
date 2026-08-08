@@ -1,7 +1,15 @@
-# `code/native` — C++/CUDA sandbox
+# `code/native` — the compiled side of the E₅ work
 
-A working scaffold for the compiled side of the E₅ work. It exists to prove out
-five capabilities end to end, on two deliberately simple use cases:
+Two things live here:
+
+1. **The E₄ enumeration** — [`src/cpu/gaussian.*`](src/cpu/),
+   [`src/cpu/enumerate.*`](src/cpu/), [`src/gpu/meet_kernel.cu`](src/gpu/meet_kernel.cu)
+   and [`apps/enum_demo.cc`](apps/enum_demo.cc). This is search **S-A** of
+   [`drafts/gpu_algorithms.md`](../../drafts/gpu_algorithms.md), in its first
+   working form — see the section below.
+2. **The original scaffold** — big-integer add/multiply (GMP vs. a naive
+   schoolbook kernel) and matrix multiply (plain loops vs. a 16×16 tiled
+   kernel), kept because it proves the plumbing end to end:
 
 | Capability | Where |
 |---|---|
@@ -10,10 +18,6 @@ five capabilities end to end, on two deliberately simple use cases:
 | CPU processing that offloads to the GPU | [`apps/hybrid_demo.cc`](apps/hybrid_demo.cc) |
 | CPU and GPU unit tested **independently** | `*_test.cc` / `*_test.cu`, CTest labels `cpu` / `gpu` |
 | Python bindings to both paths | [`src/bindings/`](src/bindings/) → `pte_native` |
-
-Use case 1 is **big-integer add/multiply**: GMP on the CPU, naive schoolbook on
-the GPU. Use case 2 is **matrix multiplication**: plain loops on the CPU, a
-16×16 tiled shared-memory kernel on the GPU.
 
 ## Quick start
 
@@ -27,7 +31,8 @@ ctest --preset dev -L cpu     # CPU unit tests
 ctest --preset dev -L gpu     # GPU unit tests
 ctest --preset dev            # both
 
-./build/dev/apps/hybrid_demo  # the CPU→GPU→CPU demo
+./build/dev/apps/enum_demo    # the E₄ enumeration demo
+./build/dev/apps/hybrid_demo  # the original scaffold demo
 
 pip install -e .              # build + install the Python module
 pytest                        # Python binding tests
@@ -64,13 +69,101 @@ risky: `apt` then reports ~60 packages as orphaned, including `g++-12`,
 `libstdc++-12-dev`, and the intel-oneapi MKL runtime. If you do remove it, do
 **not** run `apt autoremove` afterwards.
 
+## The E₄ enumeration
+
+`./build/dev/apps/enum_demo` runs search S-A end to end over admissible
+$L_1 \le 2\times10^6$ and exits non-zero if anything disagrees.
+
+**What it computes.** Work at the *norm-$L_1$ level*: for each admissible $L_1$
+(a product of split primes with at least four representations as a sum of two
+squares) build the point set $U(L_1) = \{z : N(z) = L_1\}$ modulo units and
+conjugation, take $\nu(z) = \mathrm{Re}(z^2) = m^2 - n^2$ for each point, and
+look for four points splitting as $\{z_1,z_2\}\mid\{z_3,z_4\}$ with
+
+```
+nu1^2 + nu2^2 == nu3^2 + nu4^2
+```
+
+That single condition *is* the E₄ problem. A root pair is recovered from a point
+by the twist $z \mapsto (1+i)z$, giving $(r,s) = (m-n, m+n)$ with
+$r^2+s^2 = 2L_1$.
+
+Three facts from the algorithm doc shape the code:
+
+- **$\nu$ is injective** on a point set, since $m^2+n^2 = L_1$ and $m^2-n^2 = \nu$
+  determine $(m,n)$. So two distinct pairs with equal key can never share a
+  point — there is **no disjointness test** anywhere in the meet.
+- **The key needs more than 64 bits** in general ($\nu_1^2+\nu_2^2 \le 2L_1^2$).
+  The kernel compares modulo $2^{64}$ by unsigned wraparound, which is exact
+  below `pte::cpu::kExactKeyBound` and a *sound filter* above it: equal keys are
+  always congruent, so there are **no false negatives**, only false positives
+  that `verify_exact` rejects on the host. That asymmetry is what makes an
+  exclusion claim defensible.
+- **Repeated primes need care.** For $L_1 = p^bM$ a point is divisible by $p$
+  iff its $p$-exponent $c$ satisfies $1 \le c \le b-1$, so an imprimitive
+  fraction $(b{-}1)/(b{+}1)$ of the point set is exactly $p\cdot U(M)$. A
+  quadruple with **all four** points imprimitive is $p^2\times$ a solution at
+  $M$ — a duplicate, rejected by `is_primitive`. A quadruple with only *some*
+  imprimitive points is genuinely primitive and is kept: that is the case where
+  one pair uses the rational factor $p = \mathfrak{p}\bar{\mathfrak{p}}$ while
+  another uses $\mathfrak{p}^2$, and discarding it would silently break
+  exhaustiveness.
+
+**Why the demo is slower than it looks like it should be.** It is deliberately
+the *naive hybrid* split: the CPU generates norms and point sets, the GPU only
+does the meet. That moves ~8 bytes per point to do a handful of integer
+operations — the demo prints the resulting arithmetic intensity (~0.25 ops/byte),
+which is transfer-bound by a wide margin. Generating the norms on the device is
+what fixes it; see Deferred below.
+
+**Correctness.** The shipped fixture is the CPU-vs-GPU cross-check in the demo:
+`meet_reference` and the kernel must produce identical solution sets. The unit
+tests add a cross-*language* check — the admissible-norm counts must match the
+independent numpy sieve in
+[`drafts/verify_gpu_algos.py`](../../drafts/verify_gpu_algos.py) exactly
+(11,083 norms / 99,354 pairs at $10^6$; 131,437 / 1,339,509 at $10^7$) — plus
+the paper's exemplar norm $13\cdot89\cdot173\cdot233\cdot709$, which must yield
+its published solution.
+
+### Deferred
+
+Recorded so the next revisions have a defined starting point; none of this is
+built yet.
+
+*Fixtures.* Bremner family self-test (drive `bremner_F1_point` /
+`bremner_F2_point` from [`code/old/utils.py`](../old/utils.py) and re-find every
+member **including non-squarefree $L_1(k)$** — the test that would expose a
+coverage hole); synthetic solution injection; a standalone non-squarefree
+primitivity suite.
+
+*Surface.* CLI flags for the bound and for CPU-only/GPU-only/both, so the demo
+doubles as the pilot tool; Python bindings through `pte_native`, enabling
+cross-checks against `code/old/enumeration_v1.py`; catalog output (CSV/JSON)
+carrying the recovered towers so results accumulate.
+
+*Algorithmic revisions*, in the order they matter:
+
+1. **Largest-prime-outer generation** — emit each norm once as $n = c\,p^e$,
+   amortizing Cornacchia to once per prime instead of once per norm.
+2. **$D$-bucketing** — register-only kernels for $D = 4, 6, 8$ (~96% of norms);
+   the bucket is known before generation since $D(cq) = 2D(c)$.
+3. **Device-resident generation** — one block per cofactor subtree with the
+   ancestor point sets in shared memory. This is what fixes the intensity
+   problem the demo demonstrates.
+4. Champion-regime kernel, the $\mathbb{F}_p$ tower sieve, the top-collision and
+   bottom-lift joins, and the A4′ product-form investigation.
+
 ## Layout
 
 ```
 src/cpu/     pte_cpu       C++ only: GMP + Boost. Never sees nvcc.
+             gaussian.*    Gaussian arithmetic, Cornacchia, point sets.
+             enumerate.*   Norm generation, the reference meet, primitivity.
 src/gpu/     pte_gpu       CUDA only: cudart. Never sees GMP.
+             meet_kernel.cu  The E4 meet.
 src/bindings/ pte_native._core   pybind11 module linking both.
-apps/        hybrid_demo   The two halves working together.
+apps/        enum_demo     The E4 enumeration, CPU+GPU.
+             hybrid_demo   The original scaffold demo.
 python/pte_native/         The Python package and its tests.
 ```
 
@@ -201,6 +294,48 @@ Three things to know:
   CMake 4 rejects outright.
 
 ## Sample output
+
+```
+$ ./build/dev/apps/enum_demo
+CUDA devices: 1
+Using device 0: NVIDIA GeForce RTX 4060 Laptop GPU
+Device warm-up (context creation): 53.08 ms
+
+== E_4 enumeration, admissible L1 <= 2000000 ==
+  admissible norms        23576
+  points                 108909
+  pairs                  219812
+
+  CPU norm generation     1.29 ms
+  CPU point sets         12.12 ms
+  CPU pack to CSR         1.25 ms
+  GPU meet                0.94 ms  (includes H2D+D2H copies)
+  CPU verify hits         0.00 ms
+  CPU reference meet      1.27 ms
+
+  raw GPU hits                 3
+    rejected, key mismatch in wide arithmetic 0
+    rejected, imprimitive (scaled duplicate)  1
+  primitive E_4 solutions: GPU 2, CPU 2
+  CPU and GPU solution sets are identical -> OK
+    E_4 at L1 = 67405: nu = 4037 27643 35653 44933
+    E_4 at L1 = 600445: nu = 151093 332533 515573 594613
+
+  transferred 0.83 MB to do ~219812 pair comparisons
+  arithmetic intensity ~0.25 ops/byte -- transfer bound;
+  generating norms on the device is what fixes this.
+
+All checks passed.
+```
+
+Both solutions check out independently: $L_1 = 67405 = 5\cdot13\cdot17\cdot61$
+has root pairs $(11,367), (77,359), (101,353), (131,343)$, and the recovered
+tower satisfies the degree-16 identity
+$\prod(x^2-r_k^2) = (((x^2-L_1)^2-L_2)^2-L_3)^2-L_4$ exactly. Note the third raw
+hit being rejected as a scaled duplicate — that is the primitivity rule doing
+real work, not a theoretical concern.
+
+The original scaffold demo:
 
 ```
 $ ./build/dev/apps/hybrid_demo

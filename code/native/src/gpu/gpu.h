@@ -44,6 +44,30 @@ void add_batch(const std::uint32_t *a, const std::uint32_t *b,
 // C needs M*N doubles.
 void matmul(const double *A, const double *B, double *C, int M, int N, int K);
 
+// Number of int32s each meet_batch hit occupies: (norm_index, i, j, k, l).
+inline constexpr int kMeetHitStride = 5;
+
+// Batched E_4 meet. Norm b owns nu[offsets[b] .. offsets[b+1]), so `offsets`
+// has num_norms + 1 entries and is non-decreasing.
+//
+// For every norm this finds all index quadruples with
+//     nu[i]^2 + nu[j]^2 == nu[k]^2 + nu[l]^2
+// where {i,j} and {k,l} are disjoint pairs, and writes each as kMeetHitStride
+// int32s (norm_index, i, j, k, l) into `hits`.
+//
+// The comparison is done modulo 2^64 by unsigned wraparound. That is exact
+// while every nu fits the caller's budget (see pte::cpu::kExactKeyBound) and a
+// sound filter beyond it: equal keys are always congruent, so there are no
+// false negatives, only false positives that the host must re-check in wider
+// arithmetic.
+//
+// Returns the total number of hits found. If that exceeds max_hits the output
+// was truncated to the first max_hits and the caller should retry with a larger
+// buffer. Throws std::invalid_argument on a negative size or a null pointer
+// where one is required.
+int meet_batch(const std::uint64_t *nu, const std::int32_t *offsets,
+               int num_norms, std::int32_t *hits, int max_hits);
+
 } // namespace pte::gpu
 
 #endif // PTE_GPU_GPU_H_
