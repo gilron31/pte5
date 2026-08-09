@@ -817,8 +817,9 @@ first, and they land naturally in the CPU-implementation round.
 | --- | --- |
 | D1 extensions | done — `check.h`, `device_buffer.h`, `host_buffer.h`, `meet_impl.h`, `meet.cc`, `meet_test.cc`, `host_buffer_test.cc`; rule documented in `core/types.h` |
 | D1 launch macro | `PTE_CUDA_LAUNCH_KERNEL` split into `core/launch.cuh` — `<<< >>>` is the one thing in `check.cuh` that actually needed nvcc |
-| D2 view/kernel split | done — `device_append_buffer.h` (POD + owner) / `.cuh` (`__device__ push`) |
+| D2 view/kernel split | **superseded — see D16.** `push` is a `__device__` member under `#ifdef __CUDACC__`; the `.cuh` is gone |
 | D2 `__host__` on push | not done — would need a host `atomicAdd`; see above |
+| D16 `LaunchE4MeetDirect` takes `DeviceBuffer&` | done — raw device pointers now appear exactly once, in the kernel argument list |
 | D3 type scope | done — `nu_t` → `meet.h`, `key_t` → file-local in `meet_impl.cu`, `core/types.h` keeps only `index_t`/`count_t` |
 | D4 `trunc_key_t` | done |
 | D5 share `Quadruple` | **not done — pushing back**, see above |
@@ -871,3 +872,157 @@ that needs the session object to fix.
 **Still the open question** from round 1, now more pointed: naive hybrid or
 device-resident generation. D8 (narrow `Gauss` halving transfer bytes) is worth
 real money under the first and nearly nothing under the second.
+
+
+---
+
+## Round 3 — two corrections and a closing note
+
+### D16. `push` as an `#ifdef __CUDACC__` member — **your call, and it is better than mine**
+
+You overruled the free function. Implemented as asked, and on reflection the
+argument I made in D2 was weighing the wrong thing.
+
+What I got right: the guard does give the class different definitions in host
+and device translation units, and that is formally an ODR violation.
+
+What I underweighted: **it is bounded and benign here, and it deletes a file.**
+The members are identical, so layout and the by-value kernel argument are
+unaffected; `push` is `inline __device__`, so it is only ever emitted into device
+code; there is no virtual function or static member for the two definitions to
+disagree about. It is also the idiom Thrust and CUB are built on. Against that,
+the free-function version cost an extra header *and* an unnatural call site —
+and your original complaint was precisely that the structure was forcing `.cuh`
+files where `.h` would do. The guard serves that goal better than my split did:
+
+```
+before:  device_append_buffer.h  +  device_append_buffer.cuh   (push(out, v))
+after:   device_append_buffer.h                                (out.push(v))
+```
+
+One invariant now written at the declaration, because it is what makes this
+safe: **anything added inside the guard must not touch layout.**
+
+### D17. `LaunchE4MeetDirect` should take `DeviceBuffer`, not raw pointers — **agreed**
+
+`meet_impl.cu:78`. Right, and it is the same argument as D15 one layer down:
+`DeviceBuffer<T>` carries its own count, so `num_norms` stops being a parameter
+a caller can contradict and becomes `d_offsets.count() - 1`.
+
+```cpp
+void LaunchE4MeetDirect(const DeviceBuffer<nu_t> &d_nu,
+                        const DeviceBuffer<index_t> &d_offsets,
+                        DeviceAppendView<MeetHit> out);
+```
+
+Four parameters to three, and the invariant "offsets has one more entry than
+there are norms" is now expressed once, in the type, instead of being restated
+by every caller. Raw device pointers survive in exactly one place in the app —
+the kernel's argument list, which cannot take anything else.
+
+This retires the "raw pointers at the device seam" caveat I attached to D15;
+that was true of `std::span` specifically, not of the seam.
+
+### GPU part: closed
+
+`src/gpu` is finalized. Final state: **three `.cu` files** in the whole tree
+(`device.cu`, `bigint_kernel.cu`/`matmul_kernel.cu`/`meet_impl.cu`), one
+`.cuh` (`launch.cuh`), everything else ordinary C++.
+
+Verified: warning-free clean build, 8/8 tests, `cpu-only` preset 4/4, both demos
+unchanged (same two solutions at `L1 = 67405` and `600445`), 56 registers with 0
+spills, compute-sanitizer memcheck clean.
+
+Not carried further, and still true: `bigint_kernel.cu` and `matmul_kernel.cu`
+still mix host wrappers with kernels in one `.cu`. They are scaffold code and
+the split is mechanical.
+
+
+---
+---
+
+# CPU implementation round
+
+D7–D14 built. What follows records what shipped, the two places measurement
+contradicted a claim I had made, and what is left.
+
+## What shipped
+
+| Item | Where |
+| --- | --- |
+| **D7** precision policy | `cpu/core/precision.h` — the three-way split, named types, `static_assert`s tying them to `kMaxNorm`; `kExactKeyBound` moved here from `enumerate.h` |
+| **D8/D9** `GaussT<T>` | templated on coordinate type, with `wide` result type; `conj/canonize/norm/nu/divisible_by` as members, `operator*`; `mul_and_conj_mul` stays a free-standing two-output method |
+| **D10** `Enumerator` | owns the factor base and its decompositions; `point_set(Norm)` uses them |
+| **D11** templated callback | `for_each_norm(F&&)`, `std::function` gone |
+| **D12** confirmation | `verify_exact` → `confirm_candidate`, documented as a *production* step, not a test helper |
+| **D13/C2/C5** `decompose_prime` | returns `Gauss`, throws `NotASplitPrime`; deterministic Miller-Rabin |
+| **D14/C11** tests | `isqrt` and `is_prime` against GMP; the `bound/65` cutoff by brute force; the wraparound fixture; `Norm` copy contract |
+| **C11** cross-check | `enum_demo` registered as ctest `enum_demo_cross_check` |
+
+Test binaries: 8 → 10. Both presets warning-free; `dev` 10/10, `cpu-only` 5/5;
+demo unchanged (`L1 = 67405`, `600445`).
+
+## Two things measurement corrected
+
+### The trial-division loop is not a primality check — my C5 argument was wrong
+
+I claimed in D13 that exhausting `kMaxNonResidueTrials` means `p` is composite,
+and that this made the magic number and the missing primality check "one bug".
+The first half is true; the conclusion is not. I wrote the test before the code
+and it failed on **85, 125, 221**.
+
+Those are composites *and* products of split primes, so they are sums of two
+squares: `85 = 9² + 2²`, `221 = 14² + 5²`. A non-residue exists, the descent
+closes, and the old code returned a well-formed decomposition of a non-prime.
+And these are exactly the composites a caller is likely to pass by accident — a
+partially-factored norm, say.
+
+So C5 needed a real primality test, not a clever reading of an existing loop.
+`is_prime` is now deterministic Miller-Rabin: `{2,3,5,7}` below 3,215,031,751
+and `{2,3,5,7,11,13}` below 3,474,749,660,383, which covers the whole factor
+base at `B = 10^12` (`1.5e10`). Exact, not probabilistic.
+
+Cost, measured at `B = 2×10^6`: the whole `Enumerator` constructor — sieve,
+1,649 Miller-Rabin tests, 1,649 Cornacchia descents — is **0.85 ms**. It is free
+at this scale. It will not be at `B = 10^12`, where the factor base is ~3×10^8
+primes; but the sieve there is a 1.9 GB allocation (**C8**) and hits the wall
+first, so segmentation is the blocking item either way.
+
+### D10 delivered, and the number is better than the 60% I predicted
+
+| | before | after |
+| --- | --- | --- |
+| `decompose_prime` calls | 78,047 | **1,649** |
+| point-set construction | 8.12 ms | 3.63 ms |
+| + factor base and decompositions | (in the above) | 0.85 ms |
+| **total** | **8.12 ms** | **4.48 ms** |
+
+**1.8× on the CPU's largest cost**, at `B = 2×10^6` over 23,576 norms. In the
+demo, point-set time went 11.8 ms → 7.6 ms across five runs.
+
+## What I did not do
+
+- **`GaussT<std::int32_t>` is not instantiated anywhere.** The template is
+  shaped for it and `wide` handles the result-type trap, but `coord_t` stays
+  `int64_t`. Narrowing pays when point *coordinates* cross the bus; today the
+  meet moves `nu` values, which need 40 bits. Flipping it is a one-line change
+  in `precision.h` when device-resident generation lands.
+- **`Norm::primes` still aliases live DFS state** (C6). A value type means a
+  heap allocation per norm in a loop that will run ~2×10^10 times. The contract
+  is now documented at `for_each_norm` and there is a test that a *copied* Norm
+  survives, which is what a caller actually needs.
+- **A2 largest-prime-outer** — carrying point sets down the DFS spine rather
+  than rebuilding per norm. This is the next real speedup and `Enumerator` is
+  now the object that will own it.
+- **Layer 3 (GMP certificates)** — nothing yet verifies a recovered PTE
+  identity. That is where GMP finally earns its place; see the 311-bit row in
+  `precision.h`.
+
+## Open, in order
+
+1. **C8** Segment the sieve — the hard wall at `B ≳ 10^10`.
+2. **A2** Incremental point sets along the DFS spine.
+3. Session object owning GPU staging buffers (the per-call `cudaHostAlloc`
+   regression, still unfixed).
+4. **A8 + C9** Precomputed squares and D-bucketing.
+5. **C12** Batch the demo; it still holds every norm in memory.

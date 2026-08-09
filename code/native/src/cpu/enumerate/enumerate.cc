@@ -2,38 +2,32 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace pte::cpu {
 namespace {
 
-// __int128 is a GNU extension; the opt-in keeps -Wpedantic quiet.
-__extension__ using i128 = __int128;
-
-// Exact key of a pair, wide enough for any L1 we can enumerate.
-i128 pair_key(std::int64_t x, std::int64_t y) {
-  return static_cast<i128>(x) * x + static_cast<i128>(y) * y;
+// Exact key of a pair. exact_key_t holds 2*L1^2 for any L1 below 9.2e18, which
+// is nine million times the design bound; see precision.h.
+exact_key_t pair_key(norm_t x, norm_t y) {
+  return static_cast<exact_key_t>(x) * x + static_cast<exact_key_t>(y) * y;
 }
 
-// True if the rational prime p divides z. A prime dividing *every* point of a
-// candidate is what makes it a scaled duplicate; see is_primitive.
-// GILRO: I dislike it, let's work with multiprecision integers (mpz or smth).
-// We need a clear separation between the exact logic and procedures (like the
-// ones we will use for validation) and "fast" functions and procedures (only if
-// they are really the bottleneck). That fact that everything is hardcoded
-// u/int64 is disturbing. it should be mpz_int (gmp_int) for all those
-// validations. For functions that are called in the critical loop, let's make a
-// clear distinction and let them use dedicated types. Btw, if we could go by
-// using templatic functions and reuse the code, that is the best.
-bool divides(std::uint64_t p, const Gauss &z) {
-  const std::int64_t q = static_cast<std::int64_t>(p);
-  return z.re % q == 0 && z.im % q == 0;
-}
+// The largest prime factor an admissible norm can have. With exponent 1 its
+// cofactor needs prod(b+1) >= 4, and the smallest such cofactor is 5*13 = 65;
+// every other exponent pattern admits only smaller primes.
+//
+// This divisor is load-bearing and exactly tight: at B = 10^6 the largest prime
+// factor actually occurring is 15377 against a cutoff of 15384, the extremal
+// norm being 5 * 13 * 15377 = 999505. An off-by-one here silently deletes
+// solutions, so enumerate_test.cc checks it by brute force rather than trusting
+// the argument above.
+constexpr norm_t kSmallestCofactor = 65;
 
 } // namespace
 
-// GILRO: watch my comment in gaussian.h, this  should be a method of a class
-// (that takes B, etc).
 std::vector<std::uint64_t> split_primes_up_to(std::uint64_t limit) {
   std::vector<std::uint64_t> primes;
   if (limit < 5)
@@ -67,64 +61,46 @@ std::size_t point_count(const std::vector<std::uint64_t> &primes) {
   return (divisors + 1) / 2;
 }
 
-// GILRO I like universal referneces way more than i like std::function, it is
-// compile time, and thus faster.
-// GILRO: this is exactly the type of code which is currently terribly
-// intertwined and should be handled in a more OOPy fashion.
-void for_each_admissible_norm(std::int64_t bound,
-                              const std::function<void(const Norm &)> &cb) {
-  // The largest prime factor an admissible norm can have. With exponent 1 its
-  // cofactor needs prod(b+1) >= 4, and the smallest such cofactor is 5*13 = 65;
-  // every other exponent pattern admits only smaller primes.
+Enumerator::Enumerator(norm_t bound) : bound_(bound) {
   if (bound < 5 * 13 * 17)
-    return;
-  const auto base = split_primes_up_to(static_cast<std::uint64_t>(bound / 65));
-  if (base.empty())
-    return;
+    return; // below the smallest admissible norm; factor base stays empty
 
-  Norm norm;
-  norm.primes.reserve(16);
+  primes_ = split_primes_up_to(static_cast<std::uint64_t>(bound / kSmallestCofactor));
 
-  // Walks primes in ascending index order, choosing an exponent for each, so
-  // every multiset of split primes with product <= bound is visited once.
-  const auto dfs = [&](auto &&self, std::size_t start, std::int64_t value,
-                       std::size_t divisors) -> void {
-    for (std::size_t i = start; i < base.size(); ++i) {
-      const std::int64_t p = static_cast<std::int64_t>(base[i]);
-      if (value > bound / p)
-        break; // primes ascend, so nothing further fits either
-
-      std::int64_t v = value * p;
-      std::size_t exponent = 1;
-      while (true) {
-        norm.primes.push_back(base[i]);
-        const std::size_t d = divisors * (exponent + 1);
-        if (d >= 8) { // >= 4 points, the minimum for an E_4
-          norm.l1 = v;
-          cb(norm);
-        }
-        self(self, i + 1, v, d);
-
-        if (v > bound / p)
-          break;
-        v *= p;
-        ++exponent;
-      }
-      norm.primes.resize(norm.primes.size() - exponent);
-    }
-  };
-  dfs(dfs, 0, 1, 1);
+  // The one place Cornacchia runs: once per prime in the factor base, rather
+  // than once per prime factor of every norm.
+  prime_points_.reserve(primes_.size());
+  for (const std::uint64_t p : primes_)
+    prime_points_.push_back(decompose_prime(p));
 }
 
-std::vector<std::int64_t> nu_values(const std::vector<Gauss> &points) {
-  std::vector<std::int64_t> out;
+std::size_t Enumerator::index_of(std::uint64_t p) const {
+  const auto it = std::lower_bound(primes_.begin(), primes_.end(), p);
+  if (it == primes_.end() || *it != p) {
+    throw std::invalid_argument("Enumerator: prime " + std::to_string(p) +
+                                " is not in the factor base for bound " +
+                                std::to_string(bound_));
+  }
+  return static_cast<std::size_t>(it - primes_.begin());
+}
+
+std::vector<Gauss> Enumerator::point_set(const Norm &norm) const {
+  std::vector<Gauss> prime_points;
+  prime_points.reserve(norm.primes.size());
+  for (const std::uint64_t p : norm.primes)
+    prime_points.push_back(prime_points_[index_of(p)]);
+  return point_set_from(prime_points);
+}
+
+std::vector<norm_t> nu_values(const std::vector<Gauss> &points) {
+  std::vector<norm_t> out;
   out.reserve(points.size());
   for (const Gauss &z : points)
-    out.push_back(nu(z));
+    out.push_back(static_cast<norm_t>(z.nu()));
   return out;
 }
 
-std::vector<Quadruple> meet_reference(const std::vector<std::int64_t> &nu) {
+std::vector<Quadruple> meet_reference(const std::vector<norm_t> &nu) {
   std::vector<Quadruple> hits;
   const int n = static_cast<int>(nu.size());
   for (int i = 0; i < n; ++i)
@@ -133,9 +109,9 @@ std::vector<Quadruple> meet_reference(const std::vector<std::int64_t> &nu) {
         for (int l = k + 1; l < n; ++l) {
           // The three ways to split {i,j,k,l} into two pairs. nu is injective,
           // so any match here is already a set of four distinct points.
-          const i128 kij = pair_key(nu[i], nu[j]);
-          const i128 kik = pair_key(nu[i], nu[k]);
-          const i128 kil = pair_key(nu[i], nu[l]);
+          const exact_key_t kij = pair_key(nu[i], nu[j]);
+          const exact_key_t kik = pair_key(nu[i], nu[k]);
+          const exact_key_t kil = pair_key(nu[i], nu[l]);
           if (kij == pair_key(nu[k], nu[l]))
             hits.push_back({i, j, k, l});
           if (kik == pair_key(nu[j], nu[l]))
@@ -146,8 +122,7 @@ std::vector<Quadruple> meet_reference(const std::vector<std::int64_t> &nu) {
   return hits;
 }
 
-// GILRO: should live under test
-bool verify_exact(const std::vector<std::int64_t> &nu, const Quadruple &q) {
+bool confirm_candidate(const std::vector<norm_t> &nu, const Quadruple &q) {
   const int n = static_cast<int>(nu.size());
   if (q.a < 0 || q.b < 0 || q.c < 0 || q.d < 0)
     return false;
@@ -171,9 +146,10 @@ bool is_primitive(const std::vector<Gauss> &points,
     if (i > 0 && primes[i] == primes[i - 1])
       continue;
 
+    const auto p = static_cast<coord_t>(primes[i]);
     bool all = true;
     for (int t = 0; t < 4 && all; ++t)
-      all = divides(primes[i], *z[t]);
+      all = z[t]->divisible_by(p);
     if (all)
       return false; // p divides every point: a scaled copy of L1/p^2
   }

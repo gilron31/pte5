@@ -26,7 +26,7 @@ struct Counts {
 
 Counts CountAdmissible(std::int64_t bound) {
   Counts c;
-  pte::cpu::for_each_admissible_norm(bound, [&](const pte::cpu::Norm &n) {
+  pte::cpu::Enumerator(bound).for_each_norm([&](const pte::cpu::Norm &n) {
     const std::size_t d = pte::cpu::point_count(n.primes);
     ++c.norms;
     c.pairs += d * (d - 1) / 2;
@@ -63,7 +63,7 @@ TEST(Enumerate, AdmissibleNormCountsMatchThePythonSieve) {
 
 TEST(Enumerate, EveryAdmissibleNormIsEmittedOnceAndIsWellFormed) {
   std::vector<std::int64_t> seen;
-  pte::cpu::for_each_admissible_norm(200000, [&](const pte::cpu::Norm &n) {
+  pte::cpu::Enumerator(200000).for_each_norm([&](const pte::cpu::Norm &n) {
     std::int64_t product = 1;
     for (const std::uint64_t p : n.primes) {
       EXPECT_EQ(p % 4, 1u) << "non-split prime in factorization";
@@ -87,7 +87,7 @@ TEST(Enumerate, NonSquarefreeNormsAreIncluded) {
   // use the rational factor 5 while another uses q^2, so dropping it would
   // reopen a coverage hole.
   bool found = false;
-  pte::cpu::for_each_admissible_norm(6000, [&](const pte::cpu::Norm &n) {
+  pte::cpu::Enumerator(6000).for_each_norm([&](const pte::cpu::Norm &n) {
     if (n.l1 == 5525) {
       found = true;
       const std::vector<std::uint64_t> expected = {5, 5, 13, 17};
@@ -107,7 +107,7 @@ TEST(Enumerate, MeetFindsAPlantedCollision) {
   EXPECT_EQ(hits[0].b, 3);
   EXPECT_EQ(hits[0].c, 1);
   EXPECT_EQ(hits[0].d, 2);
-  EXPECT_TRUE(pte::cpu::verify_exact(nu, hits[0]));
+  EXPECT_TRUE(pte::cpu::confirm_candidate(nu, hits[0]));
 }
 
 TEST(Enumerate, MeetFindsNothingWhenThereIsNothing) {
@@ -119,10 +119,10 @@ TEST(Enumerate, MeetFindsNothingWhenThereIsNothing) {
 
 TEST(Enumerate, VerifyExactRejectsMalformedQuadruples) {
   const std::vector<std::int64_t> nu = {1, 4, 7, 8};
-  EXPECT_TRUE(pte::cpu::verify_exact(nu, {0, 3, 1, 2}));
-  EXPECT_FALSE(pte::cpu::verify_exact(nu, {0, 0, 1, 2})); // repeated index
-  EXPECT_FALSE(pte::cpu::verify_exact(nu, {0, 3, 1, 9})); // out of range
-  EXPECT_FALSE(pte::cpu::verify_exact(nu, {0, 1, 2, 3})); // keys differ
+  EXPECT_TRUE(pte::cpu::confirm_candidate(nu, {0, 3, 1, 2}));
+  EXPECT_FALSE(pte::cpu::confirm_candidate(nu, {0, 0, 1, 2})); // repeated index
+  EXPECT_FALSE(pte::cpu::confirm_candidate(nu, {0, 3, 1, 9})); // out of range
+  EXPECT_FALSE(pte::cpu::confirm_candidate(nu, {0, 1, 2, 3})); // keys differ
 }
 
 TEST(Enumerate, PrimitivityKeepsPartiallyImprimitiveQuadruples) {
@@ -198,11 +198,92 @@ TEST(Enumerate, ExemplarNormYieldsTheKnownSolution) {
     std::sort(expect.begin(), expect.end());
     if (got == expect) {
       matched = true;
-      EXPECT_TRUE(pte::cpu::verify_exact(nu, q));
+      EXPECT_TRUE(pte::cpu::confirm_candidate(nu, q));
       EXPECT_TRUE(pte::cpu::is_primitive(points, primes, q));
     }
   }
   EXPECT_TRUE(matched) << "hits found, but not the published quadruple";
+}
+
+
+// C11: the bound/65 factor-base cutoff is load-bearing and was untested.
+//
+// The argument for it is that a prime with exponent 1 needs a cofactor with
+// prod(b+1) >= 4, and the smallest such cofactor is 5*13 = 65. If that were off
+// by one, admissible norms would be skipped -- silently, since a search that
+// misses solutions produces nothing and looks exactly like a search that found
+// nothing. So this checks it by brute force rather than by re-reading the
+// argument: enumerate with a *much* larger factor base and demand the same set.
+TEST(Enumerate, FactorBaseCutoffLosesNothing) {
+  constexpr std::int64_t kBound = 1000000;
+
+  std::vector<std::int64_t> from_cutoff;
+  pte::cpu::Enumerator(kBound).for_each_norm(
+      [&](const pte::cpu::Norm &n) { from_cutoff.push_back(n.l1); });
+  std::sort(from_cutoff.begin(), from_cutoff.end());
+
+  // Independent DFS over a factor base 13x wider than the one under test.
+  const auto wide = pte::cpu::split_primes_up_to(kBound / 5);
+  std::vector<std::int64_t> from_wide;
+  const auto dfs = [&](auto &&self, std::size_t start, std::int64_t value,
+                       std::size_t divisors) -> void {
+    for (std::size_t i = start; i < wide.size(); ++i) {
+      const auto p = static_cast<std::int64_t>(wide[i]);
+      if (value > kBound / p)
+        break;
+      std::int64_t v = value * p;
+      std::size_t e = 1;
+      while (true) {
+        if (divisors * (e + 1) >= 8)
+          from_wide.push_back(v);
+        self(self, i + 1, v, divisors * (e + 1));
+        if (v > kBound / p)
+          break;
+        v *= p;
+        ++e;
+      }
+    }
+  };
+  dfs(dfs, 0, 1, 1);
+  std::sort(from_wide.begin(), from_wide.end());
+
+  EXPECT_EQ(from_cutoff, from_wide)
+      << "the bound/65 cutoff dropped admissible norms";
+  EXPECT_EQ(from_cutoff.size(), 11083u);
+}
+
+// The cutoff is not merely correct, it is *exactly* tight: at B = 10^6 the
+// largest prime factor occurring in any admissible norm is 15377, against a
+// cutoff of 10^6/65 = 15384. Pinning the extremal case means a future change to
+// kSmallestCofactor cannot quietly gain slack it does not have.
+TEST(Enumerate, ExtremalNormUsesNearlyTheWholeFactorBase) {
+  constexpr std::int64_t kBound = 1000000;
+  std::uint64_t largest = 0;
+  bool saw_extremal = false;
+  pte::cpu::Enumerator(kBound).for_each_norm([&](const pte::cpu::Norm &n) {
+    largest = std::max(largest, n.primes.back());
+    if (n.l1 == 999505)
+      saw_extremal = true;
+  });
+  EXPECT_EQ(largest, 15377u);
+  EXPECT_LE(largest, static_cast<std::uint64_t>(kBound / 65));
+  EXPECT_TRUE(saw_extremal) << "5 * 13 * 15377 = 999505 must be enumerated";
+}
+
+// C6 was that Norm::primes aliased live DFS state. It still does -- the
+// alternative is a heap allocation per norm in a 2e10-iteration loop -- but the
+// contract is now documented and checked, so a caller who copies is safe.
+TEST(Enumerate, NormIsUsableWhenCopiedInTheCallback) {
+  std::vector<pte::cpu::Norm> kept;
+  pte::cpu::Enumerator(20000).for_each_norm(
+      [&](const pte::cpu::Norm &n) { kept.push_back(n); });
+  ASSERT_FALSE(kept.empty());
+  for (const auto &n : kept) {
+    std::int64_t product = 1;
+    for (const std::uint64_t p : n.primes)
+      product *= static_cast<std::int64_t>(p);
+    EXPECT_EQ(product, n.l1) << "copied Norm did not survive the DFS";
+  }
 }
 
 } // namespace

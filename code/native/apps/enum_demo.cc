@@ -5,6 +5,10 @@
 // Compiled by g++, not nvcc: it reaches the kernel only through the plain-C++
 // gpu/meet/meet.h.
 //
+// Registered with ctest as `enum_demo_cross_check`: it exits non-zero on any
+// CPU/GPU disagreement, so the cross-check is a fixture rather than something
+// somebody has to remember to run.
+//
 // This is deliberately the *naive hybrid* split. The timing breakdown below is
 // meant to show why: the meet moves ~8 bytes per point to do a handful of
 // integer operations, so the host/device transfer dominates and the GPU sits
@@ -45,7 +49,7 @@ struct Work {
   std::int64_t l1 = 0;
   std::vector<std::uint64_t> primes;
   std::vector<Gauss> points;
-  std::vector<std::int64_t> nu;
+  std::vector<pte::cpu::norm_t> nu;
 };
 
 // A verified solution, keyed so CPU and GPU results can be compared directly.
@@ -87,9 +91,9 @@ int main() {
 
   // --- CPU: generate the admissible norms ----------------------------------
   auto start = Clock::now();
+  const pte::cpu::Enumerator enumerator(kBound);
   std::vector<pte::cpu::Norm> norms;
-  pte::cpu::for_each_admissible_norm(
-      kBound, [&](const pte::cpu::Norm &n) { norms.push_back(n); });
+  enumerator.for_each_norm([&](const pte::cpu::Norm &n) { norms.push_back(n); });
   const double gen_ms = MillisSince(start);
 
   // --- CPU: build the point sets -------------------------------------------
@@ -102,7 +106,7 @@ int main() {
     Work w;
     w.l1 = n.l1;
     w.primes = n.primes;
-    w.points = pte::cpu::point_set(n.primes);
+    w.points = enumerator.point_set(n);
     w.nu = pte::cpu::nu_values(w.points);
     total_points += w.points.size();
     total_pairs += w.points.size() * (w.points.size() - 1) / 2;
@@ -118,7 +122,7 @@ int main() {
   offsets.reserve(work.size() + 1);
   offsets.push_back(0);
   for (const Work &w : work) {
-    for (const std::int64_t v : w.nu)
+    for (const pte::cpu::norm_t v : w.nu)
       flat_nu.push_back(static_cast<pte::gpu::nu_t>(v));
     offsets.push_back(static_cast<pte::gpu::index_t>(flat_nu.size()));
   }
@@ -147,7 +151,7 @@ int main() {
     const pte::gpu::MeetHit &hit = raw[static_cast<std::size_t>(t)];
     const Work &w = work[static_cast<std::size_t>(hit.norm)];
     const Quadruple q{hit.a, hit.b, hit.c, hit.d};
-    if (!pte::cpu::verify_exact(w.nu, q)) {
+    if (!pte::cpu::confirm_candidate(w.nu, q)) {
       ++rejected_by_verify;
       continue;
     }
