@@ -91,6 +91,7 @@ template <typename T> struct GaussT {
   // Deliberately not an operator and deliberately not two calls to operator*:
   // it returns two results from shared subexpressions, which is the whole point
   // of it. This is the inner operation of point-set construction.
+  // GILRO: use lvalue ref not ptrs.
   void mul_and_conj_mul(const GaussT &q, GaussT *out, GaussT *out_conj) const {
     const wide x = wide{re} * q.re;
     const wide y = wide{re} * q.im;

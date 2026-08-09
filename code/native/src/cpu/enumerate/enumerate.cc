@@ -9,6 +9,8 @@
 namespace pte::cpu {
 namespace {
 
+// GILRO: norm_t and Norm is confusing, we should avoid it by giving better
+// names.
 // Exact key of a pair. exact_key_t holds 2*L1^2 for any L1 below 9.2e18, which
 // is nine million times the design bound; see precision.h.
 exact_key_t pair_key(norm_t x, norm_t y) {
@@ -30,6 +32,7 @@ constexpr norm_t kSmallestCofactor = 65;
 
 std::vector<std::uint64_t> split_primes_up_to(std::uint64_t limit) {
   std::vector<std::uint64_t> primes;
+  // GILRO: reserve
   if (limit < 5)
     return primes;
 
@@ -64,8 +67,10 @@ std::size_t point_count(const std::vector<std::uint64_t> &primes) {
 Enumerator::Enumerator(norm_t bound) : bound_(bound) {
   if (bound < 5 * 13 * 17)
     return; // below the smallest admissible norm; factor base stays empty
+  // GILRO: throw error maybe?
 
-  primes_ = split_primes_up_to(static_cast<std::uint64_t>(bound / kSmallestCofactor));
+  primes_ =
+      split_primes_up_to(static_cast<std::uint64_t>(bound / kSmallestCofactor));
 
   // The one place Cornacchia runs: once per prime in the factor base, rather
   // than once per prime factor of every norm.
@@ -74,6 +79,8 @@ Enumerator::Enumerator(norm_t bound) : bound_(bound) {
     prime_points_.push_back(decompose_prime(p));
 }
 
+// GILRO: why not iterate by index always, pretty sure this funciton should not
+// exist.
 std::size_t Enumerator::index_of(std::uint64_t p) const {
   const auto it = std::lower_bound(primes_.begin(), primes_.end(), p);
   if (it == primes_.end() || *it != p) {
@@ -92,6 +99,8 @@ std::vector<Gauss> Enumerator::point_set(const Norm &norm) const {
   return point_set_from(prime_points);
 }
 
+// GILRO: This should be promoted to something more generic like
+// <class Func> transform_points(...)
 std::vector<norm_t> nu_values(const std::vector<Gauss> &points) {
   std::vector<norm_t> out;
   out.reserve(points.size());
@@ -100,6 +109,8 @@ std::vector<norm_t> nu_values(const std::vector<Gauss> &points) {
   return out;
 }
 
+// GILRO: What makes a "reference" different that "optimized CPU
+// ipmlementation?"
 std::vector<Quadruple> meet_reference(const std::vector<norm_t> &nu) {
   std::vector<Quadruple> hits;
   const int n = static_cast<int>(nu.size());

@@ -192,4 +192,21 @@ TEST(Gaussian, IsPrimeAgreesWithGmp) {
     check(rng() % 1000000000000ull);
 }
 
+
+// Regression: primes whose least quadratic non-residue is large.
+//
+// A 64-trial cap on the non-residue search rejected p = 48,473,881 -- a genuine
+// prime, and the record-holder for n(p) in the entire B = 10^10 factor base
+// (n(p) = 67). The bug was reasoning about sequential small integers as if they
+// were random samples. These three are the record-holders measured for the
+// 1.54e6 / 1.54e7 / 1.54e8 factor bases.
+TEST(Gaussian, DecomposesPrimesWithLargeLeastNonResidue) {
+  for (const std::uint64_t p : {u64{1083289}, u64{9257329}, u64{48473881}}) {
+    const Gauss z = pte::cpu::decompose_prime(p);
+    EXPECT_EQ(z.norm(), static_cast<std::int64_t>(p)) << "p = " << p;
+    EXPECT_GE(z.re, z.im);
+    EXPECT_GT(z.im, 0);
+  }
+}
+
 } // namespace

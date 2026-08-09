@@ -21,6 +21,8 @@ namespace pte::cpu {
 
 // One admissible norm: L1 together with the split primes multiplying to it,
 // listed with multiplicity in ascending order.
+// GILRO: rename to DecomposedNorm otherwise its misleading to thing it is just
+// a number.
 struct Norm {
   norm_t l1 = 0;
   std::vector<std::uint64_t> primes;
@@ -28,6 +30,7 @@ struct Norm {
 
 // A candidate solution: four indices into a point set, as {a,b} | {c,d}.
 struct Quadruple {
+  // GILRO: rename to E4Sol and supply with canonize() etc. helper functions.
   int a = 0, b = 0, c = 0, d = 0;
 };
 

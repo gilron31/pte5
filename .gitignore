@@ -3,3 +3,5 @@ profile_output_*
 __marimo__/
 /paper.pdf
 build/
+# Factor-base artifacts: multi-GB, regenerable. See data/README.md.
+/data/*.bin

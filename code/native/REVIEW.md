@@ -1026,3 +1026,62 @@ demo, point-set time went 11.8 ms → 7.6 ms across five runs.
    regression, still unfixed).
 4. **A8 + C9** Precomputed squares and D-bucketing.
 5. **C12** Batch the demo; it still holds every norm in memory.
+
+
+---
+
+## Bug found at scale: the least-non-residue cap
+
+Surfaced while measuring whether the factor base is a "wall" (it is not — see
+`drafts/implementation_design.md` §3.1). Building the $B = 10^{10}$ factor base
+aborted on:
+
+```
+decompose_prime(48473881): no quadratic non-residue found in 64 trials,
+                           so p is composite
+```
+
+**48,473,881 is prime.** Its least quadratic non-residue is 67.
+
+This was my regression, introduced in D13. The original code searched
+`n = 2..999`; "naming the magic number" I replaced it with
+`kMaxNonResidueTrials = 64`, justified by: *half of all residues are
+non-residues, so 64 consecutive failures has probability 2^-64.*
+
+**That argument is wrong.** The trials are not random samples — they are the
+smallest integers 2, 3, 4, …, and the least quadratic non-residue `n(p)` is a
+studied quantity that is routinely far above 2. Measured by exhaustive scan of
+every split prime in each factor base:
+
+| $P_{\max}$ | split primes | max $n(p)$ | attained at |
+| --- | --- | --- | --- |
+| $1.54\times10^6$ | 58,433 | 41 | 1,083,289 |
+| $1.54\times10^7$ | 497,241 | 53 | 9,257,329 |
+| $1.54\times10^8$ | 4,327,911 | **67** | **48,473,881** |
+
+Roughly +13 per decade, consistent with $n(p) \sim \log^2 p$. So 48,473,881 is
+the record-holder for the entire $B = 10^{10}$ factor base, and the cap of 64
+landed just under it.
+
+**Fix.** The bound is now a runaway guard (`1 << 16`), not a probabilistic
+threshold, with the reasoning corrected at the declaration:
+
+- termination is *guaranteed* because `is_prime` has already run — for a prime
+  there are exactly $(p-1)/2$ non-residues, so the loop must find one;
+- under GRH, $n(p) < 2\ln^2 p$ (Ankeny) ≈ 1,100 at $P_{\max} = 1.5\times10^{10}$,
+  so the guard carries ~60× headroom over the strongest conjectural bound;
+- exhausting it means a bug here or a counterexample to GRH, so it throws.
+
+Regression test added covering all three record-holders.
+
+### What this says about the design
+
+The failure was **loud**, and that is the whole point of D13. Before that
+change, `decompose_prime` returned `false`, `point_set` returned `{}`, and the
+norm contributed zero points — so this bug would have silently deleted every
+admissible norm divisible by 48,473,881, and every campaign above $B \approx
+3\times10^9$ would have been quietly incomplete. Nothing in the output would
+have shown it.
+
+That is exactly the failure mode the exclusion claim cannot survive, and the
+throw converted it into a crash on the first run at scale.

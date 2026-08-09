@@ -10,6 +10,7 @@
 namespace pte::cpu {
 namespace {
 
+// GILRO: why not use precision.h?
 using u64 = std::uint64_t;
 __extension__ using u128 = unsigned __int128;
 
@@ -74,7 +75,8 @@ bool is_prime(u64 n) {
 
   static constexpr u64 kSmallSet[] = {2, 3, 5, 7};
   static constexpr u64 kMidSet[] = {2, 3, 5, 7, 11, 13};
-  static constexpr u64 kFullSet[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37};
+  static constexpr u64 kFullSet[] = {2,  3,  5,  7,  11, 13,
+                                     17, 19, 23, 29, 31, 37};
   const u64 *bases = kFullSet;
   std::size_t count = 12;
   if (n < 3215031751ull) {
@@ -105,27 +107,45 @@ bool is_prime(u64 n) {
 
 namespace {
 
-// How many candidates to try when looking for a quadratic non-residue mod p.
+// Runaway guard on the search for a quadratic non-residue mod p. It is *not* a
+// probabilistic bound, and reasoning about it as one is a trap this code fell
+// into once already.
 //
-// Never reached for a genuine prime p = 1 (mod 4): exactly half the non-zero
-// residues are non-residues, so the chance that the first k trials all fail is
-// 2^-k, and 2^-64 is beyond any run this code will ever make.
+// The tempting argument -- "half of all residues are non-residues, so k trials
+// fail with probability 2^-k" -- is wrong, because the trials are not random
+// samples. They are the *smallest* integers 2, 3, 4, ..., and the least
+// quadratic non-residue n(p) is a studied quantity that is frequently much
+// larger than 2. A 64-trial bound justified this way rejected p = 48,473,881,
+// a genuine prime whose least non-residue is 67, as "composite".
 //
-// Note that exhausting it is *not* the primality check -- that would be a
-// tempting argument and it is wrong. A composite that is itself a product of
-// split primes (85 = 5*17, 125 = 5^3, 221 = 13*17) is a sum of two squares, so
-// a non-residue exists, the descent closes, and the result is a well-formed
-// decomposition of a non-prime. Those are exactly the composites this code is
-// most likely to be handed by mistake, which is why is_prime() above is a real
-// Miller-Rabin and not this loop.
-constexpr int kMaxNonResidueTrials = 64;
+// What is actually true:
+//
+//   - Termination is guaranteed, because is_prime(p) has already run. For a
+//     prime p there are exactly (p-1)/2 non-residues, so the loop must find one
+//     before n = p. This bound is a guard against a logic bug, not a
+//     correctness condition.
+//   - Under GRH, n(p) < 2*ln(p)^2 (Ankeny). At the design bound's factor base,
+//     P_max = 1.5e10, that is about 1,100 -- so this cap carries ~60x headroom
+//     over the strongest conjectural bound.
+//   - Measured, by exhaustive scan of every split prime in each factor base:
+//
+//         P_max      split primes   max n(p)   attained at
+//         1.54e6          58,433        41      1,083,289
+//         1.54e7         497,241        53      9,257,329
+//         1.54e8       4,327,911        67     48,473,881
+//
+//     i.e. roughly +13 per decade, consistent with n(p) growing like log^2 p.
+//     Extrapolating to P_max = 1.5e10 gives ~95-110, still 600x inside the cap.
+//
+// Exhausting this is therefore either a bug here or a counterexample to GRH.
+// Either way it must be loud, which is why it becomes a throw.
+constexpr u64 kNonResidueSearchLimit = 1u << 16;
 
 // A square root of -1 mod p, for p = 1 (mod 4). Finds a quadratic non-residue n
 // by trial and returns n^((p-1)/4), whose square is n^((p-1)/2) = -1 by Euler's
-// criterion. Returns 0 only if p is composite; see above.
+// criterion. Returns 0 only if the guard above is exhausted.
 u64 sqrt_minus_one(u64 p) {
-  for (int t = 0; t < kMaxNonResidueTrials; ++t) {
-    const u64 n = static_cast<u64>(t) + 2;
+  for (u64 n = 2; n < kNonResidueSearchLimit && n < p; ++n) {
     if (powmod(n, (p - 1) / 2, p) == p - 1)
       return powmod(n, (p - 1) / 4, p);
   }
@@ -146,8 +166,12 @@ Gauss decompose_prime(u64 p) {
               "so the descent below would have returned one");
 
   const u64 x = sqrt_minus_one(p);
-  if (x == 0)
-    Reject(p, "no quadratic non-residue found in 64 trials, so p is composite");
+  if (x == 0) {
+    // p is already known prime, so this cannot happen for mathematical
+    // reasons; see kNonResidueSearchLimit.
+    Reject(p, "no quadratic non-residue below the search limit, which for a "
+              "prime means either a bug here or a counterexample to GRH");
+  }
 
   // Cornacchia: run the Euclidean algorithm on (p, x) and stop at the first
   // remainder below sqrt(p). Because x^2 = -1 (mod p), the pair (a, b) of the
