@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <span>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -114,7 +115,7 @@ std::vector<E4Sol> meet_oracle(const std::vector<norm_t> &nu) {
   return hits;
 }
 
-bool confirm_candidate(const std::vector<norm_t> &nu, const E4Sol &q) {
+bool confirm_candidate(std::span<const norm_t> nu, const E4Sol &q) {
   const int n = static_cast<int>(nu.size());
   if (q.a < 0 || q.b < 0 || q.c < 0 || q.d < 0)
     return false;
@@ -126,8 +127,8 @@ bool confirm_candidate(const std::vector<norm_t> &nu, const E4Sol &q) {
   return pair_key(nu[q.a], nu[q.b]) == pair_key(nu[q.c], nu[q.d]);
 }
 
-bool is_primitive(const std::vector<Gauss> &points,
-                  const std::vector<factor_t> &primes, const E4Sol &q) {
+bool is_primitive(std::span<const Gauss> points,
+                  std::span<const factor_t> primes, const E4Sol &q) {
   const Gauss *z[4] = {&points[q.a], &points[q.b], &points[q.c], &points[q.d]};
   for (std::size_t i = 0; i < primes.size(); ++i) {
     // Only repeated primes can divide a point, so skip the first copy of each

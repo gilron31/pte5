@@ -12,13 +12,13 @@
 #pragma once
 
 #include "cpu/core/precision.h"
+#include "cpu/core/solution.h"
 #include "cpu/gaussian/gaussian.h"
 
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
-#include <tuple>
-#include <utility>
+#include <span>
 #include <vector>
 
 namespace pte::cpu {
@@ -34,38 +34,6 @@ namespace pte::cpu {
 struct DecomposedNorm {
   norm_t l1 = 0;
   std::vector<factor_index_t> factors;
-};
-
-// A candidate solution: four indices into a point set, read as {a,b} | {c,d}.
-struct E4Sol {
-  int a = 0, b = 0, c = 0, d = 0;
-
-  // Canonical form: each pair sorted, then the two pairs ordered. The meet may
-  // report the same solution under either pair ordering, so canonizing is what
-  // lets results be compared, sorted and deduplicated.
-  //
-  // It deliberately does *not* merge different pairings of the same 4-subset:
-  // {a,b}|{c,d} and {a,c}|{b,d} are genuinely different solutions, and a
-  // 4-subset can satisfy both.
-  E4Sol canonical() const {
-    int p = a, q = b, r = c, s = d;
-    if (p > q)
-      std::swap(p, q);
-    if (r > s)
-      std::swap(r, s);
-    if (p > r || (p == r && q > s)) {
-      std::swap(p, r);
-      std::swap(q, s);
-    }
-    return {p, q, r, s};
-  }
-
-  friend bool operator==(const E4Sol &x, const E4Sol &y) {
-    return x.a == y.a && x.b == y.b && x.c == y.c && x.d == y.d;
-  }
-  friend bool operator<(const E4Sol &x, const E4Sol &y) {
-    return std::tie(x.a, x.b, x.c, x.d) < std::tie(y.a, y.b, y.c, y.d);
-  }
 };
 
 // Split primes (p = 1 mod 4) up to and including `limit`, ascending.
@@ -100,11 +68,14 @@ template <typename Range> std::size_t point_count(const Range &factors) {
 // 7,072 at B = 10^7). The factor base and its decompositions are properties of
 // the bound, not of a norm, so they belong to an object that outlives one.
 //
-// Not yet done, and the reason this is a class rather than a memo table: a DFS
-// node's point set is its parent's doubled by one prime, so the point sets
-// themselves can be carried down the spine instead of rebuilt per norm. That is
-// A2 (largest-prime-outer) in drafts/gpu_algorithms.md, and this is where it
-// will live.
+// **This is the reference enumerator, not the production one.** It rebuilds
+// every point set from {1,0} -- 137 ns/norm against the Spine's 54 -- and it
+// walks the tree smallest-prime-first, which puts 89% of the work in one
+// segment and cannot be parallelized. cpu/generate/ is what a campaign runs.
+//
+// It stays because it is obviously correct and independently written: the Spine
+// is checked against it norm for norm, which is worth more than the speed it
+// gives up. Do not refactor the two to share code.
 class Enumerator {
 public:
   // Builds the factor base and decomposes every prime in it exactly once.
@@ -210,7 +181,7 @@ std::vector<E4Sol> meet_oracle(const std::vector<norm_t> &nu);
 //
 // Also rejects malformed quadruples (out-of-range or repeated indices), so a
 // garbled hit from a buggy kernel cannot be mistaken for a solution.
-bool confirm_candidate(const std::vector<norm_t> &nu, const E4Sol &q);
+bool confirm_candidate(std::span<const norm_t> nu, const E4Sol &q);
 
 // The primitivity rule (drafts/gpu_algorithms.md A3.1). A quadruple whose four
 // points are *all* divisible by some prime p is p^2 times a solution at the
@@ -222,8 +193,8 @@ bool confirm_candidate(const std::vector<norm_t> &nu, const E4Sol &q);
 // Only a repeated prime can divide a point at all: p | z needs both q and its
 // conjugate to divide z, i.e. exponent b_p >= 2. Squarefree norms therefore
 // always pass, and `primes` is the norm's factorization with multiplicity.
-bool is_primitive(const std::vector<Gauss> &points,
-                  const std::vector<factor_t> &primes, const E4Sol &q);
+bool is_primitive(std::span<const Gauss> points, std::span<const factor_t> primes,
+                  const E4Sol &q);
 
 // ---------------------------------------------------------------------------
 // Implementation of the templated member

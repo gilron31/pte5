@@ -87,6 +87,22 @@ using factor_t = std::uint64_t;
 // 3.4e8 that B = 10^12 actually needs.
 using factor_index_t = std::uint32_t;
 
+// The *truncated* pair key: nu_a^2 + nu_b^2 reduced modulo 2^64 by unsigned
+// wraparound. This is layer 1's comparison, on both the CPU and the GPU.
+//
+// It is deliberately a different type from exact_key_t, and the distinction is
+// the one this file exists to police. Truncation is sound in exactly one
+// direction: equal exact keys are always congruent mod 2^64, so a real solution
+// is never lost -- but unequal exact keys can collide, so a match here is a
+// *candidate*, not a result. Below kExactKeyBound the two coincide and the
+// distinction is vacuous; above it, confirm_candidate is the only thing
+// standing between a collision and a wrong answer.
+//
+// Unsigned is load-bearing: signed overflow is undefined behaviour, so the
+// wraparound this type depends on would not merely be imprecise, it would be
+// meaningless.
+using trunc_key_t = std::uint64_t;
+
 // ---------------------------------------------------------------------------
 // Layer 2: confirmation
 // ---------------------------------------------------------------------------

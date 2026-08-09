@@ -72,18 +72,37 @@ evaluations.
 
 On every filter hit: recompute exactly, peel $(L_1,L_2,L_3,\sqrt{L_4})$, assert
 the degree-16 identity, the ladder divisibilities, and primitivity. Rare, so its
-cost is irrelevant and its correctness is everything.
+cost is irrelevant and its correctness is everything. Measured at **~25 µs per
+solution** in GMP, against ~10⁻⁷ s per norm for the search — so certification is
+free at any bound where solutions stay as sparse as they are (2 below $10^6$).
+
+The peel is exact and unconditional, which is worth stating because it means the
+certificate cannot *discover* that a hit was not a solution: $\nu^2 + u^2 =
+L_1^2$ makes the meet's $\nu$ condition and the tower's $u$ condition the same
+equation, so $L_2$ exists for every hit and $L_3$, $\sqrt{L_4}$ are then
+determined. What it can discover is that *this code* computed the wrong tower —
+which is exactly what a paper artifact needs it to catch.
 
 ## 2. Workload shape (exact sieve counts)
 
-| $B$ | factor base | norms | points | pairs | quad-partitions | $D_{\max}$ | $D{=}4$ | $D\le8$ |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| $10^6$ | 891 | 11,083 | 50,617 | 99,354 | 347,919 | 16 | 79.4% | 97.4% |
-| $10^7$ | 7,072 | 131,437 | 623,030 | 1,339,509 | 8,295,267 | 24 | 77.3% | 97.0% |
-| $10^8$ | 58,381 | 1,464,114 | 7,177,311 | 16,790,533 | 169,730,031 | 36 | 75.5% | 96.5% |
+| $B$ | factor base | norms | points | pairs | quad-partitions | $D_{\max}$ | $D{=}4$ | $D\le8$ | $D$ odd | $D>8$ work |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| $10^6$ | 891 | 11,083 | 50,617 | 99,354 | 347,919 | 16 | 79.4% | 98.84% | 1.89% | 35.3% |
+| $10^7$ | 7,072 | 131,437 | 623,030 | 1,339,509 | 8,295,267 | 24 | 77.3% | 97.88% | 1.24% | 59.5% |
+| $10^8$ | 58,381 | 1,464,114 | 7,177,311 | 16,790,533 | 169,730,031 | 36 | 75.5% | 97.03% | 0.87% | 74.2% |
 
 "Quad-partitions" is $\sum_{\text{norms}} \binom{D}{4}\cdot 3$ — the actual work
 of the direct meet, and the metric that matters.
+
+> **Correction.** An earlier version of this table gave $D\le8$ as
+> 97.4 / 97.0 / 96.5%. Those are the shares of $D \in \{4,6,8\}$: the script
+> behind them assumed $D$ is always even. It is not.
+> $|U| = \lceil\tfrac12\prod(b_i+1)\rceil$, so any norm with all-even exponents
+> has an odd point count — $4225 = 5^2\cdot13^2$ is the smallest, at $D = 5$.
+> The `$D$ odd` column above is what was being silently dropped. The consequence
+> for §7.1 is concrete: a dispatch with cases 4, 6, 8 sends every odd-$D$ norm
+> to the large-$D$ path, so `meet_direct<5>` and `<7>` exist in the shipped
+> code.
 
 ### 2.1 Where the points come from, and why canonization is not optional
 
@@ -513,9 +532,9 @@ meet compiles unchanged against a host `std::vector` sink and a device atomic
 append.
 
 ```cpp
-template <class S> concept HitSink = requires(S s, MeetHit h) {
-  { s.emit(h) } -> std::same_as<void>;
-};
+// As shipped: a plain callable, not an object with .emit(). A lambda then works
+// with no adapter, which is what the host sink actually is.
+template <class S> concept HitSink = std::invocable<S&, const E4Sol&>;
 
 template <class B> concept Backend = requires {
   typename B::template buffer<int>;
@@ -568,23 +587,25 @@ each partition appear exactly once.*
 
 ```cpp
 
-template <int D, class P, HitSink S>
-PTE_HOST_DEVICE void meet_direct(const typename P::norm* nu, index_t norm_id,
-                                 S& sink) {
-  using key = typename P::trunc_key;
-  key sq[D];
-  #pragma unroll
-  for (int i = 0; i < D; ++i) sq[i] = key(nu[i]) * key(nu[i]);   // A8: hoisted
+template <int D, MeetKey Key, HitSink S>
+void meet_direct(const norm_t* nu, S&& sink) {
+  Key sq[D];
+  for (int i = 0; i < D; ++i) {
+    const auto v = static_cast<Key>(nu[i]);
+    sq[i] = v * v;                                               // A8: hoisted
+  }
 
-  constexpr auto tab = partitions<D>();
-  #pragma unroll
-  for (std::size_t t = 0; t < tab.size(); ++t) {
-    const auto [a, b, c, d] = tab[t];
-    if (sq[a] + sq[b] == sq[c] + sq[d])                          // 0 mul, 2 add
-      sink.emit({norm_id, a, b, c, d});
+  constexpr auto table = partitions<D>();
+  for (const Partition& t : table) {
+    if (sq[t.a] + sq[t.b] == sq[t.c] + sq[t.d])                  // 0 mul, 2 add
+      sink(E4Sol{t.a, t.b, t.c, t.d});
   }
 }
 ```
+
+The norm id is not a parameter: on the host the meet runs inside the DFS, which
+already knows which norm it is on, so the sink closes over it. The device sink
+will do the same, constructing its `MeetHit` from a `norm_id` it was built with.
 
 Two things this buys beyond tidiness:
 
@@ -601,21 +622,45 @@ $D(cq) = 2D(c)$, so the bucket is known *before* generation — sort the cofacto
 table by $D$ once and batches are homogeneous with no stream compaction.
 
 ```cpp
-template <class P, HitSink S>
-PTE_HOST_DEVICE void meet(int D, const typename P::norm* nu,
-                          index_t norm_id, S& sink) {
-  switch (D) {                       // 96.5% of norms land in the first three
-    case 4: return meet_direct<4, P>(nu, norm_id, sink);
-    case 6: return meet_direct<6, P>(nu, norm_id, sink);
-    case 8: return meet_direct<8, P>(nu, norm_id, sink);
-    default: return meet_hashed<P>(D, nu, norm_id, sink);   // 3%, 74% of work
+template <MeetKey Key, HitSink S>
+void meet(int D, const norm_t* nu, MeetScratch<Key>& scratch, S&& sink) {
+  switch (D) {                       // 97.0% of norms land in the tables
+    case 4: return meet_direct<4, Key>(nu, sink);
+    case 5: return meet_direct<5, Key>(nu, sink);   // odd D is real: 4225
+    case 6: return meet_direct<6, Key>(nu, sink);
+    case 7: return meet_direct<7, Key>(nu, sink);
+    case 8: return meet_direct<8, Key>(nu, sink);
+    default: return meet_hashed<Key>(D, nu, scratch, sink);  // 3%, 74% of work
   }
 }
 ```
 
-`meet_hashed` computes $D(D{-}1)/2$ keys into shared memory and sorts or hashes
-them — $O(D^2)$ rather than $O(D^4)$, and **no disjointness check**, because
-$\nu$ is injective on a point set.
+`meet_hashed` computes $D(D{-}1)/2$ keys, sorts them, and reads off equal-key
+groups — $O(D^2)$ rather than $O(D^4)$, and **no disjointness check on the
+candidate path**, because $\nu$ is injective on a canonized point set. (There is
+one on the *emission* path, which runs only on an actual key collision and so is
+free; it exists so that a caller passing a non-canonized set gets nothing rather
+than garbage.)
+
+**Where the $D\le8$ cut comes from.** Swept on the real $B=10^7$ corpus, single
+thread: all-hashed 51.4, direct to $D\le4$ 36.6, $\le6$ 34.6, $\le7$ 35.1,
+**$\le8$ 33.7**, $\le10$ 34.4 ns/norm. Worth recording that a microbenchmark
+repeating one $D$ says the opposite — it has hashed beating `meet_direct<8>` by
+27% — because a fixed $D$ makes the sort's branches perfectly predictable and
+never resizes the scratch. The mixed corpus is the workload.
+
+**What each idea bought,** measured over every admissible norm with $\nu$ values
+precomputed, against two baselines:
+
+| $B$ | oracle: exact, no hoist | A8: hoisted `sq[]`, trunc key | A8+C9: dispatched | hoist | bucket |
+| --- | --- | --- | --- | --- | --- |
+| $10^6$ | 43.9 ns/norm | 32.0 | 20.4 | 1.37× | 1.57× |
+| $10^7$ | 75.0 | 55.3 | 34.2 | 1.36× | 1.62× |
+| $10^8$ | 123.9 | 100.3 | 48.2 | 1.24× | 2.08× |
+
+Hoisting is a flat ~1.3×. Bucketing is the one that scales, tracking the $D>8$
+work share and sitting near its Amdahl ceiling at each bound. The ~20× projected
+at $B = 10^{12}$ is consistent with this trend but is *not* measured.
 
 ## 8. The DFS spine
 
@@ -624,51 +669,165 @@ incrementally. Written once; the host walks it directly, the device gives one
 block per subtree with the ancestor path in shared memory.
 
 ```cpp
-template <class P> class Spine {
-  // Level k holds the point set of the cofactor formed by primes [0..k).
-  // A child is the parent doubled by one prime: U(cq) = U(c)q ∪ U(c)q̄.
-  struct Level {
-    std::uint32_t prime_index;
-    std::uint16_t exponent;
-    std::uint16_t point_count;      // == D(level), known before construction
-  };
-  std::array<Level, kMaxDepth> path_;
-  std::span<GaussT<typename P::coord>> points_;   // flattened, offset per level
-
+class Spine {
 public:
-  // Extend by one prime; returns a view of the child's points. O(D) multiplies.
-  std::span<const GaussT<typename P::coord>> push(std::uint32_t prime_index);
-  void pop();
+  explicit Spine(const FactorBase& base);
+  void push(factor_index_t i);      // extend by one prime copy; O(D) multiplies
+  void pop();                       // a decrement
+  std::span<const Gauss> points() const;
+  std::span<const factor_index_t> factors() const;
+  norm_t value() const;
+private:
+  std::array<factor_index_t, kMaxSpineDepth> path_;
+  std::array<int, kMaxSpineDepth + 1> size_, offset_;
+  std::vector<Gauss> buffer_;       // levels packed end to end, one allocation
 };
 ```
 
-`kMaxDepth` is 11 measured at $10^8$, 13 budgeted for $10^{12}$ — a compile-time
-constant, so `path_` is a fixed array and the whole spine is
-`13 × 192 × 8 B = 20 KB`, which is the shared-memory budget of §4.3.
+**The relation, stated carefully, because a plausible version of it is wrong.**
+$U(cq) = \{\mathrm{canon}(zq), \mathrm{canon}(z\bar q) : z \in U(c)\}$,
+*deduplicated*. $U(c)$ is not the set of Gaussian integers of norm $c$ — it is
+that set modulo units **and conjugation**. The identity holds because the full
+set $W(c)$ is closed under conjugation, so $\overline{W(c)q} = W(c)\bar q$.
+
+The deduplication is not a single collision. At $c = 25$, $q = 2+i$: the parent
+$U(25) = \{(5,0),(4,3)\}$ produces $(10,5), (10,5), (10,5), (11,2)$ — a
+**three-way** collapse — giving $U(125) = \{(10,5),(11,2)\}$. Anything that
+assumes "at most one duplicate, from the self-conjugate point" returns a point
+set that is too large, and a point set that is too large is one on which $\nu$
+is not injective, which is the precondition the whole meet rests on. So:
+canonize, sort, unique, at every level.
+
+**Budgets (corrected).** Exact, from a search over products of split primes
+$\le B$, and agreeing with the exhaustive enumeration wherever one exists
+($D_{\max} = 16$ at $10^6$, $36$ at $10^8$, matching §2):
+
+| $B$ | max prime copies (depth) | max divisors | max $D$ |
+| --- | --- | --- | --- |
+| $10^6$ | 8 | 32 | 16 |
+| $10^8$ | 11 | 72 | 36 |
+| $10^{10}$ | 14 | 160 | 80 |
+| $10^{12}$ | **17** | 384 | 192 |
+
+An earlier version of this section budgeted `kMaxDepth = 13` for $10^{12}$. That
+is wrong, and the error is instructive: depth is driven by the *smallest* split
+prime, not by how many distinct primes fit. $5^{17} = 7.6\times10^{11}$ is an
+admissible norm below the design bound with seventeen prime copies — and only
+nine points. $D$ is driven by the opposite extreme. Shipped constants are
+`kMaxSpineDepth = 20`, `kMaxPointCount = 192`; both are enforced with a throw,
+never a truncation.
+
+**Measured** (single thread, `-O2 -march=native`, every admissible norm):
+
+| $B$ | DFS walk only | rebuild per norm | spine | point sets alone | speedup |
+| --- | --- | --- | --- | --- | --- |
+| $10^6$ | 12.9 ns/norm | 139.7 | 63.0 | 126.7 → 50.1 | 2.22× |
+| $10^7$ | 11.5 | 135.4 | 50.8 | 123.9 → 39.3 | 2.67× |
+| $10^8$ | 10.8 | 137.0 | 53.7 | 126.2 → 42.9 | 2.55× |
+
+Generation plus meet — the campaign's actual inner loop — is **115 ns/norm at
+$B = 10^8$**, against 137 for the reference's point-set rebuild alone.
+
+`NormView` also carries $\nu$, computed at emission rather than in `push` (which
+runs on every node of the cofactor tree, most of which are not admissible
+norms). Measured honestly, this is a wash for speed: it costs ~5 ns/norm for a
+consumer that does not want $\nu$ and saves about the same for one that does.
+It is there so the meet reads the walk's own buffer, rather than every caller
+re-deriving the point-order convention its injectivity precondition depends on.
 
 ## 9. Backends
 
+As shipped, the campaign is not templated on a backend — there is one, the host,
+and `std::thread` over an atomic segment counter rather than OpenMP. A device
+backend would slot in at the same seam (`Walker` + `meet<Key>` + `certify`), but
+inventing the abstraction before the second implementation exists would be
+guessing at its shape.
+
 ```cpp
-template <class P, Backend B> class Campaign {
+class Campaign {
 public:
-  Campaign(typename P::norm bound, B backend);
-  Result run();                     // segmented, checkpointed, resumable
-private:
-  FactorBase<P, B> base_;           // segmented; never materialized whole
-  Spine<P> spine_;
-  typename B::sink sink_;
+  explicit Campaign(CampaignOptions opts);
+  CampaignStats run();              // segmented, checkpointed, resumable
 };
 ```
 
-`HostBackend` walks segments with OpenMP over subtrees. `DeviceBackend` launches
-one block per subtree. Both instantiate the *same* `meet<P>` and the same
-`confirm<P>`, which is what makes the CPU an honest oracle for the GPU rather
-than a parallel reimplementation that can agree by sharing a bug.
+**The exception, deliberately preserved:** `meet_oracle` and `Enumerator` in
+`cpu/enumerate/` stay separate, naive, exact-arithmetic implementations. They
+are not the production path with different parameters — they are independently
+written oracles, and the cross-check is worthless if the two share code.
 
-**The exception, deliberately preserved:** `meet_reference` in
-`cpu/enumerate/enumerate.h` stays a separate, naive, exact-arithmetic
-implementation. It is not `meet<P>` with a host backend — it is an independently
-written oracle, and the cross-check is worthless if the two share code.
+### 9.1 Segments, and why the batch size cannot be a constant
+
+The unit of work, scheduling and checkpointing is a **segment**: all norms whose
+largest prime factor is one particular prime. Segments partition the space, so
+progress is fully described by "segments $0..k$ are done".
+
+Two different balance questions, with opposite answers, and getting them
+confused costs either the parallelism or the checkpoint:
+
+- **Across threads, segments are well balanced.** At $B = 10^8$ the largest
+  single segment is 2.2% of total cost, against 89.4% if you segment by the
+  *smallest* prime instead (the natural ascending DFS order — only 42 non-empty
+  segments, and a speedup ceiling of 1.1× on any machine). Dynamic pull
+  scheduling over 4.3M segments needs nothing cleverer.
+- **Across consecutive indices, segments are wildly unbalanced.** Segment cost
+  falls steeply with index, because small primes admit far more smooth
+  cofactors. Measured over $B = 10^{10}$ with a fixed batch of 4096:
+
+  | batch | segments | norms | share |
+  | --- | --- | --- | --- |
+  | 0 | 0–4,096 | 65,199,984 | **39.4%** |
+  | 1 | 4,096–8,192 | 15,572,736 | 9.4% |
+  | 2 | 8,192–12,288 | 8,562,385 | 5.2% |
+  | … | 1,056 batches | … | … |
+
+  So the first checkpoint lands 39% of the way in. Geometric batch growth does
+  not fix it — the concentration is *inside* the first block, not spread over
+  the first few. The shipped answer is to **adapt the batch size to measured
+  wall time**, rescaling after each batch towards a target interval (default
+  5 s, clamped to a 4× swing per step). No model of the cost curve, works at any
+  bound. Observed ramp at $B = 10^{10}$ with a 2 s target: 64 → 227 → 526 →
+  1,482 → 5,219 → 21,690 → 264,744 segments.
+
+### 9.2 The commit order
+
+```text
+1. write the batch's rows to the catalog
+2. fflush + fsync                          <- rows are durable
+3. write checkpoint.tmp, fsync it
+4. rename checkpoint.tmp -> checkpoint     <- atomic on POSIX
+```
+
+A crash between 2 and 4 leaves rows the checkpoint does not know about, so
+resume **truncates** the catalog to the checkpointed byte offset before
+appending. Truncating is what makes replay idempotent; appending blindly would
+duplicate a batch. Rows are written back in segment order, so the catalog is
+byte-identical regardless of thread count or batch boundaries — which is what
+lets "resumed" and "uninterrupted" be compared at all.
+
+### 9.3 The B = 10^10 campaign
+
+Measured end to end, 16 threads, factor base loaded from
+`data/factorbase_1e12.bin`:
+
+| | |
+| --- | --- |
+| segments | 4,323,837 |
+| admissible norms | 165,632,402 |
+| factor base (load, not sieve) | 0.05 s |
+| enumeration | **17.0 s** (9.7 M norms/s; 11.0× on 16 threads) |
+| meet candidates | 88 |
+| rejected, key collision mod $2^{64}$ | 0 |
+| rejected, imprimitive | 80 |
+| catalogued, all certified | **8** |
+
+Resumability was tested by `SIGKILL` — not a clean stop — eight times in
+succession during a live run; the final catalog and checkpoint are byte-identical
+to the uninterrupted run. All eight catalog rows were then independently
+reproduced in Python, including the two non-squarefree norms
+($37^2\cdot101\cdot401$ and $53\cdot73^2\cdot857$), and an independent Python
+exhaustive search to $10^6$ agrees on both the norm count (11,083) and the
+solution set.
 
 ---
 

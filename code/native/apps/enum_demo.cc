@@ -16,6 +16,7 @@
 // "Deferred" section of code/native/README.md.
 //
 // Exits non-zero if the CPU and GPU disagree, or if any hit fails verification.
+#include "cpu/confirm/confirm.h"
 #include "cpu/enumerate/enumerate.h"
 #include "cpu/gaussian/gaussian.h"
 #include "gpu/core/device.h"
@@ -26,6 +27,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -163,16 +165,35 @@ int main() {
   }
   const double verify_ms = MillisSince(start);
 
-  // --- CPU: the same search, independently ---------------------------------
+  // --- CPU: the same search, independently, and the certificate ------------
+  //
+  // Every reported solution carries a machine-checked proof: the tower peeled
+  // in GMP, the degree-16 identity expanded coefficient by coefficient, and
+  // Theorem 4.1's divisibilities. A solution that cannot be certified is a bug
+  // in this program, so it is a failure rather than a warning.
   start = Clock::now();
   std::vector<Solution> cpu_solutions;
+  std::vector<pte::cpu::Certificate> certificates;
+  double certify_ms = 0;
   for (const Work &w : work) {
     for (const E4Sol &q : pte::cpu::meet_oracle(w.nu)) {
-      if (pte::cpu::is_primitive(w.points, w.primes, q))
-        cpu_solutions.push_back(MakeSolution(w, q));
+      if (!pte::cpu::is_primitive(w.points, w.primes, q))
+        continue;
+      cpu_solutions.push_back(MakeSolution(w, q));
+      const auto cert_start = Clock::now();
+      certificates.push_back(pte::cpu::certify(pte::cpu::quadruple(w.points, q)));
+      certify_ms += MillisSince(cert_start);
     }
   }
-  const double cpu_ms = MillisSince(start);
+  const double cpu_ms = MillisSince(start) - certify_ms;
+
+  int uncertified = 0;
+  for (const pte::cpu::Certificate &c : certificates) {
+    if (!c.valid()) {
+      std::printf("  UNCERTIFIED: %s\n", c.failure().c_str());
+      ++uncertified;
+    }
+  }
 
   std::sort(gpu_solutions.begin(), gpu_solutions.end());
   std::sort(cpu_solutions.begin(), cpu_solutions.end());
@@ -189,6 +210,8 @@ int main() {
               gpu_ms);
   std::printf("  CPU verify hits     %8.2f ms\n", verify_ms);
   std::printf("  CPU reference meet  %8.2f ms\n", cpu_ms);
+  std::printf("  CPU certificates    %8.2f ms  (GMP; %zu solutions)\n",
+              certify_ms, certificates.size());
   std::printf("\n");
   std::printf("  raw GPU hits        %10lld\n", static_cast<long long>(found));
   std::printf("    rejected, key mismatch in wide arithmetic %d\n",
@@ -215,11 +238,15 @@ int main() {
     std::printf("  CPU and GPU solution sets are identical -> OK\n");
   }
 
-  for (const Solution &s : cpu_solutions) {
-    std::printf("    E_4 at L1 = %lld: nu = %lld %lld %lld %lld\n",
-                static_cast<long long>(s[0]), static_cast<long long>(s[1]),
-                static_cast<long long>(s[2]), static_cast<long long>(s[3]),
-                static_cast<long long>(s[4]));
+  // Sorted above for the comparison, so walk the unsorted certificates by their
+  // own L1 rather than assuming the two vectors still line up.
+  for (const pte::cpu::Certificate &c : certificates) {
+    std::printf("    E_4 at L1 = %lld  [%s]\n",
+                static_cast<long long>(c.tower.l1),
+                c.valid() ? "certified" : "UNCERTIFIED");
+    std::printf("      L2      = %s\n", c.tower.l2.get_str().c_str());
+    std::printf("      L3      = %s\n", c.tower.l3.get_str().c_str());
+    std::printf("      sqrt L4 = %s\n", c.tower.sqrt_l4.get_str().c_str());
   }
 
   // The point of the naive-hybrid split, made numerically explicit.
@@ -231,6 +258,9 @@ int main() {
               static_cast<double>(total_pairs) / bytes);
   std::printf("  generating norms on the device is what fixes this.\n");
 
-  std::printf("\n%s\n", agree ? "All checks passed." : "FAILURES detected.");
-  return agree ? 0 : 1;
+  const bool ok = agree && uncertified == 0;
+  if (uncertified > 0)
+    std::printf("\n  %d solution(s) failed certification\n", uncertified);
+  std::printf("\n%s\n", ok ? "All checks passed." : "FAILURES detected.");
+  return ok ? 0 : 1;
 }

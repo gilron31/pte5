@@ -49,6 +49,11 @@ endif()
 # built with CMake 4. Ubuntu's libboost1.83-dev ships BoostConfig.cmake.
 find_package(Boost 1.74 REQUIRED CONFIG)
 
+# The campaign parallelizes with std::thread over an atomic segment counter --
+# no OpenMP. Measured segment balance (max segment = 2.2% of cost at B = 10^8)
+# is what makes plain dynamic pull-scheduling sufficient.
+find_package(Threads REQUIRED)
+
 # GMP has no CMake find module, but does ship pkg-config files.
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GMP REQUIRED IMPORTED_TARGET gmp gmpxx)
@@ -79,8 +84,10 @@ endif()
 add_subdirectory(src/cpu)
 if(PTE_HAVE_CUDA)
   add_subdirectory(src/gpu)
-  add_subdirectory(apps)
 endif()
+# Always: enum_campaign is pure CPU and must build on a machine with no CUDA at
+# all. apps/CMakeLists.txt guards the GPU-dependent targets itself.
+add_subdirectory(apps)
 if(PTE_BUILD_PYTHON)
   add_subdirectory(src/bindings)
 endif()
