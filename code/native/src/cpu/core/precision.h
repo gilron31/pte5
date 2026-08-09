@@ -68,8 +68,24 @@ inline constexpr std::int64_t kMaxNorm = 1'000'000'000'000; // 10^12
 // puts coordinates on the bus; the template is already shaped for it.
 using coord_t = std::int64_t;
 
-// L1 and nu(z). Both bounded by kMaxNorm.
+// Values bounded by kMaxNorm. Three distinct meanings share this width
+// deliberately -- L1 itself, the norm N(z) = m^2 + n^2, and the invariant
+// nu(z) = m^2 - n^2 -- because they are compared and combined constantly and
+// separate types would buy conversions rather than safety. See the strong-type
+// sketch in drafts/implementation_design.md 6.1 for what separating them would
+// actually cost.
+//
+// Not to be confused with `DecomposedNorm`, which is a *norm together with its
+// factorization*; this is only the integer width.
 using norm_t = std::int64_t;
+
+// A factor-base prime. Bounded by kMaxNorm / 65, the largest prime that can
+// divide an admissible norm.
+using factor_t = std::uint64_t;
+
+// Index into the factor base. 32 bits holds 4.3e9 primes against the
+// 3.4e8 that B = 10^12 actually needs.
+using factor_index_t = std::uint32_t;
 
 // ---------------------------------------------------------------------------
 // Layer 2: confirmation

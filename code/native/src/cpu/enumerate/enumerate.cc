@@ -1,6 +1,7 @@
 #include "cpu/enumerate/enumerate.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -9,8 +10,6 @@
 namespace pte::cpu {
 namespace {
 
-// GILRO: norm_t and Norm is confusing, we should avoid it by giving better
-// names.
 // Exact key of a pair. exact_key_t holds 2*L1^2 for any L1 below 9.2e18, which
 // is nine million times the design bound; see precision.h.
 exact_key_t pair_key(norm_t x, norm_t y) {
@@ -30,11 +29,17 @@ constexpr norm_t kSmallestCofactor = 65;
 
 } // namespace
 
-std::vector<std::uint64_t> split_primes_up_to(std::uint64_t limit) {
-  std::vector<std::uint64_t> primes;
-  // GILRO: reserve
+std::vector<factor_t> split_primes_up_to(factor_t limit) {
+  std::vector<factor_t> primes;
   if (limit < 5)
     return primes;
+
+  // pi(x) ~ x/ln(x), halved because only p = 1 (mod 4) is kept, and padded 15%
+  // because the approximation runs low in this range. One allocation instead of
+  // ~log2(n) reallocations plus their copies.
+  primes.reserve(static_cast<std::size_t>(
+      1.15 * static_cast<double>(limit) / std::log(static_cast<double>(limit)) /
+      2.0));
 
   std::vector<bool> composite(limit + 1, false);
   for (std::uint64_t i = 2; i * i <= limit; ++i) {
@@ -50,27 +55,19 @@ std::vector<std::uint64_t> split_primes_up_to(std::uint64_t limit) {
   return primes;
 }
 
-std::size_t point_count(const std::vector<std::uint64_t> &primes) {
-  // prod(b_i + 1) from the multiset, then halve (rounding up) for conjugation.
-  std::size_t divisors = 1;
-  std::size_t run = 0;
-  for (std::size_t i = 0; i < primes.size(); ++i) {
-    ++run;
-    if (i + 1 == primes.size() || primes[i + 1] != primes[i]) {
-      divisors *= run + 1;
-      run = 0;
-    }
-  }
-  return (divisors + 1) / 2;
-}
-
 Enumerator::Enumerator(norm_t bound) : bound_(bound) {
+  if (bound < 0)
+    throw std::invalid_argument("Enumerator: negative bound " +
+                                std::to_string(bound));
+  // A bound below the smallest admissible norm is a legitimate query with an
+  // empty answer, not an error: 5*13*17 = 1105 is the smallest product of split
+  // primes with four points, so "nothing below 1000" is simply true. Throwing
+  // here would make callers special-case a correct result.
   if (bound < 5 * 13 * 17)
-    return; // below the smallest admissible norm; factor base stays empty
-  // GILRO: throw error maybe?
+    return;
 
   primes_ =
-      split_primes_up_to(static_cast<std::uint64_t>(bound / kSmallestCofactor));
+      split_primes_up_to(static_cast<factor_t>(bound / kSmallestCofactor));
 
   // The one place Cornacchia runs: once per prime in the factor base, rather
   // than once per prime factor of every norm.
@@ -79,40 +76,24 @@ Enumerator::Enumerator(norm_t bound) : bound_(bound) {
     prime_points_.push_back(decompose_prime(p));
 }
 
-// GILRO: why not iterate by index always, pretty sure this funciton should not
-// exist.
-std::size_t Enumerator::index_of(std::uint64_t p) const {
-  const auto it = std::lower_bound(primes_.begin(), primes_.end(), p);
-  if (it == primes_.end() || *it != p) {
-    throw std::invalid_argument("Enumerator: prime " + std::to_string(p) +
-                                " is not in the factor base for bound " +
-                                std::to_string(bound_));
-  }
-  return static_cast<std::size_t>(it - primes_.begin());
-}
-
-std::vector<Gauss> Enumerator::point_set(const Norm &norm) const {
-  std::vector<Gauss> prime_points;
-  prime_points.reserve(norm.primes.size());
-  for (const std::uint64_t p : norm.primes)
-    prime_points.push_back(prime_points_[index_of(p)]);
-  return point_set_from(prime_points);
-}
-
-// GILRO: This should be promoted to something more generic like
-// <class Func> transform_points(...)
-std::vector<norm_t> nu_values(const std::vector<Gauss> &points) {
-  std::vector<norm_t> out;
-  out.reserve(points.size());
-  for (const Gauss &z : points)
-    out.push_back(static_cast<norm_t>(z.nu()));
+std::vector<factor_t> Enumerator::primes_of(const DecomposedNorm &norm) const {
+  std::vector<factor_t> out;
+  out.reserve(norm.factors.size());
+  for (const factor_index_t i : norm.factors)
+    out.push_back(primes_[i]);
   return out;
 }
 
-// GILRO: What makes a "reference" different that "optimized CPU
-// ipmlementation?"
-std::vector<Quadruple> meet_reference(const std::vector<norm_t> &nu) {
-  std::vector<Quadruple> hits;
+std::vector<Gauss> Enumerator::point_set(const DecomposedNorm &norm) const {
+  std::vector<Gauss> prime_points;
+  prime_points.reserve(norm.factors.size());
+  for (const factor_index_t i : norm.factors)
+    prime_points.push_back(prime_points_[i]);
+  return point_set_from(prime_points);
+}
+
+std::vector<E4Sol> meet_oracle(const std::vector<norm_t> &nu) {
+  std::vector<E4Sol> hits;
   const int n = static_cast<int>(nu.size());
   for (int i = 0; i < n; ++i)
     for (int j = i + 1; j < n; ++j)
@@ -133,7 +114,7 @@ std::vector<Quadruple> meet_reference(const std::vector<norm_t> &nu) {
   return hits;
 }
 
-bool confirm_candidate(const std::vector<norm_t> &nu, const Quadruple &q) {
+bool confirm_candidate(const std::vector<norm_t> &nu, const E4Sol &q) {
   const int n = static_cast<int>(nu.size());
   if (q.a < 0 || q.b < 0 || q.c < 0 || q.d < 0)
     return false;
@@ -146,8 +127,7 @@ bool confirm_candidate(const std::vector<norm_t> &nu, const Quadruple &q) {
 }
 
 bool is_primitive(const std::vector<Gauss> &points,
-                  const std::vector<std::uint64_t> &primes,
-                  const Quadruple &q) {
+                  const std::vector<factor_t> &primes, const E4Sol &q) {
   const Gauss *z[4] = {&points[q.a], &points[q.b], &points[q.c], &points[q.d]};
   for (std::size_t i = 0; i < primes.size(); ++i) {
     // Only repeated primes can divide a point, so skip the first copy of each

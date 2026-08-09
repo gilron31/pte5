@@ -58,7 +58,7 @@ TEST(Gaussian, MulAndConjMulAgreeWithPlainMul) {
   const Gauss q{5, 2};
   Gauss a;
   Gauss b;
-  z.mul_and_conj_mul(q, &a, &b);
+  z.mul_and_conj_mul(q, a, b);
   EXPECT_EQ(a, z * q);
   EXPECT_EQ(b, z * q.conj());
 }
@@ -207,6 +207,66 @@ TEST(Gaussian, DecomposesPrimesWithLargeLeastNonResidue) {
     EXPECT_GE(z.re, z.im);
     EXPECT_GT(z.im, 0);
   }
+}
+
+
+// Canonization is load-bearing, not cosmetic dedup.
+//
+// nu(conj z) = nu(z), so on the *raw* products of the multiplicative
+// construction nu is not injective. It is canonization that collapses each
+// orbit to one point and thereby makes nu injective -- and nu injectivity is
+// the whole justification for omitting the disjointness test from every meet.
+TEST(Gaussian, CanonizationIsWhatMakesNuInjective) {
+  const std::vector<std::vector<u64>> cases = {
+      {5, 13, 17}, {5, 13, 17, 29}, {5, 5, 13, 17}};
+  for (const auto &primes : cases) {
+    // Raw products, before canonization: 2^(number of prime copies) of them.
+    std::vector<Gauss> raw{{1, 0}};
+    for (const u64 p : primes) {
+      const Gauss q = pte::cpu::decompose_prime(p);
+      std::vector<Gauss> next;
+      for (const Gauss &z : raw) {
+        Gauss a;
+        Gauss b;
+        z.mul_and_conj_mul(q, a, b);
+        next.push_back(a);
+        next.push_back(b);
+      }
+      raw.swap(next);
+    }
+    ASSERT_EQ(raw.size(), std::size_t{1} << primes.size());
+
+    std::set<std::int64_t> raw_nu;
+    for (const Gauss &z : raw)
+      raw_nu.insert(static_cast<std::int64_t>(z.nu()));
+    EXPECT_LT(raw_nu.size(), raw.size())
+        << "nu must collide on raw products (z and conj z share it)";
+
+    const auto canonical = pte::cpu::point_set(primes);
+    std::set<std::int64_t> canon_nu;
+    for (const Gauss &z : canonical)
+      canon_nu.insert(static_cast<std::int64_t>(z.nu()));
+    EXPECT_EQ(canon_nu.size(), canonical.size())
+        << "nu must be injective once canonized";
+  }
+}
+
+// The count the analysis rests on: three distinct primes give 8 raw products
+// but only 4 independent canonized points, because conjugation halves them.
+TEST(Gaussian, ThreePrimesGiveFourCanonizedPoints) {
+  EXPECT_EQ(pte::cpu::point_set({5, 13, 17}).size(), 4u);
+  EXPECT_EQ(pte::cpu::point_set({5, 13, 17, 29}).size(), 8u);
+  EXPECT_EQ(pte::cpu::point_set({5, 5, 13, 17}).size(), 6u);
+}
+
+// nu is invariant under conjugation and flips sign under multiplication by i,
+// which is exactly why the orbit collapses the way it does.
+TEST(Gaussian, NuIsConjugationInvariantAndFlipsUnderI) {
+  const Gauss z = pte::cpu::decompose_prime(13); // 13 = 3^2 + 2^2
+  EXPECT_EQ(z.nu(), z.conj().nu());
+  const Gauss iz = z * Gauss{0, 1};
+  EXPECT_EQ(iz.nu(), -z.nu());
+  EXPECT_EQ(iz.norm(), z.norm());
 }
 
 } // namespace

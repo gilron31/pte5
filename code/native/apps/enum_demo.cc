@@ -32,7 +32,7 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 using pte::cpu::Gauss;
-using pte::cpu::Quadruple;
+using pte::cpu::E4Sol;
 
 // L1 bound for the demo sweep. Small enough to run in a couple of seconds and
 // well under pte::cpu::kExactKeyBound, so the meet here is exact arithmetic
@@ -47,7 +47,7 @@ double MillisSince(Clock::time_point start) {
 // One admissible norm, expanded and ready to hand to either meet.
 struct Work {
   std::int64_t l1 = 0;
-  std::vector<std::uint64_t> primes;
+  std::vector<pte::cpu::factor_t> primes;
   std::vector<Gauss> points;
   std::vector<pte::cpu::norm_t> nu;
 };
@@ -57,7 +57,7 @@ struct Work {
 // differ, and they do not: both sides share pte::cpu::point_set.
 using Solution = std::array<std::int64_t, 5>; // l1, then the four nu values
 
-Solution MakeSolution(const Work &w, const Quadruple &q) {
+Solution MakeSolution(const Work &w, const E4Sol &q) {
   Solution s{w.l1, w.nu[q.a], w.nu[q.b], w.nu[q.c], w.nu[q.d]};
   std::sort(s.begin() + 1, s.end());
   return s;
@@ -92,8 +92,8 @@ int main() {
   // --- CPU: generate the admissible norms ----------------------------------
   auto start = Clock::now();
   const pte::cpu::Enumerator enumerator(kBound);
-  std::vector<pte::cpu::Norm> norms;
-  enumerator.for_each_norm([&](const pte::cpu::Norm &n) { norms.push_back(n); });
+  std::vector<pte::cpu::DecomposedNorm> norms;
+  enumerator.for_each_norm([&](const pte::cpu::DecomposedNorm &n) { norms.push_back(n); });
   const double gen_ms = MillisSince(start);
 
   // --- CPU: build the point sets -------------------------------------------
@@ -102,10 +102,10 @@ int main() {
   work.reserve(norms.size());
   std::size_t total_points = 0;
   std::size_t total_pairs = 0;
-  for (const pte::cpu::Norm &n : norms) {
+  for (const pte::cpu::DecomposedNorm &n : norms) {
     Work w;
     w.l1 = n.l1;
-    w.primes = n.primes;
+    w.primes = enumerator.primes_of(n);
     w.points = enumerator.point_set(n);
     w.nu = pte::cpu::nu_values(w.points);
     total_points += w.points.size();
@@ -150,7 +150,7 @@ int main() {
   for (pte::gpu::index_t t = 0; t < found; ++t) {
     const pte::gpu::MeetHit &hit = raw[static_cast<std::size_t>(t)];
     const Work &w = work[static_cast<std::size_t>(hit.norm)];
-    const Quadruple q{hit.a, hit.b, hit.c, hit.d};
+    const E4Sol q{hit.a, hit.b, hit.c, hit.d};
     if (!pte::cpu::confirm_candidate(w.nu, q)) {
       ++rejected_by_verify;
       continue;
@@ -167,7 +167,7 @@ int main() {
   start = Clock::now();
   std::vector<Solution> cpu_solutions;
   for (const Work &w : work) {
-    for (const Quadruple &q : pte::cpu::meet_reference(w.nu)) {
+    for (const E4Sol &q : pte::cpu::meet_oracle(w.nu)) {
       if (pte::cpu::is_primitive(w.points, w.primes, q))
         cpu_solutions.push_back(MakeSolution(w, q));
     }

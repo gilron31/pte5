@@ -208,7 +208,7 @@ std::vector<Gauss> point_set_from(const std::vector<Gauss> &prime_points) {
     for (const Gauss &z : points) {
       Gauss a;
       Gauss b;
-      z.mul_and_conj_mul(q, &a, &b);
+      z.mul_and_conj_mul(q, a, b);
       next.push_back(a);
       next.push_back(b);
     }

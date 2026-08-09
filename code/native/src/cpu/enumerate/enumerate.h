@@ -14,32 +14,81 @@
 #include "cpu/core/precision.h"
 #include "cpu/gaussian/gaussian.h"
 
+#include <algorithm>
 #include <cstdint>
+#include <iterator>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 namespace pte::cpu {
 
-// One admissible norm: L1 together with the split primes multiplying to it,
-// listed with multiplicity in ascending order.
-// GILRO: rename to DecomposedNorm otherwise its misleading to thing it is just
-// a number.
-struct Norm {
+// An admissible norm together with its split-prime factorization -- not just a
+// number, hence the name; `norm_t` is the bare integer width.
+//
+// The factorization is stored as *indices into the Enumerator's factor base*,
+// ascending with multiplicity, rather than as prime values. The DFS knows the
+// index at the moment it emits the norm, so storing values would mean throwing
+// that away and searching the base again to recover it. Enumerator::prime()
+// and Enumerator::primes_of() resolve indices when a caller needs values.
+struct DecomposedNorm {
   norm_t l1 = 0;
-  std::vector<std::uint64_t> primes;
+  std::vector<factor_index_t> factors;
 };
 
-// A candidate solution: four indices into a point set, as {a,b} | {c,d}.
-struct Quadruple {
-  // GILRO: rename to E4Sol and supply with canonize() etc. helper functions.
+// A candidate solution: four indices into a point set, read as {a,b} | {c,d}.
+struct E4Sol {
   int a = 0, b = 0, c = 0, d = 0;
+
+  // Canonical form: each pair sorted, then the two pairs ordered. The meet may
+  // report the same solution under either pair ordering, so canonizing is what
+  // lets results be compared, sorted and deduplicated.
+  //
+  // It deliberately does *not* merge different pairings of the same 4-subset:
+  // {a,b}|{c,d} and {a,c}|{b,d} are genuinely different solutions, and a
+  // 4-subset can satisfy both.
+  E4Sol canonical() const {
+    int p = a, q = b, r = c, s = d;
+    if (p > q)
+      std::swap(p, q);
+    if (r > s)
+      std::swap(r, s);
+    if (p > r || (p == r && q > s)) {
+      std::swap(p, r);
+      std::swap(q, s);
+    }
+    return {p, q, r, s};
+  }
+
+  friend bool operator==(const E4Sol &x, const E4Sol &y) {
+    return x.a == y.a && x.b == y.b && x.c == y.c && x.d == y.d;
+  }
+  friend bool operator<(const E4Sol &x, const E4Sol &y) {
+    return std::tie(x.a, x.b, x.c, x.d) < std::tie(y.a, y.b, y.c, y.d);
+  }
 };
 
 // Split primes (p = 1 mod 4) up to and including `limit`, ascending.
-std::vector<std::uint64_t> split_primes_up_to(std::uint64_t limit);
+std::vector<factor_t> split_primes_up_to(factor_t limit);
 
-// Number of points a norm with these primes will have, without building them:
-// ceil(prod(b_i + 1) / 2). Used to size buffers and to bucket work by D.
-std::size_t point_count(const std::vector<std::uint64_t> &primes);
+// Number of points a norm with this factorization will have, without building
+// them: ceil(prod(b_i + 1) / 2). Used to size buffers and to bucket work by D.
+//
+// Templated on the range because it only needs to spot runs of equal entries,
+// which works identically on prime values and on factor-base indices.
+template <typename Range> std::size_t point_count(const Range &factors) {
+  std::size_t divisors = 1;
+  std::size_t run = 0;
+  const auto n = static_cast<std::size_t>(std::size(factors));
+  for (std::size_t i = 0; i < n; ++i) {
+    ++run;
+    if (i + 1 == n || std::data(factors)[i + 1] != std::data(factors)[i]) {
+      divisors *= run + 1;
+      run = 0;
+    }
+  }
+  return (divisors + 1) / 2;
+}
 
 // Drives the enumeration for one bound, owning everything that is shared across
 // norms.
@@ -59,17 +108,30 @@ std::size_t point_count(const std::vector<std::uint64_t> &primes);
 class Enumerator {
 public:
   // Builds the factor base and decomposes every prime in it exactly once.
-  // Throws NotASplitPrime if the sieve ever yields a non-split prime, which
-  // would mean the sieve itself is wrong.
+  // Throws std::invalid_argument on a negative bound, and NotASplitPrime if the
+  // sieve ever yields a non-split prime, which would mean the sieve is wrong.
+  //
+  // A bound below the smallest admissible norm (5*13*17 = 1105) is *not* an
+  // error: "no admissible norms exist below 1000" is a true and useful answer,
+  // so the enumeration is simply empty.
   explicit Enumerator(norm_t bound);
 
   norm_t bound() const { return bound_; }
 
   // The split primes that can divide an admissible norm <= bound(), ascending.
-  const std::vector<std::uint64_t> &factor_base() const { return primes_; }
+  const std::vector<factor_t> &factor_base() const { return primes_; }
 
-  // Calls `cb(const Norm&)` once per admissible L1 <= bound(), in no particular
-  // order.
+  // Resolve a factorization index to its prime, and its decomposition.
+  factor_t prime(factor_index_t i) const { return primes_[i]; }
+  const Gauss &prime_point(factor_index_t i) const { return prime_points_[i]; }
+
+  // The prime values of a norm's factorization, with multiplicity. Only needed
+  // by callers that must do arithmetic with the primes themselves, such as
+  // is_primitive; the enumeration itself stays on indices.
+  std::vector<factor_t> primes_of(const DecomposedNorm &norm) const;
+
+  // Calls `cb(const DecomposedNorm&)` once per admissible L1 <= bound(), in no
+  // particular order.
   //
   // Admissible means: a product of split primes only (an inert prime would
   // divide every root, and the ramified 2 is removed by the odd-L1
@@ -81,34 +143,61 @@ public:
   // The callback is a template parameter rather than a std::function so the DFS
   // body can inline it; this loop runs ~2e10 times over a full campaign.
   //
-  // The Norm handed to `cb` aliases the DFS's working state and is invalidated
-  // as soon as `cb` returns. Copy it if you intend to keep it.
+  // The DecomposedNorm handed to `cb` aliases the DFS's working state and is
+  // invalidated as soon as `cb` returns. Copy it if you intend to keep it.
   template <typename F> void for_each_norm(F &&cb) const;
 
   // The point set of an admissible norm, using the memoized decompositions.
-  std::vector<Gauss> point_set(const Norm &norm) const;
+  // A direct indexed lookup -- no search, which is the point of storing
+  // indices in DecomposedNorm rather than values.
+  std::vector<Gauss> point_set(const DecomposedNorm &norm) const;
 
 private:
-  // Index of `p` in primes_, for the memo lookup. The DFS knows the index
-  // already; this is for callers who arrive with a factorization.
-  std::size_t index_of(std::uint64_t p) const;
-
   norm_t bound_ = 0;
-  std::vector<std::uint64_t> primes_;
+  std::vector<factor_t> primes_;
   std::vector<Gauss> prime_points_; // primes_[i] = N(prime_points_[i])
 };
 
-// The nu values of a norm's point set, in point-set order.
-std::vector<norm_t> nu_values(const std::vector<Gauss> &points);
+// Map a point set through `f`, preserving order. `nu_values` is the one use
+// that matters today; the generic form exists because the meet will want norms
+// and 2-adic valuations through the same loop.
+template <typename F>
+auto transform_points(const std::vector<Gauss> &points, F &&f) {
+  std::vector<decltype(f(points.front()))> out;
+  out.reserve(points.size());
+  for (const Gauss &z : points)
+    out.push_back(f(z));
+  return out;
+}
 
-// Reference meet: every {a,b} | {c,d} with matching key, found by walking
-// 4-subsets and testing the three ways to split each into two pairs. Exact
-// throughout (exact_key_t), so this is the oracle the GPU kernel is checked
-// against rather than a filter.
+// The nu values of a norm's point set, in point-set order.
+inline std::vector<norm_t> nu_values(const std::vector<Gauss> &points) {
+  return transform_points(
+      points, [](const Gauss &z) { return static_cast<norm_t>(z.nu()); });
+}
+
+// The meet *oracle*: every {a,b} | {c,d} with matching key, by walking every
+// 4-subset and testing all three ways to split it into two pairs.
 //
-// No disjointness test is needed: nu is injective on a point set, so two
-// distinct pairs with equal key cannot share a point.
-std::vector<Quadruple> meet_reference(const std::vector<norm_t> &nu);
+// "Oracle", not "the CPU implementation", and the distinction is the whole
+// reason this function exists:
+//
+//   - It is exact throughout (exact_key_t), never a filter. The production
+//     meet compares modulo 2^64 and needs confirm_candidate behind it; this
+//     does not, so it can adjudicate what the fast paths claim.
+//   - It is deliberately the naive O(D^4) form, with no bucketing, no
+//     precomputed squares and no early exit -- so it shares no structure with
+//     the optimized paths and cannot share a bug with them.
+//   - It is written to be read, not to be fast. At 2.0 ns per partition it is
+//     usable to B ~ 10^7 and no further.
+//
+// The production CPU meet, when it arrives, will be the D-bucketed
+// filter-plus-confirm path and will be checked *against* this. Keeping the two
+// separate is what makes the cross-check evidence rather than a tautology.
+//
+// No disjointness test is needed: nu is injective on a canonized point set, so
+// two distinct pairs with equal key cannot share a point.
+std::vector<E4Sol> meet_oracle(const std::vector<norm_t> &nu);
 
 // Confirms a candidate by recomputing its key in exact arithmetic.
 //
@@ -121,7 +210,7 @@ std::vector<Quadruple> meet_reference(const std::vector<norm_t> &nu);
 //
 // Also rejects malformed quadruples (out-of-range or repeated indices), so a
 // garbled hit from a buggy kernel cannot be mistaken for a solution.
-bool confirm_candidate(const std::vector<norm_t> &nu, const Quadruple &q);
+bool confirm_candidate(const std::vector<norm_t> &nu, const E4Sol &q);
 
 // The primitivity rule (drafts/gpu_algorithms.md A3.1). A quadruple whose four
 // points are *all* divisible by some prime p is p^2 times a solution at the
@@ -134,7 +223,7 @@ bool confirm_candidate(const std::vector<norm_t> &nu, const Quadruple &q);
 // conjugate to divide z, i.e. exponent b_p >= 2. Squarefree norms therefore
 // always pass, and `primes` is the norm's factorization with multiplicity.
 bool is_primitive(const std::vector<Gauss> &points,
-                  const std::vector<std::uint64_t> &primes, const Quadruple &q);
+                  const std::vector<factor_t> &primes, const E4Sol &q);
 
 // ---------------------------------------------------------------------------
 // Implementation of the templated member
@@ -144,8 +233,8 @@ template <typename F> void Enumerator::for_each_norm(F &&cb) const {
   if (primes_.empty())
     return;
 
-  Norm norm;
-  norm.primes.reserve(16);
+  DecomposedNorm norm;
+  norm.factors.reserve(16);
 
   // Walks primes in ascending index order, choosing an exponent for each, so
   // every multiset of split primes with product <= bound is visited once.
@@ -159,11 +248,11 @@ template <typename F> void Enumerator::for_each_norm(F &&cb) const {
       norm_t v = value * p;
       std::size_t exponent = 1;
       while (true) {
-        norm.primes.push_back(primes_[i]);
+        norm.factors.push_back(static_cast<factor_index_t>(i));
         const std::size_t d = divisors * (exponent + 1);
         if (d >= 8) { // >= 4 points, the minimum for an E_4
           norm.l1 = v;
-          cb(static_cast<const Norm &>(norm));
+          cb(static_cast<const DecomposedNorm &>(norm));
         }
         self(self, i + 1, v, d);
 
@@ -172,7 +261,7 @@ template <typename F> void Enumerator::for_each_norm(F &&cb) const {
         v *= p;
         ++exponent;
       }
-      norm.primes.resize(norm.primes.size() - exponent);
+      norm.factors.resize(norm.factors.size() - exponent);
     }
   };
   dfs(dfs, 0, 1, 1);

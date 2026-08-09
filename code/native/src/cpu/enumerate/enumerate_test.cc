@@ -17,7 +17,7 @@
 namespace {
 
 using pte::cpu::Gauss;
-using pte::cpu::Quadruple;
+using pte::cpu::E4Sol;
 
 struct Counts {
   std::size_t norms = 0;
@@ -26,8 +26,8 @@ struct Counts {
 
 Counts CountAdmissible(std::int64_t bound) {
   Counts c;
-  pte::cpu::Enumerator(bound).for_each_norm([&](const pte::cpu::Norm &n) {
-    const std::size_t d = pte::cpu::point_count(n.primes);
+  pte::cpu::Enumerator(bound).for_each_norm([&](const pte::cpu::DecomposedNorm &n) {
+    const std::size_t d = pte::cpu::point_count(n.factors);
     ++c.norms;
     c.pairs += d * (d - 1) / 2;
   });
@@ -42,11 +42,11 @@ TEST(Enumerate, SplitPrimes) {
 }
 
 TEST(Enumerate, PointCountMatchesTheDivisorFormula) {
-  EXPECT_EQ(pte::cpu::point_count({5, 13, 17}), 4u);     // 8/2
-  EXPECT_EQ(pte::cpu::point_count({5, 5, 13, 17}), 6u);  // 3*4/2
-  EXPECT_EQ(pte::cpu::point_count({5, 5, 5, 13}), 4u);   // 4*2/2
-  EXPECT_EQ(pte::cpu::point_count({5, 13, 17, 29}), 8u); // 16/2
-  EXPECT_EQ(pte::cpu::point_count({5, 5}), 2u);          // ceil(3/2)
+  EXPECT_EQ(pte::cpu::point_count(std::vector<pte::cpu::factor_t>{5, 13, 17}), 4u);     // 8/2
+  EXPECT_EQ(pte::cpu::point_count(std::vector<pte::cpu::factor_t>{5, 5, 13, 17}), 6u);  // 3*4/2
+  EXPECT_EQ(pte::cpu::point_count(std::vector<pte::cpu::factor_t>{5, 5, 5, 13}), 4u);   // 4*2/2
+  EXPECT_EQ(pte::cpu::point_count(std::vector<pte::cpu::factor_t>{5, 13, 17, 29}), 8u); // 16/2
+  EXPECT_EQ(pte::cpu::point_count(std::vector<pte::cpu::factor_t>{5, 5}), 2u);          // ceil(3/2)
 }
 
 // Cross-language fixture: these exact numbers come from the independent numpy
@@ -63,16 +63,20 @@ TEST(Enumerate, AdmissibleNormCountsMatchThePythonSieve) {
 
 TEST(Enumerate, EveryAdmissibleNormIsEmittedOnceAndIsWellFormed) {
   std::vector<std::int64_t> seen;
-  pte::cpu::Enumerator(200000).for_each_norm([&](const pte::cpu::Norm &n) {
+  const pte::cpu::Enumerator e(200000);
+  e.for_each_norm([&](const pte::cpu::DecomposedNorm &n) {
+    const auto primes = e.primes_of(n);
     std::int64_t product = 1;
-    for (const std::uint64_t p : n.primes) {
+    for (const pte::cpu::factor_t p : primes) {
       EXPECT_EQ(p % 4, 1u) << "non-split prime in factorization";
       product *= static_cast<std::int64_t>(p);
     }
     EXPECT_EQ(product, n.l1);
     EXPECT_LE(n.l1, 200000);
-    EXPECT_GE(pte::cpu::point_count(n.primes), 4u);
-    EXPECT_TRUE(std::is_sorted(n.primes.begin(), n.primes.end()));
+    EXPECT_GE(pte::cpu::point_count(n.factors), 4u);
+    EXPECT_TRUE(std::is_sorted(primes.begin(), primes.end()));
+    EXPECT_TRUE(std::is_sorted(n.factors.begin(), n.factors.end()))
+        << "factor indices must ascend with the primes they name";
     seen.push_back(n.l1);
   });
   const std::size_t before = seen.size();
@@ -87,12 +91,13 @@ TEST(Enumerate, NonSquarefreeNormsAreIncluded) {
   // use the rational factor 5 while another uses q^2, so dropping it would
   // reopen a coverage hole.
   bool found = false;
-  pte::cpu::Enumerator(6000).for_each_norm([&](const pte::cpu::Norm &n) {
+  const pte::cpu::Enumerator e(6000);
+  e.for_each_norm([&](const pte::cpu::DecomposedNorm &n) {
     if (n.l1 == 5525) {
       found = true;
-      const std::vector<std::uint64_t> expected = {5, 5, 13, 17};
-      EXPECT_EQ(n.primes, expected);
-      EXPECT_EQ(pte::cpu::point_count(n.primes), 6u);
+      const std::vector<pte::cpu::factor_t> expected = {5, 5, 13, 17};
+      EXPECT_EQ(e.primes_of(n), expected);
+      EXPECT_EQ(pte::cpu::point_count(n.factors), 6u);
     }
   });
   EXPECT_TRUE(found);
@@ -101,7 +106,7 @@ TEST(Enumerate, NonSquarefreeNormsAreIncluded) {
 TEST(Enumerate, MeetFindsAPlantedCollision) {
   // 1^2 + 8^2 = 4^2 + 7^2 = 65. Points 0,3 pair against 1,2.
   const std::vector<std::int64_t> nu = {1, 4, 7, 8, 11};
-  const auto hits = pte::cpu::meet_reference(nu);
+  const auto hits = pte::cpu::meet_oracle(nu);
   ASSERT_EQ(hits.size(), 1u);
   EXPECT_EQ(hits[0].a, 0);
   EXPECT_EQ(hits[0].b, 3);
@@ -112,9 +117,9 @@ TEST(Enumerate, MeetFindsAPlantedCollision) {
 
 TEST(Enumerate, MeetFindsNothingWhenThereIsNothing) {
   const std::vector<std::int64_t> nu = {1, 2, 4, 8, 16, 32};
-  EXPECT_TRUE(pte::cpu::meet_reference(nu).empty());
-  EXPECT_TRUE(pte::cpu::meet_reference({}).empty());
-  EXPECT_TRUE(pte::cpu::meet_reference({3, 5, 7}).empty()); // fewer than 4
+  EXPECT_TRUE(pte::cpu::meet_oracle(nu).empty());
+  EXPECT_TRUE(pte::cpu::meet_oracle({}).empty());
+  EXPECT_TRUE(pte::cpu::meet_oracle({3, 5, 7}).empty()); // fewer than 4
 }
 
 TEST(Enumerate, VerifyExactRejectsMalformedQuadruples) {
@@ -128,7 +133,7 @@ TEST(Enumerate, VerifyExactRejectsMalformedQuadruples) {
 TEST(Enumerate, PrimitivityKeepsPartiallyImprimitiveQuadruples) {
   // L1 = 5^2*13*17: |U| = 6, of which exactly two points are divisible by 5.
   // Those two are 5 * U(13*17).
-  const std::vector<std::uint64_t> primes = {5, 5, 13, 17};
+  const std::vector<pte::cpu::factor_t> primes = {5, 5, 13, 17};
   const auto points = pte::cpu::point_set(primes);
   ASSERT_EQ(points.size(), 6u);
 
@@ -148,12 +153,12 @@ TEST(Enumerate, PrimitivityKeepsPartiallyImprimitiveQuadruples) {
   ASSERT_GE(primitive.size(), 2u);
 
   // Two imprimitive plus two primitive points: kept (the S3 case).
-  const Quadruple mixed{imprimitive[0], imprimitive[1], primitive[0],
+  const E4Sol mixed{imprimitive[0], imprimitive[1], primitive[0],
                         primitive[1]};
   EXPECT_TRUE(pte::cpu::is_primitive(points, primes, mixed));
 
   // A squarefree norm can never be imprimitive.
-  const std::vector<std::uint64_t> sqfree = {5, 13, 17, 29};
+  const std::vector<pte::cpu::factor_t> sqfree = {5, 13, 17, 29};
   const auto sqfree_points = pte::cpu::point_set(sqfree);
   EXPECT_TRUE(pte::cpu::is_primitive(sqfree_points, sqfree, {0, 1, 2, 3}));
 }
@@ -161,7 +166,7 @@ TEST(Enumerate, PrimitivityKeepsPartiallyImprimitiveQuadruples) {
 TEST(Enumerate, PrimitivityRejectsFullyImprimitiveQuadruples) {
   // Build a norm whose imprimitive family is large enough to hold all four
   // points: L1 = 5^2 * 13 * 17 * 29 has |U(13*17*29)| = 4 points scaled by 5.
-  const std::vector<std::uint64_t> primes = {5, 5, 13, 17, 29};
+  const std::vector<pte::cpu::factor_t> primes = {5, 5, 13, 17, 29};
   const auto points = pte::cpu::point_set(primes);
 
   std::vector<int> imprimitive;
@@ -171,7 +176,7 @@ TEST(Enumerate, PrimitivityRejectsFullyImprimitiveQuadruples) {
   }
   ASSERT_GE(imprimitive.size(), 4u);
 
-  const Quadruple all_imprimitive{imprimitive[0], imprimitive[1],
+  const E4Sol all_imprimitive{imprimitive[0], imprimitive[1],
                                   imprimitive[2], imprimitive[3]};
   EXPECT_FALSE(pte::cpu::is_primitive(points, primes, all_imprimitive));
 }
@@ -179,19 +184,19 @@ TEST(Enumerate, PrimitivityRejectsFullyImprimitiveQuadruples) {
 TEST(Enumerate, ExemplarNormYieldsTheKnownSolution) {
   // The E_4 exemplar of paper.md section 7, reached by targeting its norm
   // rather than sweeping to 3.3e10.
-  const std::vector<std::uint64_t> primes = {13, 89, 173, 233, 709};
+  const std::vector<pte::cpu::factor_t> primes = {13, 89, 173, 233, 709};
   const auto points = pte::cpu::point_set(primes);
   ASSERT_EQ(points.size(), 16u);
 
   const auto nu = pte::cpu::nu_values(points);
-  const auto hits = pte::cpu::meet_reference(nu);
+  const auto hits = pte::cpu::meet_oracle(nu);
   ASSERT_FALSE(hits.empty()) << "the known E_4 solution was not found";
 
   // The published solution has pair keys built from these nu values.
   const std::vector<std::int64_t> want = {11810488155, 32679910245, 15352988955,
                                           31172903205};
   bool matched = false;
-  for (const Quadruple &q : hits) {
+  for (const E4Sol &q : hits) {
     std::vector<std::int64_t> got = {nu[q.a], nu[q.b], nu[q.c], nu[q.d]};
     std::vector<std::int64_t> expect = want;
     std::sort(got.begin(), got.end());
@@ -219,7 +224,7 @@ TEST(Enumerate, FactorBaseCutoffLosesNothing) {
 
   std::vector<std::int64_t> from_cutoff;
   pte::cpu::Enumerator(kBound).for_each_norm(
-      [&](const pte::cpu::Norm &n) { from_cutoff.push_back(n.l1); });
+      [&](const pte::cpu::DecomposedNorm &n) { from_cutoff.push_back(n.l1); });
   std::sort(from_cutoff.begin(), from_cutoff.end());
 
   // Independent DFS over a factor base 13x wider than the one under test.
@@ -260,8 +265,9 @@ TEST(Enumerate, ExtremalNormUsesNearlyTheWholeFactorBase) {
   constexpr std::int64_t kBound = 1000000;
   std::uint64_t largest = 0;
   bool saw_extremal = false;
-  pte::cpu::Enumerator(kBound).for_each_norm([&](const pte::cpu::Norm &n) {
-    largest = std::max(largest, n.primes.back());
+  const pte::cpu::Enumerator e(kBound);
+  e.for_each_norm([&](const pte::cpu::DecomposedNorm &n) {
+    largest = std::max(largest, e.prime(n.factors.back()));
     if (n.l1 == 999505)
       saw_extremal = true;
   });
@@ -274,16 +280,33 @@ TEST(Enumerate, ExtremalNormUsesNearlyTheWholeFactorBase) {
 // alternative is a heap allocation per norm in a 2e10-iteration loop -- but the
 // contract is now documented and checked, so a caller who copies is safe.
 TEST(Enumerate, NormIsUsableWhenCopiedInTheCallback) {
-  std::vector<pte::cpu::Norm> kept;
-  pte::cpu::Enumerator(20000).for_each_norm(
-      [&](const pte::cpu::Norm &n) { kept.push_back(n); });
+  std::vector<pte::cpu::DecomposedNorm> kept;
+  const pte::cpu::Enumerator e(20000);
+  e.for_each_norm([&](const pte::cpu::DecomposedNorm &n) { kept.push_back(n); });
   ASSERT_FALSE(kept.empty());
   for (const auto &n : kept) {
     std::int64_t product = 1;
-    for (const std::uint64_t p : n.primes)
+    for (const pte::cpu::factor_t p : e.primes_of(n))
       product *= static_cast<std::int64_t>(p);
-    EXPECT_EQ(product, n.l1) << "copied Norm did not survive the DFS";
+    EXPECT_EQ(product, n.l1) << "copied DecomposedNorm did not survive the DFS";
   }
+}
+
+
+TEST(Enumerate, E4SolCanonicalFormIsStableAndOrderInsensitive) {
+  const E4Sol want{0, 3, 1, 2};
+  // Every way of writing the same solution -- swap within a pair, swap the
+  // pairs, both -- must land on one representative.
+  for (const E4Sol v : {E4Sol{0, 3, 1, 2}, E4Sol{3, 0, 1, 2}, E4Sol{0, 3, 2, 1},
+                        E4Sol{1, 2, 0, 3}, E4Sol{2, 1, 3, 0}})
+    EXPECT_EQ(v.canonical(), want) << "not canonical: " << v.a << v.b << v.c
+                                   << v.d;
+  EXPECT_EQ(want.canonical().canonical(), want) << "canonical is idempotent";
+
+  // Different pairings of the same 4-subset are different solutions and must
+  // NOT be merged: a 4-subset can satisfy more than one pairing.
+  EXPECT_NE(E4Sol({0, 1, 2, 3}).canonical(), E4Sol({0, 2, 1, 3}).canonical());
+  EXPECT_NE(E4Sol({0, 2, 1, 3}).canonical(), E4Sol({0, 3, 1, 2}).canonical());
 }
 
 } // namespace

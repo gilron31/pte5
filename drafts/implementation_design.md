@@ -85,6 +85,55 @@ cost is irrelevant and its correctness is everything.
 "Quad-partitions" is $\sum_{\text{norms}} \binom{D}{4}\cdot 3$ — the actual work
 of the direct meet, and the metric that matters.
 
+### 2.1 Where the points come from, and why canonization is not optional
+
+The multiplicative construction of $U(L_1)$ generates, for a factorization with
+$k$ prime *copies*, exactly $2^k$ products — one per choice of
+$\mathfrak{q}_i$ or $\bar{\mathfrak{q}}_i$ at each copy. Those are not $2^k$
+distinct points. Canonizing to the first octant ($m \ge n \ge 0$) collapses each
+orbit under the units and conjugation, leaving
+
+$$|U(L_1)| = \left\lceil \tfrac{1}{2}\textstyle\prod_i (b_i+1) \right\rceil .$$
+
+The halving is conjugation: the construction already emits one representative
+per unit class, and $z$ and $\bar z$ appear as the complementary exponent
+choices $c \leftrightarrow b-c$. The $\lceil\cdot\rceil$ covers the
+self-conjugate point, which exists only when every $b_i$ is even. Verified:
+
+| $L_1$ | factorization | raw products $2^k$ | $|U|$ |
+| --- | --- | --- | --- |
+| 1105 | $5\cdot13\cdot17$ | 8 | **4** |
+| 32045 | $5\cdot13\cdot17\cdot29$ | 16 | 8 |
+| 5525 | $5^2\cdot13\cdot17$ | 16 | 6 |
+
+So **three distinct primes yield four independent points** — the minimum for an
+$E_4$, which is exactly why $5\cdot13\cdot17 = 1105$ is the smallest admissible
+norm and why $D = 4$ is the modal case.
+
+**Now the part that is easy to get wrong.** It is tempting to think canonization
+is mere deduplication that $\nu$ makes unnecessary — after all the key uses
+$\nu^2$, so it is blind to the sign flip $\nu(iz) = -\nu(z)$. That reasoning is
+wrong, and the failure is not a performance loss but a correctness one:
+
+$$\nu(\bar z) = \nu(z).$$
+
+$\nu$ is *invariant* under conjugation. On the raw products, therefore, **$\nu$
+is not injective** — $z$ and $\bar z$ carry the same value. Measured on all
+three cases above: injective on the canonized set, never on the raw one.
+
+And $\nu$-injectivity is precisely what licenses omitting the disjointness test
+from every meet, on CPU and GPU alike. Without canonization, two pairs with
+equal keys could share a point: $\{z_1, z_2\}$ and $\{z_1, \bar z_2\}$ have equal
+keys and overlap in $z_1$. The kernel would report it as a solution, and it is
+not one.
+
+> **Canonization is what makes $\nu$ injective, and $\nu$-injectivity is what
+> removes the disjointness test.** Anything that reorders the pipeline so points
+> reach the meet uncanonized silently reintroduces the need for that test.
+
+It is also a $2^k/|U| \approx 2\times$ reduction in $D$, hence a **~16×**
+reduction in $O(D^4)$ meet work — but that is the lesser reason.
+
 **Two facts set the entire design.**
 
 **(a) $D$ stays tiny.** Three quarters of admissible norms have exactly four
@@ -373,7 +422,36 @@ The single most dangerous confusion in this program is using a truncated key
 where an exact one is required. Types should make it impossible rather than
 document it.
 
-# GILRO: at first I thought this is excessive, but i kinda think this is cute. One thing Im still usure of, why isn't Nu -> TruncNu? and why isn't all the exact stuff mpz_int?  
+Two questions this raises, both worth answering explicitly because the answers
+are what make the scheme coherent rather than decorative:
+
+**Why is `Nu` not `TruncNu`?** Because $\nu$ never truncates. $\nu(z) = m^2-n^2$
+is bounded by $L_1 \le 10^{12}$ — 40 bits in a 63-bit signed type, exact with
+23 bits to spare, at *every* bound this project will run. Only the **key**
+$\nu_a^2+\nu_b^2$ overflows, at 81 bits. So the truncation lives in exactly one
+place and the name should say so; calling the input truncated too would spread
+the warning until it stopped meaning anything.
+
+**Why `__int128` and not `mpz_class` for the exact layer?** Not performance —
+confirmation is rare enough that a heap allocation would be affordable. The
+reason is that a *fixed* width can be checked at compile time and an arbitrary
+one cannot:
+
+```cpp
+static_assert(static_cast<exact_key_t>(kMaxNorm) * kMaxNorm * 2 > 0,
+              "exact_key_t overflows on 2*kMaxNorm^2");
+```
+
+That assertion fires the day someone raises `kMaxNorm` past $9.2\times10^{18}$.
+With `mpz_class` there is nothing to assert — the bound becomes untracked, and
+"it is arbitrary precision so it must be fine" is a belief rather than a
+checked property. Since the whole point of the layer is to be the *arbiter*, a
+machine-checked bound is worth more than unbounded range we do not need.
+
+Where the bound genuinely cannot be fixed, GMP is mandatory and there is no
+argument: the layer-3 PTE identity needs 311 bits and a size-32 identity 638.
+The rule is therefore **fixed width with a static_assert wherever a bound
+exists; GMP only where one does not.**
 
 ```cpp
 template <class Tag, class Rep> struct Quantity {
@@ -419,7 +497,20 @@ coordinates live in shared memory (§4.3) — the policy is where that flips.
 
 ### 6.3 Concepts at the seams
 
-# GILRO: ok, this and the previous policy start to be a bit to flashy and possibly redundant. But I'll give it a go
+Fair warning on ceremony: §6.1 and §6.2 do overlap, and only one of them earns
+its keep universally. **The precision policy is load-bearing** — it is a single
+compile-time switch that retargets the whole program from `Campaign1e12` to a
+test-scale or a narrow-coordinate variant, and §6.3's backends both key off it.
+**The strong types are optional**, and the honest scope for them is narrow: wrap
+`TruncKey` and `ExactKey`, because confusing those two is the one mistake that
+silently produces wrong answers, and leave `Nu`, `L1` and the rest as plain
+integers. Wrapping every quantity buys conversions and noise, not safety.
+
+If it feels like too much machinery when it comes to be written, cut the
+`Quantity` template to those two types and keep the policy. The concepts below
+are a third mechanism and the lightest of the three — they exist only so the
+meet compiles unchanged against a host `std::vector` sink and a device atomic
+append.
 
 ```cpp
 template <class S> concept HitSink = requires(S s, MeetHit h) {
@@ -441,8 +532,6 @@ The meet is written once against `HitSink`. On the host the sink is a
 The core metaprogramming payoff. For $D \le 8$ the set of disjoint pair-pairs is
 fixed and small (3 / 45 / 210), so generate it at compile time and emit a fully
 unrolled, register-only, branch-free kernel.
-
-# GILRO: should replace with if constexpr no? ah ok the whole function is constexpr
 
 ```cpp
 // Number of ways to split D indices into two disjoint unordered pairs.
@@ -585,8 +674,6 @@ written oracle, and the cross-check is worthless if the two share code.
 
 # Part IV — Nuances and pitfalls
 
-# GILRO: I am missing an addressing to a the issue of canonizing points once generated. It is possible that this is uneccesary since nu is "canonizing" but it should be state explicitly. Also, if our norm has 3 primes, then it is actually only produces 4 canonized independent points because we normalize to first octant. Please state this somewhere in the analysis
-
 Freestyle, roughly in order of how much damage each does.
 
 **Silent-miss failures are the only ones that matter.** An exclusion claim that
@@ -615,6 +702,15 @@ wrong and loses real solutions. Imprimitive share is $(b{-}1)/(b{+}1)$.
 Iterating over distinct primes realizes only exponent 0 or $b$; the full range
 $0 \le c \le b$ is what Prop. 5.1 requires. ~20% of admissible norms are
 non-squarefree and they carry primitive solutions.
+
+**Canonization is not deduplication — skip it and $\nu$ stops being injective.**
+$\nu(\bar z) = \nu(z)$, so on the raw products of point-set construction $z$ and
+$\bar z$ carry the same value. The disjointness test is omitted from every meet
+*because* $\nu$ is injective, and it is canonization that makes it so; without
+it, $\{z_1,z_2\}$ and $\{z_1,\bar z_2\}$ have equal keys and share a point, and
+the kernel reports a non-solution. The tempting counter-argument — "the key uses
+$\nu^2$, so the sign flip $\nu(iz) = -\nu(z)$ does not matter" — is true and
+irrelevant: the danger is conjugation, not the units. See §2.1.
 
 **$\nu$'s injectivity is per-norm.** It licenses dropping the disjointness test
 *within* a point set, because $m^2+n^2 = L_1$ and $m^2-n^2 = \nu$ determine

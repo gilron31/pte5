@@ -64,9 +64,15 @@ template <typename T> struct GaussT {
   wide nu() const { return wide{re} * re - wide{im} * im; }
 
   // Representative of z under the action of the units and conjugation: the
-  // point of its orbit lying in the first octant, m >= n >= 0. The E_4
-  // invariants are all constant on these orbits, so canonizing is what makes a
-  // "point set" a set.
+  // point of its orbit lying in the first octant, m >= n >= 0.
+  //
+  // This is not cosmetic dedup. nu is invariant under conjugation --
+  // nu(conj z) = nu(z) -- and only flips sign under multiplication by i, so on
+  // the *raw* products of point-set construction nu is **not injective**: z and
+  // conj(z) share a value. Canonizing collapses each orbit to one point, and it
+  // is exactly that which makes nu injective, which in turn is what licenses
+  // dropping the disjointness test from every meet. Verified on L1 = 1105,
+  // 32045 and 5525: injective on canonized points, not on raw products.
   GaussT canonize() const {
     const T a = re < 0 ? static_cast<T>(-re) : re;
     const T b = im < 0 ? static_cast<T>(-im) : im;
@@ -91,14 +97,13 @@ template <typename T> struct GaussT {
   // Deliberately not an operator and deliberately not two calls to operator*:
   // it returns two results from shared subexpressions, which is the whole point
   // of it. This is the inner operation of point-set construction.
-  // GILRO: use lvalue ref not ptrs.
-  void mul_and_conj_mul(const GaussT &q, GaussT *out, GaussT *out_conj) const {
+  void mul_and_conj_mul(const GaussT &q, GaussT &out, GaussT &out_conj) const {
     const wide x = wide{re} * q.re;
     const wide y = wide{re} * q.im;
     const wide w = wide{im} * q.re;
     const wide v = wide{im} * q.im;
-    *out = {static_cast<T>(x - v), static_cast<T>(y + w)};      // z * q
-    *out_conj = {static_cast<T>(x + v), static_cast<T>(w - y)}; // z * conj(q)
+    out = {static_cast<T>(x - v), static_cast<T>(y + w)};      // z * q
+    out_conj = {static_cast<T>(x + v), static_cast<T>(w - y)}; // z * conj(q)
   }
 };
 
