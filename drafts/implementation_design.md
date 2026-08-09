@@ -585,7 +585,7 @@ written oracle, and the cross-check is worthless if the two share code.
 
 # Part IV — Nuances and pitfalls
 
-# GILRO: I am missing an addressing to a the issue of canonizing points once generated. It is possible that this is uneccesary since nu is "canonizing" but it should be state explicitly. Also,
+# GILRO: I am missing an addressing to a the issue of canonizing points once generated. It is possible that this is uneccesary since nu is "canonizing" but it should be state explicitly. Also, if our norm has 3 primes, then it is actually only produces 4 canonized independent points because we normalize to first octant. Please state this somewhere in the analysis
 
 Freestyle, roughly in order of how much damage each does.
 
