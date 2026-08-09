@@ -39,7 +39,9 @@ std::array<Gauss, 4> ExemplarPoints() {
     const long b = kExemplarRoots[2 * k + 1];
     const long hi = a > b ? a : b;
     const long lo = a > b ? b : a;
-    pts[static_cast<std::size_t>(k)] = Gauss{(hi + lo) / 2, (hi - lo) / 2};
+    pts[static_cast<std::size_t>(k)] =
+        Gauss{static_cast<pte::cpu::coord_t>((hi + lo) / 2),
+              static_cast<pte::cpu::coord_t>((hi - lo) / 2)};
   }
   return pts;
 }

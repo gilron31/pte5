@@ -823,7 +823,63 @@ Measured end to end, 16 threads, factor base loaded from
 
 Resumability was tested by `SIGKILL` — not a clean stop — eight times in
 succession during a live run; the final catalog and checkpoint are byte-identical
-to the uninterrupted run. All eight catalog rows were then independently
+to the uninterrupted run.
+
+### 9.4 Scaling the factor base to the design bound
+
+Three changes, all measured, take the base from a hard wall to a non-issue:
+
+| | bytes/prime | at $B = 10^{12}$ |
+| --- | --- | --- |
+| `factor_t` array + `GaussT<int64>` | 24 | 8.25 GB |
+| drop the prime, keep `(a,b)` only | 16 | 5.5 GB |
+| `coord_t` → `int32` | **8** | **2.75 GB** |
+
+$p = a^2+b^2$ is recomputed rather than stored, which costs two multiplies and
+*improves* locality — prime and point now share a cache line instead of living
+in two arrays a gigabyte apart. At $B=10^{10}$ this halved the base's working
+set (104 MB → 34.6 MB) and turned two random-access streams into one.
+
+**`Map` vs `Load` at design-bound scale** (whole 2.75 GB artifact):
+
+| | construction | RSS at construction | after touching everything |
+| --- | --- | --- | --- |
+| `Map` | 0.37–0.68 s | **253 MB** | 2620 MB, file-backed and evictable |
+| `Load` | 4.93–4.99 s | 2619 MB | 2619 MB, anonymous — must swap |
+
+Mapping only pays for what it touches, which is why `Map` validates a *sample*
+(head, tail, 4096 evenly spaced probes) rather than every record: the exhaustive
+version faulted in all 2.6 GB and made `Map` cost exactly what `Load` costs.
+Deep validation belongs in `cpu/audit/`, which re-derives decompositions with
+`decompose_prime` — far stronger than checking the file is sorted —
+and `validate_all()` remains for a caller who wants the full structural pass.
+
+Run-to-run wall-clock on this machine varies by up to 2× (laptop frequency
+scaling), so **no throughput claim is made for `Map` over `Load`**; the reason to
+prefer it is memory and startup.
+
+### 9.5 Auditing what cannot be oracled
+
+At $10^{12}$ there is no independent implementation to compare against, so
+assurance changes shape (`cpu/audit/`):
+
+- **Known solutions**, from outside this codebase: Bremner's two parameterized
+  families and the sporadic solutions in `code/old`. Because the families are
+  parameterized they produce solutions at *arbitrary* size, and because a known
+  solution can be checked by enumerating one norm, this is $O(\text{known})$
+  work at any bound. Two lie above $10^{10}$ and must appear in a design-bound
+  run: **33,065,996,717** (the §7 exemplar) and **43,937,864,165** (Bremner F2,
+  $k=7$). F2 $k=8 = 2{,}703{,}273{,}548{,}105$ sits above $10^{12}$ and is the
+  negative control.
+- **Segment re-verification**: a deterministically sampled set of segments
+  re-run through the reference path — `decompose_prime` again, `point_set_from`
+  rebuild, naive exact `meet_oracle` — and required to agree. Seeded, so
+  "segments sampled with seed 1" is a claim someone else can re-run.
+
+Cross-check against the earlier work: the old catalogue restricted to
+$[0, 10^{10}]$ is **exactly** the eight solutions the campaign found — no misses
+either way. Two of the eight ($37^2\cdot101\cdot401$ and $53\cdot73^2\cdot857$)
+are non-squarefree, the coverage Prop. 5.1 depends on and the easiest to lose. All eight catalog rows were then independently
 reproduced in Python, including the two non-squarefree norms
 ($37^2\cdot101\cdot401$ and $53\cdot73^2\cdot857$), and an independent Python
 exhaustive search to $10^6$ agrees on both the norm count (11,083) and the

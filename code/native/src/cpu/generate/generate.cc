@@ -108,9 +108,7 @@ Generator::Generator(norm_t bound, FactorBase base)
   }
   // The base may reach far past what this bound can use -- the shipped 10^12
   // artifact against a 10^10 campaign, for instance. Find the cut once.
-  const auto &primes = base_.primes();
-  usable_ = static_cast<std::size_t>(
-      std::upper_bound(primes.begin(), primes.end(), needed) - primes.begin());
+  usable_ = base_.upper_bound(needed);
 }
 
 std::vector<factor_t> Generator::primes_of(const NormView &norm) const {

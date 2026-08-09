@@ -58,6 +58,17 @@ struct CampaignOptions {
   // which costs 86% more than loading because of Cornacchia.
   std::string factor_base;
 
+  // mmap the artifact rather than reading it into the heap. Default, and what
+  // makes the design bound tractable: at B = 10^12 the base is 2.7 GB, which is
+  // 2.7 GB of page cache when mapped -- demand-loaded, evictable, and shared
+  // between concurrent runs -- against 2.7 GB of anonymous memory when read.
+  bool map_factor_base = true;
+
+  // Segments to re-verify against the reference path after the run finishes.
+  // 0 skips it. This is the audit that stands in for an oracle at bounds too
+  // large to oracle; see cpu/audit/.
+  std::size_t audit_segments = 0;
+
   std::string out = "catalog.csv";
 
   // Defaults to out + ".ckpt".

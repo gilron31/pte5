@@ -13,6 +13,9 @@
 // S-E searches, not this one -- see drafts/implementation_design.md 3.1.
 #include "cpu/campaign/campaign.h"
 
+#include "cpu/audit/audit.h"
+
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <exception>
@@ -34,6 +37,11 @@ void Usage() {
       "  --checkpoint-secs=N  target seconds between checkpoints (default 5)\n"
       "  --stop-after=N       stop cleanly after N batches, leaving a resumable\n"
       "                       checkpoint (default 0 = run to completion)\n"
+      "  --load               read the factor base into the heap instead of\n"
+      "                       mmapping it (mmap is the default)\n"
+      "  --audit=N            after the run, re-verify N sampled segments\n"
+      "                       against the reference implementation\n"
+      "  --audit-seed=N       sampling seed for --audit (default 1)\n"
       "  --resume             continue from the checkpoint\n"
       "  --quiet              no progress line\n");
 }
@@ -56,6 +64,7 @@ double Rate(double count, double seconds) {
 int main(int argc, char **argv) {
   pte::cpu::CampaignOptions opts;
   std::string value;
+  std::uint64_t audit_seed = 1;
 
   for (int i = 1; i < argc; ++i) {
     const std::string_view arg = argv[i];
@@ -65,6 +74,8 @@ int main(int argc, char **argv) {
     }
     if (arg == "--resume") {
       opts.resume = true;
+    } else if (arg == "--load") {
+      opts.map_factor_base = false;
     } else if (arg == "--quiet") {
       opts.quiet = true;
     } else if (Flag(arg, "bound", value)) {
@@ -81,6 +92,10 @@ int main(int argc, char **argv) {
       opts.batch = std::strtoull(value.c_str(), nullptr, 10);
     } else if (Flag(arg, "checkpoint-secs", value)) {
       opts.checkpoint_seconds = std::strtod(value.c_str(), nullptr);
+    } else if (Flag(arg, "audit", value)) {
+      opts.audit_segments = std::strtoull(value.c_str(), nullptr, 10);
+    } else if (Flag(arg, "audit-seed", value)) {
+      audit_seed = std::strtoull(value.c_str(), nullptr, 10);
     } else if (Flag(arg, "stop-after", value)) {
       opts.stop_after_batches = std::strtoull(value.c_str(), nullptr, 10);
     } else {
@@ -100,9 +115,12 @@ int main(int argc, char **argv) {
     std::printf("E_4 exhaustive campaign\n");
     std::printf("  bound        %lld\n", static_cast<long long>(opts.bound));
     std::printf("  catalog      %s\n", opts.out.c_str());
-    std::printf("  factor base  %s\n", opts.factor_base.empty()
-                                           ? "(sieved)"
-                                           : opts.factor_base.c_str());
+    std::printf("  factor base  %s%s\n",
+                opts.factor_base.empty() ? "(sieved)"
+                                         : opts.factor_base.c_str(),
+                opts.factor_base.empty()      ? ""
+                : opts.map_factor_base        ? " (mmap)"
+                                              : " (heap)");
 
     pte::cpu::Campaign campaign(std::move(opts));
     const pte::cpu::CampaignOptions &o = campaign.options();
@@ -128,9 +146,36 @@ int main(int argc, char **argv) {
     std::printf("  UNCERTIFIED       %10zu\n", s.uncertified);
     std::printf("\n");
 
+    // Known solutions are checked on every run: it costs one point-set
+    // construction each, and it is the only evidence a run at a bound nobody can
+    // exhaust has about its own large-norm behaviour.
+    const pte::cpu::KnownCheck known =
+        pte::cpu::verify_known_solutions(o.bound);
+    std::printf("  known solutions in range %zu, recovered %zu\n",
+                known.in_range, known.found);
+    for (const auto l1 : known.missing)
+      std::printf("    MISSING: L1 = %lld\n", static_cast<long long>(l1));
+
+    bool audit_ok = true;
+    if (o.audit_segments > 0) {
+      const pte::cpu::SegmentCheck seg = pte::cpu::verify_segments(
+          campaign.generator(), o.audit_segments, audit_seed);
+      std::printf("  audit: %zu segments, %zu norms, %zu solutions, seed %llu\n",
+                  seg.segments, seg.norms, seg.solutions,
+                  static_cast<unsigned long long>(audit_seed));
+      for (const std::string &d : seg.disagreements)
+        std::printf("    DISAGREEMENT: %s\n", d.c_str());
+      audit_ok = seg.ok();
+    }
+    std::printf("\n");
+
     if (!s.complete) {
       std::printf("  INCOMPLETE -- re-run with --resume to continue.\n");
       return 0;
+    }
+    if (!known.ok() || !audit_ok) {
+      std::printf("  FAILED: the audit did not pass.\n");
+      return 1;
     }
     if (s.uncertified > 0) {
       std::printf("  FAILED: %zu catalogued solutions carry no proof.\n",

@@ -74,7 +74,7 @@ TEST(FactorBase, HandlesDegenerateBounds) {
 TEST(FactorBase, BuildDecomposesEveryPrime) {
   const FactorBase fb = FactorBase::Build(100000);
   ASSERT_FALSE(fb.empty());
-  EXPECT_EQ(fb.primes(), pte::cpu::split_primes_up_to(100000));
+  EXPECT_EQ(fb.primes_vector(), pte::cpu::split_primes_up_to(100000));
   for (std::size_t i = 0; i < fb.size(); ++i) {
     const Gauss &z = fb.point(static_cast<pte::cpu::factor_index_t>(i));
     EXPECT_EQ(z.norm(), static_cast<std::int64_t>(fb.prime(
@@ -93,7 +93,7 @@ TEST(FactorBase, ArtifactRoundTrips) {
 
   const FactorBase loaded = FactorBase::Load(tmp.path());
   ASSERT_EQ(loaded.size(), built.size());
-  EXPECT_EQ(loaded.primes(), built.primes());
+  EXPECT_EQ(loaded.primes_vector(), built.primes_vector());
   for (std::size_t i = 0; i < loaded.size(); ++i) {
     const auto j = static_cast<pte::cpu::factor_index_t>(i);
     EXPECT_EQ(loaded.point(j), built.point(j)) << "at index " << i;
@@ -105,7 +105,7 @@ TEST(FactorBase, LoadTruncatesToTheRequestedBound) {
   FactorBase::WriteArtifact(tmp.path(), 1000000);
 
   const FactorBase loaded = FactorBase::Load(tmp.path(), 100000);
-  EXPECT_EQ(loaded.primes(), pte::cpu::split_primes_up_to(100000));
+  EXPECT_EQ(loaded.primes_vector(), pte::cpu::split_primes_up_to(100000));
 
   // Asking for more than the file holds must fail loudly rather than quietly
   // enumerating a short base -- that would silently lose every norm whose
@@ -158,7 +158,7 @@ TEST(FactorBase, ShippedArtifactPrefixMatchesAFreshBuild) {
   const FactorBase prefix = FactorBase::Load(shipped.string(), 1000000);
   const FactorBase fresh = FactorBase::Build(1000000);
   ASSERT_EQ(prefix.size(), fresh.size());
-  EXPECT_EQ(prefix.primes(), fresh.primes());
+  EXPECT_EQ(prefix.primes_vector(), fresh.primes_vector());
   for (std::size_t i = 0; i < prefix.size(); ++i) {
     const auto j = static_cast<pte::cpu::factor_index_t>(i);
     EXPECT_EQ(prefix.point(j), fresh.point(j)) << "at index " << i;

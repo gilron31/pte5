@@ -120,7 +120,17 @@ void WriteAtomically(const std::string &path, const std::string &content) {
 }
 
 // Per-thread accumulators, merged after the batch joins.
-struct ThreadState {
+//
+// alignas(64) is load-bearing, not decoration. These live adjacent in a vector
+// and each is ~470 bytes, so without it one thread's counters -- incremented
+// once per norm, which is 165M times over a B = 10^10 run -- share a cache line
+// with the next thread's Spine header. That is false sharing on the hottest
+// write in the program: correct, since each thread only touches its own state,
+// but every increment would bounce the line between cores.
+//
+// ThreadSanitizer cannot see this. It reports data races, and there is no race
+// here; false sharing is a performance bug that looks perfectly correct.
+struct alignas(64) ThreadState {
   Walker walker;
   MeetScratch<trunc_key_t> scratch;
   std::vector<factor_t> primes; // reused across candidates
@@ -156,13 +166,14 @@ namespace {
 // list.
 Generator MakeGenerator(const CampaignOptions &opts, double &seconds) {
   const auto start = Clock::now();
-  Generator g = opts.factor_base.empty()
-                    ? Generator(opts.bound)
-                    : Generator(opts.bound,
-                                FactorBase::Load(opts.factor_base,
-                                                 static_cast<factor_t>(
-                                                     opts.bound /
-                                                     kSmallestCofactor)));
+  const auto needed = static_cast<factor_t>(opts.bound / kSmallestCofactor);
+  Generator g =
+      opts.factor_base.empty()
+          ? Generator(opts.bound)
+          : Generator(opts.bound,
+                      opts.map_factor_base
+                          ? FactorBase::Map(opts.factor_base, needed)
+                          : FactorBase::Load(opts.factor_base, needed));
   seconds = SecondsSince(start);
   return g;
 }

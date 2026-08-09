@@ -61,12 +61,22 @@ inline constexpr std::int64_t kMaxNorm = 1'000'000'000'000; // 10^12
 // Layer 1: enumeration
 // ---------------------------------------------------------------------------
 
-// Gauss coordinates. int64 rather than the int32 that would suffice (20 bits at
-// B = 10^12), because nothing currently transfers raw coordinates -- the meet
-// moves nu values, which need 40 bits. Narrowing GaussT<std::int32_t> halves
-// the bytes per point and becomes worth doing when device-resident generation
-// puts coordinates on the bus; the template is already shaped for it.
-using coord_t = std::int64_t;
+// Gauss coordinates. 20 bits suffice at B = 10^12 (|m|, |n| <= sqrt(B) = 10^6),
+// so int32 it is, and the halving is not cosmetic: it is 8 bytes per point
+// instead of 16 across the factor base (2.7 GB rather than 5.5 at the design
+// bound), the Spine's per-thread buffer, and eventually the PCIe bus.
+//
+// GaussT::wide is int64 for a 32-bit coordinate, so norm() and nu() -- which
+// reach 10^12 and do *not* fit in a coordinate -- are still computed and
+// returned wide. That is the whole point of the `wide` alias, and the reason
+// narrowing here is safe.
+//
+// The one place to be careful is divisible_by(p): p is cast to coord_t. Only a
+// repeated prime can divide a point, so p^2 <= L1 <= 10^12 gives p <= 10^6,
+// comfortably inside int32 -- but a caller passing an arbitrary factor-base
+// prime (up to 1.5e10) would truncate. is_primitive is the only caller and it
+// only ever passes repeated primes.
+using coord_t = std::int32_t;
 
 // Values bounded by kMaxNorm. Three distinct meanings share this width
 // deliberately -- L1 itself, the norm N(z) = m^2 + n^2, and the invariant

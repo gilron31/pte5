@@ -9,18 +9,27 @@
 //   1.54e9      38,308,127     7.33 s     38.74 s    46.1 s     0.2 MB
 //   1.54e10    343,618,258    74.81 s    462.08 s   536.9 s     0.2 MB
 //
-// Two properties are worth stating because the obvious implementation has
-// neither:
+// Three properties worth stating because the obvious implementation has none of
+// them:
 //
-//   - **Resident memory is constant.** A monolithic sieve needs a bit per
-//     candidate -- 1.9 GB at P_max = 1.54e10, which is what made the previous
-//     `split_primes_up_to` unusable past B ~ 1e10. Segmenting holds one window
-//     plus the base primes to sqrt(P_max), which is 0.2 MB at any bound.
+//   - **Sieving is segmented**, so resident memory during construction is
+//     constant. A monolithic sieve needs a bit per candidate -- 1.9 GB at
+//     P_max = 1.54e10, which is what made the previous `split_primes_up_to`
+//     unusable past B ~ 1e10.
 //
-//   - **The artifact stores (a, b), never p.** Since p = a^2 + b^2 is
-//     recoverable, storing it would double the file for nothing: 8 bytes per
-//     prime instead of 16, so the full B = 1e12 base is 2.6 GB rather than 5.2.
-//     See data/README.md for the on-disk format.
+//   - **The prime is never stored.** Only (a, b) is; p = a^2 + b^2 is recovered
+//     with two multiplies. That is 8 bytes per prime rather than 24, and it is
+//     the difference between 8.2 GB and 2.7 GB at the design bound. It also
+//     *improves* locality: prime and point now share a cache line instead of
+//     living in two arrays a gigabyte apart.
+//
+//   - **The artifact can be mapped rather than read.** Map() mmaps the file, so
+//     the base costs no heap at all -- pages are demand-loaded, evictable under
+//     pressure, and shared between concurrent runs. At B = 10^12 this is the
+//     difference between a 2.7 GB allocation and none.
+//
+// Measured resident set for the whole B = 10^10 campaign: 141 MB with Load,
+// where the base is ~104 MB of it.
 #pragma once
 
 #include "cpu/core/precision.h"
@@ -57,44 +66,88 @@ private:
 
 // Split primes with their decompositions, indexed in ascending order of p.
 //
-// `primes[i]` and `points[i]` describe the same prime, so a DecomposedNorm's
-// factor indices address both. Built by sieving, or loaded from an artifact --
-// loading skips Cornacchia entirely, which is 86% of the build time.
+// One 8-byte record per prime, holding (a, b) with p = a^2 + b^2, a >= b > 0.
+// The records are either owned (Build, Load) or mapped from an artifact (Map);
+// every accessor works the same either way.
 class FactorBase {
 public:
+  // On-disk and in-memory record. See data/README.md for the file format --
+  // they are the same bytes, which is what lets Map() hand out pointers
+  // straight into the mapping.
+  struct Record {
+    std::uint32_t a, b;
+  };
+  static_assert(sizeof(Record) == 8, "artifact record must be exactly 8 bytes");
+
   FactorBase() = default;
+  ~FactorBase();
+  FactorBase(FactorBase &&) noexcept;
+  FactorBase &operator=(FactorBase &&) noexcept;
+  FactorBase(const FactorBase &) = delete;
+  FactorBase &operator=(const FactorBase &) = delete;
 
   // Sieve and decompose. Throws NotASplitPrime if the sieve ever yields a
   // prime that fails to decompose, which would mean the sieve is wrong.
   static FactorBase Build(factor_t p_max);
 
-  // Read an artifact written by WriteArtifact. The file carries (a, b) pairs
-  // only; p is recomputed as a^2 + b^2, so this is a memcpy plus a multiply per
-  // prime and no modular arithmetic at all.
-  //
-  // `p_max` is not stored in the file (it has no header); pass 0 to accept
-  // whatever the file contains, or a positive value to truncate to that bound
-  // and to assert the file reaches it.
+  // Read an artifact into memory. `p_max` of 0 accepts whatever the file
+  // contains; a positive value truncates to that bound and asserts the file
+  // reaches it.
   static FactorBase Load(const std::string &path, factor_t p_max = 0);
+
+  // Map an artifact instead of reading it. Same validation as Load on the
+  // prefix actually used, but no heap: at B = 10^12 the base is 2.7 GB of
+  // page cache rather than 2.7 GB of anonymous memory.
+  //
+  // The mapping is read-only and private. The file must outlive the object.
+  static FactorBase Map(const std::string &path, factor_t p_max = 0);
 
   // Sieve, decompose and stream to disk without holding the base in memory.
   // Returns the number of records written.
   static std::size_t WriteArtifact(const std::string &path, factor_t p_max);
 
-  std::size_t size() const { return primes_.size(); }
-  bool empty() const { return primes_.empty(); }
+  std::size_t size() const { return count_; }
+  bool empty() const { return count_ == 0; }
   factor_t p_max() const { return p_max_; }
+  bool is_mapped() const { return mapping_ != nullptr; }
 
-  factor_t prime(factor_index_t i) const { return primes_[i]; }
-  const Gauss &point(factor_index_t i) const { return points_[i]; }
+  // p = a^2 + b^2, recomputed rather than stored. Two multiplies against a
+  // load from a second array that would not be in cache anyway.
+  factor_t prime(factor_index_t i) const {
+    const Record &r = records_[i];
+    return static_cast<factor_t>(r.a) * r.a + static_cast<factor_t>(r.b) * r.b;
+  }
+  Gauss point(factor_index_t i) const {
+    const Record &r = records_[i];
+    return Gauss{static_cast<coord_t>(r.a), static_cast<coord_t>(r.b)};
+  }
 
-  const std::vector<factor_t> &primes() const { return primes_; }
-  const std::vector<Gauss> &points() const { return points_; }
+  const Record *records() const { return records_; }
+
+  // Exhaustive structural check: every record in order, a >= b > 0. Faults in
+  // the entire mapping when mapped, so it is a deliberate audit step rather
+  // than something Map does for you.
+  void validate_all(const std::string &path = "<factor base>") const;
+
+  // Materializes every prime into a vector. O(size()) memory -- 2.7 GB at the
+  // design bound -- so this is for tests and small bounds, not for a campaign.
+  std::vector<factor_t> primes_vector() const;
+
+  // Index of the first prime greater than `limit`, i.e. how many primes are at
+  // or below it. Binary search over the recomputed primes.
+  std::size_t upper_bound(factor_t limit) const;
 
 private:
+  void Reset();
+  void ValidateSample(const std::string &path) const;
+
+  const Record *records_ = nullptr; // owned_.data(), or into the mapping
+  std::size_t count_ = 0;
   factor_t p_max_ = 0;
-  std::vector<factor_t> primes_;
-  std::vector<Gauss> points_;
+
+  std::vector<Record> owned_;      // Build / Load
+  void *mapping_ = nullptr;        // Map
+  std::size_t mapping_bytes_ = 0;
 };
 
 // ---------------------------------------------------------------------------

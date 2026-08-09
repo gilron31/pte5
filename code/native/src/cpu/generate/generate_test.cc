@@ -105,7 +105,7 @@ TEST(Spine, DeduplicationIsManyToOneNotPairwise) {
   Spine spine(base);
 
   const auto index_of = [&](factor_t p) {
-    const auto &primes = base.primes();
+    const auto &primes = base.primes_vector();
     return static_cast<pte::cpu::factor_index_t>(
         std::lower_bound(primes.begin(), primes.end(), p) - primes.begin());
   };

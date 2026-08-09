@@ -3,7 +3,7 @@
 # work (drafts/implementation_design.md 3.1) and the GPU's value in this project
 # is the S-D and S-E searches.
 add_executable(enum_campaign enum_campaign.cc)
-target_link_libraries(enum_campaign PRIVATE pte_cpu_campaign pte_warnings)
+target_link_libraries(enum_campaign PRIVATE pte_cpu_campaign pte_cpu_audit pte_warnings)
 
 if(PTE_HAVE_CUDA)
   # The hybrid demo is ordinary C++ (compiled by g++, not nvcc); it reaches the
