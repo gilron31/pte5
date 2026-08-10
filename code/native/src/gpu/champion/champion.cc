@@ -16,6 +16,7 @@
 #include "gpu/core/types.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <numeric>
 #include <span>
@@ -106,9 +107,16 @@ std::vector<core::PairCollision> champion_meet(std::span<const core::U128> nu,
   const std::span<std::uint32_t> staging = session.pool_.Acquire<std::uint32_t>(2 * d);
   core::WindowRanges ranges{staging.first(d), staging.subspan(d), 0};
 
+  // Wall time of the whole partition pass, and of the device work inside it.
+  // The difference is the host's O(D)-per-window planning sweep, through which
+  // the device is idle -- the one number that says whether S-E is device-bound.
+  const auto t_all = std::chrono::steady_clock::now();
+  double device_seconds = 0.0;
+
   core::for_each_window(
       std::span<const core::U256>(sq), max_pairs, ranges,
       [&](const core::KeyWindow &, const core::WindowRanges &r) {
+        const auto t_window = std::chrono::steady_clock::now();
         if (stats != nullptr) {
           ++stats->windows;
           stats->pairs += r.pairs;
@@ -128,6 +136,13 @@ std::vector<core::PairCollision> champion_meet(std::span<const core::U128> nu,
         const count_t found = session.candidates_.total();
         count_t overflow = 0;
         session.overflow_.CopyToHost(&overflow);
+        // Everything above is this window's device work -- the two H2D copies,
+        // the table clear, the launch and the synchronizing read-back.
+        // Everything below is host confirmation, which is proportional to the
+        // candidate count and so is nothing.
+        device_seconds += std::chrono::duration<double>(
+                              std::chrono::steady_clock::now() - t_window)
+                              .count();
         if (overflow != 0)
           throw std::runtime_error(
               "champion_meet: hash table saturated (" +
@@ -173,8 +188,14 @@ std::vector<core::PairCollision> champion_meet(std::span<const core::U128> nu,
   // is sorted before it is returned: a test that compared raw order against the
   // CPU reference would flake rather than fail.
   std::sort(hits.begin(), hits.end());
-  if (stats != nullptr)
+  if (stats != nullptr) {
     stats->hits = hits.size();
+    stats->device_seconds = device_seconds;
+    stats->plan_seconds =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - t_all)
+            .count() -
+        device_seconds;
+  }
   return hits;
 }
 

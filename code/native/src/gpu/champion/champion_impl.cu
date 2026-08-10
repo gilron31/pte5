@@ -38,6 +38,41 @@
 // compare each.
 //
 // ---------------------------------------------------------------------------
+// Memory behaviour, measured
+// ---------------------------------------------------------------------------
+//
+// Three access patterns, and only one of them is the cost:
+//
+//   lo[i], hi[i], sq[i]   warp-uniform (one warp owns one i), so a broadcast:
+//                         one transaction per warp, hoisted out of the loop.
+//   sq[j]                 j = begin + lane, so a warp reads 32 consecutive
+//                         U256 = 1 KB contiguous. Fully coalesced, and with
+//                         core/uint.h's 16-byte alignment it is 2 x LDG.E.128
+//                         per lane rather than 8 x LDG.E.
+//   table[slot]           **deliberately uncoalesced.** slot is a hash, so 32
+//                         lanes touch up to 32 unrelated sectors. This is what
+//                         hashing *is*, and it is where the time goes.
+//
+// The sweep that settles it, at D = 32768 (5.4e8 pairs), varying only the table
+// size and therefore only the atomics' address footprint:
+//
+//   table    8 MB   32 MB (= L2)   128 MB   512 MB
+//   rate    2.74e9     2.19e9       1.05e9   0.962e9   pair/s in-kernel
+//
+// **2.9x, from nothing but locality**, and the 512 MB row reproduces bench P4's
+// 1.0e9 independently. Vectorizing the sq[] loads over the same sweep changed
+// nothing at all (see core/uint.h). So the kernel is atomic-bound at the sized
+// table, and the lever is the table's footprint, not the arithmetic and not the
+// loads.
+//
+// The catch, and it is why the shipped default is still the big table: halving
+// the table halves the window's pair capacity and doubles the window count, and
+// each window costs an O(D) planning sweep on the host. At the sized champion
+// that planner is already 50% of the run (139 s of 278 s), so buying 2.9x here
+// would cost more than it saves. **The table size is not the next thing to
+// tune; the planner is.** After that this becomes free.
+//
+// ---------------------------------------------------------------------------
 // Concurrency
 // ---------------------------------------------------------------------------
 //

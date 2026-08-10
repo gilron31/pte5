@@ -518,7 +518,9 @@ $ ./build/dev/apps/champion_demo 20
 
   GPU (atomicCAS hash insert per window, host confirms)
     windows 5794, pairs 137438691328, candidates 4836, false positives 4836, hits 0
-    280.078 s   4.91e+08 pair/s   (includes window planning on the host and 11588 H2D copies)
+    278.060 s total   4.94e+08 pair/s   (11588 H2D copies)
+      device 138.776 s  ->  9.9e+08 pair/s in-kernel
+      host window planning 139.252 s  ->  50% of the run, device idle throughout
 
   cross-check at D = 8192: CPU 2.306 s, GPU 0.043 s (54x)
   CPU and GPU hit sets are identical -> OK  (0 hits)
@@ -536,9 +538,13 @@ the exact re-check, at the rate the model predicts (~0.8 per window against ~0.5
 expected). This particular champion has no E₄; that is a fact about one norm and
 excludes nothing, since S-E is a discovery search.
 
-The 280 s is against a 138 s device ceiling (bench P4), and the gap is *host*
-work: window planning is an O(D) sweep per window, 5,794 of them, interleaved
-with the launches. The kernel is not the bottleneck.
+The last two rows are the ones to read. The device half, 138.8 s at 9.9e8
+pair/s, **is** bench P4's measured `atomicCAS` ceiling of 1.0e9 insert/s — the
+cost model projected 138 s from a primitive benchmark and the search took 138.8.
+The kernel has nothing left to give at this table size. The other half is the
+host planning an O(D) window sweep 5,794 times while the device idles, and that
+is where the next work is: see plan §3.4 for the ordering (overlap the planner,
+then shrink the table into L2 for a measured 2.9×, then partition the hash).
 
 The original scaffold demo:
 

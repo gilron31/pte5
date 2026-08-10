@@ -92,6 +92,15 @@ struct ChampionStats {
   std::uint64_t candidates = 0;      // what the device reported
   std::uint64_t false_positives = 0; // candidates the exact re-check rejected
   std::uint64_t hits = 0;
+
+  // Where the wall clock went, split at the one seam that matters: the window
+  // planner is an O(D) host sweep per window and the device sits idle through
+  // it, so these two numbers say whether the search is device-bound or
+  // planner-bound. They are wall time, not device time -- `device_seconds`
+  // covers the H2D copies, the table clear, the launch and the synchronizing
+  // read-back, which is what a window actually costs.
+  double plan_seconds = 0.0;
+  double device_seconds = 0.0;
 };
 
 // Every {a,b} | {c,d} with nu_a^2 + nu_b^2 == nu_c^2 + nu_d^2, as indices into

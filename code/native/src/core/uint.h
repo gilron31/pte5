@@ -79,6 +79,7 @@
 
 #include "core/hostdev.h"
 
+#include <cstddef>
 #include <cstdint>
 
 namespace pte::core {
@@ -92,7 +93,33 @@ namespace pte::core {
 // An aggregate with a public array and no constructors, on purpose: it has to
 // be trivially copyable to be a kernel argument and to cross the bus by
 // memcpy, and it has to be brace-initialisable to be a compile-time constant.
-template <int kLimbs> struct UInt {
+//
+// **Over-aligned to 16 bytes when the width allows it.** The layout is
+// unchanged -- still kLimbs consecutive 32-bit limbs, still 4*kLimbs bytes,
+// still memcpy-able to the device -- but alignment is what lets nvcc vectorize
+// a load of one of these. Confirmed in the shipped kernel's SASS:
+//
+//   alignof 4    8 x LDG.E      (32-bit) per U256, each a stride-32B gather
+//   alignof 16   2 x LDG.E.128  per U256
+//
+// **And it makes no measurable difference**, which is the more useful half of
+// the result. Sweeping the champion kernel's in-kernel rate across four table
+// sizes, before and after: 2.76 / 2.22 / 1.05 / 0.964 e9 pair/s against
+// 2.74 / 2.19 / 1.05 / 0.962. Identical inside the noise. The sq[] loads are
+// not what the kernel waits on -- the hash-table atomics are (see
+// gpu/champion/champion_impl.cu), and the same sweep shows *those* moving 2.9x
+// with the table's address footprint. Kept anyway because it is strictly fewer
+// instructions for no cost, and because it will matter if the loads ever stop
+// being free; not kept under any claim that it sped anything up.
+//
+// A first version of this file asserted `alignof(U256) == 4` on the theory that
+// minimal alignment protected the raw-bytes contract. That theory was wrong:
+// the contract is size and limb order, and alignment touches neither. The
+// condition keeps it honest at every width -- 16-byte alignment is applied only
+// when 4*kLimbs is already a multiple of 16, so sizeof never grows (a UInt<6>
+// would otherwise pad 24 bytes to 32).
+template <int kLimbs>
+struct alignas(kLimbs % 4 == 0 ? 16 : alignof(std::uint32_t)) UInt {
   static_assert(kLimbs >= 2, "UInt needs at least two limbs: the carry chain "
                              "is written as first / middle / last");
   static constexpr int kBits = 32 * kLimbs;
@@ -357,9 +384,17 @@ template <int N> PTE_HOST_DEVICE inline UInt<2 * N> square(const UInt<N> &a) {
 // The layout contract
 // ---------------------------------------------------------------------------
 
+// Size and limb order are the contract; alignment is free to be whatever makes
+// the device fast, as long as it does not disturb them.
 static_assert(sizeof(U128) == 16, "U128 must be exactly four 32-bit limbs");
 static_assert(sizeof(U256) == 32, "U256 must be exactly eight 32-bit limbs");
-static_assert(alignof(U256) == 4, "UInt must not acquire wider alignment: it "
-                                  "is copied to the device as raw bytes");
+static_assert(sizeof(UInt<6>) == 24,
+              "over-alignment must never pad a width it does not divide");
+static_assert(alignof(U256) == 16,
+              "16-byte alignment is what lets a U256 load vectorize to "
+              "LDG.E.128; see the note on the declaration");
+static_assert(offsetof(U256, w) == 0,
+              "the limb array must start at offset 0: the device reads these "
+              "bytes as an array of uint32");
 
 } // namespace pte::core

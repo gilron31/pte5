@@ -303,13 +303,42 @@ Three things that measurement settled:
    the model says ~0.5 spurious candidates per window and the run produced 0.83.
    Rejecting them costs one 256-bit compare each, so the filter/arbiter split of
    `precision.h` carries over to the champion regime unchanged.
-2. **280 s against P4's 138 s ceiling, and the gap is the host.** Window
-   planning is an $O(D)$ two-pointer sweep per window, run on the host and
-   interleaved with the launches: 5,794 windows × 524,288 points, plus 11,588
-   H2D copies of the ranges. The kernel is not the bottleneck — planning is.
-   Moving the planner to the device is the obvious next step and is worth ~2×;
-   it was not worth doing before there was a number saying so.
-3. **This particular champion has no $E_4$.** That is a result about one norm and
+2. **The run is exactly half host, and the kernel is exactly at its ceiling.**
+   Instrumented (`ChampionStats::plan_seconds` / `device_seconds`):
+
+   | | |
+   | --- | --- |
+   | device | **138.8 s** → 9.9e8 pair/s in-kernel |
+   | host window planning | **139.3 s** → 50% of the run, device idle throughout |
+
+   The device half reproduces P4's 1.0e9 insert/s to two digits, which is the
+   cost model closing: the plan projected 138 s from a primitive benchmark and
+   the search took 138.8 s. So the kernel is *done* until the other half is
+   fixed — window planning is an $O(D)$ sweep per window, 5,794 of them over
+   524,288 points, and the device idles through all of it. Cheapest fix is not
+   a device-side planner but a second stream: plan window $N{+}1$ while window
+   $N$ runs, double-buffering the range arrays, which is ~2× for a few dozen
+   lines.
+3. **The kernel is atomic-bound, and locality is worth 2.9× for free.** Sweeping
+   only the hash table's size at $D = 32768$ — same work, same code, different
+   address footprint:
+
+   | table | 8 MB | 32 MB (= L2) | 128 MB | 512 MB |
+   | --- | --- | --- | --- | --- |
+   | in-kernel | **2.74e9** | 2.19e9 | 1.05e9 | 0.962e9 pair/s |
+
+   The 512 MB row is P4 again; the 8 MB row is what the same kernel does when
+   the probes stop leaving L2 (32 MB on this device). Nothing else moved the
+   number — vectorizing the `sq[]` loads from 8×`LDG.E` to 2×`LDG.E.128` changed
+   it by 0.7%, i.e. not at all.
+
+   The catch is that a smaller table means a smaller window cap, so the window
+   count and the planner cost rise together: at 8 MB the planner is 91% of the
+   wall clock. **So this 2.9× is unclaimable until the planner is fixed, and
+   free the moment it is.** That is the argument for doing the planner first
+   rather than the more interesting device work.
+
+4. **This particular champion has no $E_4$.** That is a result about one norm and
    nothing more — S-E is a discovery search, so a null answer excludes nothing.
    It does say the machinery runs at the sized problem, which is what G4 was for.
 
@@ -446,12 +475,28 @@ The next unblocked item is **G1**, which is mathematics (§2.2) and still the
 highest-value open question in the plan; G5 and G7 remain conditional by
 construction, and G6 still has no cost estimate at all.
 
-Two items the S-E build added to the queue, both sized rather than guessed:
+Three items the S-E build added to the queue, all sized rather than guessed, and
+in this order because each one gates the next:
 
-- **S-E's window planner belongs on the device.** At the sized champion the
-  host's $O(D)$ per-window sweep is more of the 280 s than the kernel is (§3.4).
-  Worth ~2×, and it is the only part of S-E still on the host that scales with
-  the search rather than with the answer.
+- **G8 — get the planner off the critical path.** Measured at exactly 50% of the
+  sized run (§3.4), with the device idle throughout. A second stream planning
+  window $N{+}1$ while $N$ runs is ~2× for a few dozen lines; a device-side
+  planner is more, and is what makes small windows cheap.
+- **G9 — then shrink the table into L2.** A measured 2.9× that costs no new
+  code, and is unaffordable today only because it multiplies the window count
+  (§3.4). G8 converts it from a losing trade into a free one.
+- **G10 — then, if it still pays, partition the hash.** Shared-memory
+  write-combining buckets flushed to global when full, re-bucketed in a second
+  kernel where the fan-out exceeds what shared memory holds — the standard
+  multi-pass radix-partitioned join. It attacks both halves at once: coalesced
+  flushes and one counter atomic per line instead of per key, *and* a window
+  bounded by a key buffer rather than by table capacity, which cuts the window
+  count ~5× and so the planner with it. Napkin: ~4 GB of streaming per 1.3e8
+  keys → ~4e9 key/s, against 2.7e9 for G9's L2-resident table. **The honest
+  comparison is against G9, not against today**, which makes it perhaps 1.5×
+  for real work — worth doing after G8/G9 and not before, and P3's CUB radix
+  sort at 8.4e8 key/s is a caution that multi-pass streaming on this device is
+  not automatically ahead of direct atomics.
 - **Which champion?** Open question 5 is now the operative one for S-E rather
   than a hypothetical: the machinery runs, so the next result depends entirely
   on which norm it is pointed at. `smallest_split_primes` answers only the

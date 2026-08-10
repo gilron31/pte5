@@ -9,7 +9,7 @@
 // agreement is a fixture rather than something somebody has to remember to run.
 // Exits non-zero on any disagreement or on a hit that fails the exact re-check.
 //
-//   ./champion_demo [num_primes]        default 14 (D = 2^13)
+//   ./champion_demo [num_primes] [table_log]    default 14 (D = 2^13), auto
 //
 // The default is sized to run in a couple of seconds. The real thing is 20
 // primes, D = 2^19, L1 ~ 2.5e36 and 1.374e11 pairs -- print the projection at
@@ -68,6 +68,10 @@ int main(int argc, char **argv) {
   int num_primes = 14;
   if (argc > 1)
     num_primes = std::atoi(argv[1]);
+  // Second argument overrides the table size, so the L2-residency question can
+  // be swept from the command line: 2^22 slots is 32 MB, exactly this device's
+  // L2, and everything above it makes the probe a DRAM round trip.
+  const int table_log_override = argc > 2 ? std::atoi(argv[2]) : 0;
   if (num_primes < 4 || num_primes > 21) {
     std::fprintf(stderr, "num_primes must be in [4, 21]\n");
     return 2;
@@ -161,7 +165,7 @@ int main(int argc, char **argv) {
            static_cast<double>(1ull << table_log) * params.max_load <
                per_window)
       ++table_log;
-    params.table_log = table_log;
+    params.table_log = table_log_override > 0 ? table_log_override : table_log;
   }
   std::printf("\n  hash table 2^%d slots (%.0f MB), window cap %.3g pairs\n",
               params.table_log,
@@ -185,10 +189,15 @@ int main(int argc, char **argv) {
               static_cast<unsigned long long>(gpu_stats.candidates),
               static_cast<unsigned long long>(gpu_stats.false_positives),
               static_cast<unsigned long long>(gpu_stats.hits));
-  std::printf("    %.3f s   %.3g pair/s   (includes window planning on the "
-              "host and %llu H2D copies)\n",
-              gpu_s, PairCount(champ.nu.size()) / gpu_s,
-              2ull * gpu_stats.windows);
+  std::printf("    %.3f s total   %.3g pair/s   (%llu H2D copies)\n", gpu_s,
+              PairCount(champ.nu.size()) / gpu_s, 2ull * gpu_stats.windows);
+  std::printf("      device %.3f s  ->  %.3g pair/s in-kernel\n",
+              gpu_stats.device_seconds,
+              PairCount(champ.nu.size()) / gpu_stats.device_seconds);
+  std::printf("      host window planning %.3f s  ->  %.0f%% of the run, "
+              "device idle throughout\n",
+              gpu_stats.plan_seconds,
+              100.0 * gpu_stats.plan_seconds / gpu_s);
   if (gpu_stats.pairs !=
       static_cast<std::uint64_t>(PairCount(champ.nu.size()))) {
     std::fprintf(stderr,
