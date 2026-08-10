@@ -8,6 +8,21 @@ Every formula is verified in `drafts/verify_claims.py` or in the experiments
 quoted inline. **No number here is a guess** — where a figure is extrapolated,
 it says so.
 
+> **§5 is superseded by `drafts/gpu_implementation_plan.md` (rev. 3).** §1–§4 —
+> the reduction, the injectivity lemma, the workload shape, the algorithms — are
+> unchanged and remain the reference. What changed is the *strategy*: the CPU
+> campaign was built and run, S-A to the design bound turned out to be minutes,
+> and the ranking of what the GPU is for is now measured rather than guessed.
+> Three numbers in §4 also moved: A4's champion-regime cost is $1.4\times10^{11}$
+> key evaluations, not $1.4\times10^{14}$ (window by key *value*, not by hash);
+> A9's tower sieve is $O(p^4/64)$ word-ops per prime with an explicit recursion;
+> and A9's "one prime with zero depth-5 towers is an unconditional nonexistence
+> theorem" **is false as stated** — it holds only for splitting *with
+> multiplicity*, and the distinct-root reading gives zero at 25 of the 29 primes
+> below 113 while a known $E_4$ fails that same test at 16 of them.
+
+---
+
 > **Reading guide.** §1 reduces the whole $E_4$ search to a single one-line
 > condition, and §1.3 shows that condition is a *product* equality — the
 > structural fact everything else exploits. §2 measures how much work there

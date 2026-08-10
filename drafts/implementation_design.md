@@ -276,6 +276,16 @@ with numbers behind it.
 
 ## 4. GPU critical path
 
+> **Superseded by `drafts/gpu_implementation_plan.md` (rev. 3) on *strategy*.**
+> The traffic budget of §4.1 and the memory-hierarchy reasoning of §4.3 stand;
+> the kernel pipeline and milestone order of §4.2 do not. S-A to the design bound
+> is now measured at minutes on the CPU (§9.3), so the device's value has moved to
+> S-E and S-D. Two figures here are also corrected there: the ancestor-path
+> shared-memory budget is ~3 KB, not 20 KB (the spine's levels sum to $2D_{\max}$
+> because $D$ doubles, rather than to $\text{depth} \times D_{\max}$), and any
+> device meet must mirror the shipped `meet_direct<4,5,6,7,8>` dispatch rather
+> than the runtime $O(D^4)$ loop the demo kernel still uses.
+
 ### 4.1 What crosses PCIe: only the factor base
 
 The device generates its own norms and point sets. Nothing else makes sense
@@ -884,6 +894,170 @@ reproduced in Python, including the two non-squarefree norms
 ($37^2\cdot101\cdot401$ and $53\cdot73^2\cdot857$), and an independent Python
 exhaustive search to $10^6$ agrees on both the norm count (11,083) and the
 solution set.
+
+## 10. Vectorization, and where the time actually goes
+
+### 10.1 The AoS → SoA question, answered by measurement
+
+The point set is an array of `Gauss = {int32 re, int32 im}` and the inner
+operation of `Spine::push` is four multiplies per point with no cross-lane
+dependency. That is textbook SIMD bait, and the obvious move is to split the
+structure into parallel `re[]` and `im[]` arrays so the compiler can use full
+vectors. It does not work, and the reason is worth recording because it is
+invisible from the source.
+
+**First, the fact that motivates the question.** GCC does not vectorize
+`Spine::push` at all — not at `-O2`, not at `-O3 -march=native`. The only
+vectorized lines `-fopt-info-vec` reports for `generate.cc` are the
+constructor's initializer and library code. Nothing in the hot loop.
+
+**Second, why: the trip count is one.** Harvesting every `push` the walk
+performs at $B = 10^7$ — 353,253 of them, the real tree in the real order —
+the parent point set has a **mean of 1.58 points**:
+
+| parent $D$ | 1 | 2 | 3 | 4 | 5–6 | 7–12 |
+| --- | --- | --- | --- | --- | --- | --- |
+| share of pushes | 58.5% | 31.8% | 4.7% | 4.1% | 0.8% | 0.2% |
+
+90.3% of pushes have one or two points to multiply. There is no vector to fill.
+This is the same lopsidedness as the $D$ distribution of §2, one level down and
+much sharper: the emitted *norms* average $D \approx 4.7$, but the *nodes* of
+the cofactor tree are overwhelmingly shallow, and it is nodes that `push` runs
+on. Any SIMD scheme that parallelizes across the points of one norm is
+optimizing a loop that almost never iterates.
+
+**Third, the measurements.** Five layouts over that corpus, `g++-13`, one
+thread, min of nine runs, ns per push. Source and build line:
+`drafts/bench_point_set_layout.cc`.
+
+| variant | `-O2` (as shipped) | `-O2 -march=native` |
+| --- | --- | --- |
+| V0 AoS, `int64` products, interleaved stores (**current**) | 4.86 | 3.83 |
+| V1 AoS, `int64`, split stores | 5.44 | 4.28 |
+| V2 **SoA**, `int64`, split stores | 4.98 | 4.17 |
+| V3 **SoA**, `uint32` wraparound products, split stores | 4.70 | 3.3–3.5 |
+| V4 AoS in, packed `uint64` out | 5.35 | 5.46 |
+
+V1–V3 were checked to produce a permutation of V0's output on every push in the
+corpus, so these are like-for-like.
+
+**SoA on its own is slower than AoS** (V2 vs V0, both builds). The only variant
+that beats the current code is V3, and its win comes from narrowing the
+products, not from the layout: `int32 × int32 → int64` is `vpmuldq`, four lanes
+per 256-bit vector, while `int32 × int32 → int32` is `vpmulld`, eight. The
+narrowing is legal by the same argument that licenses the truncated meet key —
+arithmetic mod $2^{32}$ is a ring homomorphism, the intermediates overflow but
+the *answer* $|\mathrm{Re}(zq)| \le \sqrt{N(zq)} \le 10^6$ does not, and only
+the answer is read. It is worth 10–14% of a loop that is 15% of `push`.
+
+**Fourth, and this is the actual finding: `push` is not a multiply loop, it is a
+sort.** Sort plus unique alone costs 9.78 ns (`-O2`) against 11.65 for the whole
+of `push`. The multiply and canonize that everyone's eye goes to is the small
+half of the small half.
+
+| | `-O2` | `-march=native` |
+| --- | --- | --- |
+| multiply + canonize (V0) | 4.86 | 3.83 |
+| `std::sort<Gauss>` + `unique` alone | 9.78 | 10.35 |
+| **whole push** (V0 + sort + unique) | **11.65** | **11.43** |
+
+That also explains why `-march=native` buys almost nothing end to end (11.65 →
+11.43, under 2%) even though it speeds the multiply by 21%: the sort does not
+vectorize, and the sort is the job. Note the build ships **baseline x86-64**
+— no `-march` appears anywhere in `CMakeLists.txt` or the presets — and the
+measurement says that is costing ~2% on `push`, not the 20% one would guess.
+
+The one change that did move the whole of `push` is not a layout change at all.
+Canonized coordinates are non-negative, so `(re << 32) | im` packed into a
+`uint64` orders identically to `Gauss::operator<` while comparing one word
+instead of two fields:
+
+| | `-O2` | `-march=native` |
+| --- | --- | --- |
+| V0 + `std::sort<Gauss>` + `unique` | 11.65 | 11.43 |
+| V4 + `std::sort<uint64>` + `unique` | **10.38** | **10.27** |
+
+10–13% of `push`, reproduced across repeats and at both $B = 10^6$ and $10^7$
+(a first pass that showed the opposite was a 33k-push corpus timed three times —
+too small to be a measurement, which is its own lesson). `push` runs roughly 2.7
+times per emitted norm at $B=10^7$ (353,253 / 131,437), so this is on the order
+of 3–4% of the campaign. **Not applied.**
+It is a real but small win against a change that would re-baseline the catalog's
+point order, and on a machine whose run-to-run wall clock varies by up to 2×
+(§9.4) it is below the noise floor of anything but a controlled microbenchmark.
+It is recorded so the next person does not spend the afternoon on SoA.
+
+> **Summary.** SoA does not help, SIMD across points cannot help, `-march=native`
+> helps 2%, and 85% of `push` is `std::sort` on three elements. The axis with
+> real width here is *across norms*, and on the CPU that axis is already used —
+> it is the thread pool. On the GPU it is SIMT, which is one reason
+> `drafts/gpu_implementation_plan.md` keeps one thread per norm rather than one
+> thread per point.
+
+### 10.2 Profiling runs and experiments — the queue
+
+None of these have been run. They are ordered by (information gained) ÷ (cost),
+and the first three exist because §10.1 shows that intuition about this program's
+hot spots is unreliable: the cost was in a three-element `std::sort`, which no
+one would have guessed.
+
+**Ground truth first — where does the time actually go?**
+
+- **`perf record` on `enum_campaign --bound=1e9 --threads=1`**, then annotate by
+  symbol. This is the single missing measurement. Everything in §3 and §8 is a
+  *microbenchmark* — a loop replayed over a captured corpus — and §10.1 shows
+  microbenchmarks and workloads disagree (the $D$-dispatch sweep in §7.1 makes
+  the same point in the other direction). Expected split, to be confirmed or
+  refuted: `Spine::push` 35–45%, `meet` 30–40%, walk skeleton and `nu` the rest.
+- **`perf stat -e cycles,instructions,branch-misses,cache-misses,L1-dcache-load-misses`**
+  on the same run. Cycle counts are stable where wall clock is not, which is what
+  makes any claim at ±2× variance defensible. Establishes IPC and says whether
+  this is a front-end, branch, or memory problem — currently unknown.
+- **The same two at $B = 10^7$, $10^8$, $10^9$**, single-threaded. The profile
+  *shape* must shift towards the meet as the $D>8$ tail grows (§2). If it does
+  not, the extrapolation to $10^{12}$ in §3 is wrong.
+
+**Then the specific hypotheses §10.1 raises.**
+
+- **Sort replacement.** Replace `std::sort` + `unique` in `Spine::push` with a
+  branchless sorting network for $n \le 8$ (90% of pushes have $n = 2$ or 4
+  products) and keep `std::sort` above. Measure per-push and end to end.
+- **Dedup without sorting.** The child's point count is known in closed form from
+  the exponent vector the DFS already carries, so the walk knows *before*
+  multiplying whether any duplicate is possible. Where none is, the sort exists
+  only to keep the next level's `unique` valid. Test: dedup by $O(n^2)$
+  branchless scan, sort only at emission (37% of pushes, since 131,437 of 353,253
+  nodes are admissible norms). Changes point order, so it re-baselines the
+  catalog — run the audit and the 11,083/131,437 fixtures against it.
+- **Packed-`uint64` points end to end** (V4 above), including whether `nu`
+  extraction and the meet get faster or slower from the packed form.
+- **`-march=native` / `-mtune=native` as a build option**, measured with
+  `perf stat` cycles rather than wall clock, on the campaign and not on a kernel.
+  Cheap to try, and §10.1 predicts ~2%.
+
+**Then the things nobody has looked at at all.**
+
+- **The meet's partition-table loop.** `-fopt-info-vec` says the `sq[]` hoist
+  vectorizes but the table loop is only SLP-vectorized inside its unrolled body.
+  The indices are `constexpr`, so `sq[t.a]+sq[t.b] == sq[t.c]+sq[t.d]` is a
+  shuffle, not a gather — four partitions per AVX2 instruction is expressible by
+  hand and unreachable by GCC. Only worth it if the profile puts the meet where
+  §2 predicts.
+- **`meet_hashed`'s sort**, which is the same finding as §10.1 one level up: it
+  sorts $D(D-1)/2$ pair keys per norm, and $D > 8$ is 74% of direct-meet work at
+  $10^8$. Is the sort or the key generation dominant? Untested.
+- **`Walker` scaling from 1 to 16 threads at fixed bound**, wall clock and
+  `perf stat` per thread. §9.3 reports 11.0× on 16 threads for the pre-`int32`
+  build; nothing has re-measured it since the `alignas(64)` false-sharing fix,
+  and the fix's value is exactly the thing that only shows up in this sweep.
+- **Memory behaviour at $10^{11}$–$10^{12}$**, which is where the factor base
+  stops fitting in cache: `perf stat` cache-miss rate for `Map` vs `Load` on a
+  *bounded* run (`--stop-after`), not a full campaign. The §9.4 tables measure
+  startup and RSS; nothing measures the steady-state miss rate, and that is the
+  quantity that decides whether the 2–3× pessimism in §3 is right.
+- **Segment-cost histogram at $10^{10}$** — per-segment norms and wall time, to
+  check the adaptive batcher converges rather than oscillates, and to confirm the
+  2.2% max-segment figure of §9.1 still holds three decades up.
 
 ---
 
