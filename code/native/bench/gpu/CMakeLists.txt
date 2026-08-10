@@ -6,7 +6,7 @@
 add_executable(bench_gpu_primitives bench_gpu_primitives.cu)
 target_include_directories(bench_gpu_primitives PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(bench_gpu_primitives
-  PRIVATE CUDA::cudart CUDA::nvml pte_warnings
+  PRIVATE CUDA::cudart CUDA::nvml pte_core pte_warnings
 )
 # CUB's DeviceRadixSort instantiates deep template chains; relaxed constexpr is
 # already on via pte_warnings, and separable compilation is not needed.

@@ -1,13 +1,19 @@
 # `code/native` — the compiled side of the E₅ work
 
-Two things live here:
+Three things live here:
 
 1. **The E₄ enumeration** — [`src/cpu/gaussian/`](src/cpu/gaussian/),
    [`src/cpu/enumerate/`](src/cpu/enumerate/), [`src/gpu/meet/`](src/gpu/meet/)
    and [`apps/enum_demo.cc`](apps/enum_demo.cc). This is search **S-A** of
    [`drafts/gpu_algorithms.md`](../../drafts/gpu_algorithms.md), in its first
    working form — see the section below.
-2. **The original scaffold** — big-integer add/multiply (GMP vs. a naive
+2. **The champion meet** — [`src/core/`](src/core/),
+   [`src/cpu/champion/`](src/cpu/champion/),
+   [`src/gpu/champion/`](src/gpu/champion/) and
+   [`apps/champion_demo.cc`](apps/champion_demo.cc). This is search **S-E** of
+   [`drafts/gpu_implementation_plan.md`](../../drafts/gpu_implementation_plan.md),
+   milestones G3 and G4, and it is the one search where the GPU earns its keep.
+3. **The original scaffold** — big-integer add/multiply (GMP vs. a naive
    schoolbook kernel) and matrix multiply (plain loops vs. a 16×16 tiled
    kernel), kept because it proves the plumbing end to end:
 
@@ -31,8 +37,9 @@ ctest --preset dev -L cpu     # CPU unit tests
 ctest --preset dev -L gpu     # GPU unit tests
 ctest --preset dev            # both
 
-./build/dev/apps/enum_demo    # the E₄ enumeration demo
-./build/dev/apps/hybrid_demo  # the original scaffold demo
+./build/dev/apps/enum_demo       # the E₄ enumeration demo
+./build/dev/apps/champion_demo   # S-E, the champion meet (arg: prime count)
+./build/dev/apps/hybrid_demo     # the original scaffold demo
 
 pip install -e .              # build + install the Python module
 pytest                        # Python binding tests
@@ -150,28 +157,83 @@ carrying the recovered towers so results accumulate.
 3. **Device-resident generation** — one block per cofactor subtree with the
    ancestor point sets in shared memory. This is what fixes the intensity
    problem the demo demonstrates.
-4. Champion-regime kernel, the $\mathbb{F}_p$ tower sieve, the top-collision and
-   bottom-lift joins, and the A4′ product-form investigation.
+4. ~~Champion-regime kernel~~ — **built**; see the next section. The
+   $\mathbb{F}_p$ tower sieve, the top-collision and bottom-lift joins, and the
+   A4′ product-form investigation are still open, and the tower sieve is blocked
+   on a mathematics question rather than on code (plan §2.2).
+
+## The champion meet (S-E)
+
+`./build/dev/apps/champion_demo [num_primes]` runs search S-E end to end and
+exits non-zero if anything disagrees.
+
+**What it computes.** One hand-chosen norm with an enormous point set — $k$
+distinct split primes give $D = 2^{k-1}$, so twenty of them give $D = 2^{19}$ at
+$L_1 \approx 2.5\times10^{36}$ — and every collision *inside* it. Same condition
+as S-A, `nu_a^2 + nu_b^2 == nu_c^2 + nu_d^2`; only the scale differs, and the
+scale changes everything:
+
+- $\binom{D}{2} = 1.374\times10^{11}$ pair keys, which at 16 bytes each is 2.2 TB
+  and cannot be materialized. They are cut into **value windows**: with `sq[]`
+  sorted, the pairs whose key falls in `[lo, hi)` are a contiguous run of `j`
+  for each `i`, so each pair is enumerated exactly once instead of once per
+  window pass. That is a 1000× correction over the hash-windowing both earlier
+  drafts assumed.
+- $\nu$ is 122 bits and the key ~244, so neither `int64` nor `__int128` is wide
+  enough. [`src/core/uint.h`](src/core/uint.h) is the fixed-width type, shared
+  by the host and the device.
+- Point sets at that width are multi-limb Gaussian arithmetic
+  ([`champion_points.cc`](src/cpu/champion/champion_points.cc)), not the `int32`
+  path — whose coordinates stop at 20 bits.
+
+**Two implementations, and the split between them is the point.** The CPU
+reference sorts each window's exact 256-bit keys and is the arbiter; the device
+inserts them into an `atomicCAS` open-addressing table at ~1e9 pairs/s and is a
+*filter* whose every candidate the host re-checks exactly. They share the window
+partition (which is the definition of which pairs exist, tested against brute
+force) and share nothing else.
+
+**Correctness, given that S-E has no oracle.** Nothing catalogues champion
+collisions, and at $D = 2^{19}$ there is no brute force, so the fixtures are:
+`champion_meet` agreeing with the *production* meet and `meet_oracle` on real
+small-D point sets, where all three are valid; a planted collision at full width
+(65 = 1²+8² = 4²+7², shifted so ν is ~122 bits and the key ~244) that must come
+back; and `stats.pairs == C(D,2)` on every run, which is the statement that no
+pair was skipped — the failure mode that has no other symptom.
 
 ## Layout
 
 ```
+src/core/     neutral: no GMP, no Boost, no CUDA. Both halves depend on it.
+  uint.h      pte_core           UInt<N> over 32-bit limbs, host + device
+  window.h                       the S-E value-window partition
+  collision.h                    the shared 4-index hit type
 src/cpu/      per-app directories, GMP + Boost, never sees nvcc
   bigint/     pte_cpu_bigint     big-integer arithmetic + limb export
   matmul/     pte_cpu_matmul
   gaussian/   pte_cpu_gaussian   Gaussian arithmetic, Cornacchia, point sets
   enumerate/  pte_cpu_enumerate  norm generation, reference meet, primitivity
+  champion/   pte_cpu_champion   S-E: the reference meet and champion point sets
 src/gpu/      per-app directories, cudart only, never sees GMP
   core/       pte_gpu_core       error checking, launch macro, host/device
-                                 buffers, device discovery. No kernels.
+                                 buffers, pinned pool, device discovery.
+                                 No kernels.
   bigint/     pte_gpu_bigint
   matmul/     pte_gpu_matmul
   meet/       pte_gpu_meet       the E4 meet
+  champion/   pte_gpu_champion   S-E: the hash-insert kernel
 src/bindings/ pte_native._core   pybind11 module linking both
 apps/         enum_demo          the E4 enumeration, CPU+GPU
+              champion_demo      S-E, CPU+GPU
               hybrid_demo        the original scaffold demo
 python/pte_native/               the Python package and its tests
 ```
+
+`src/core/` is the one place a header is compiled by *both* compilers. It exists
+because S-E's key crosses the PCIe bus as raw bytes, so the two halves have to
+agree on a layout by construction rather than by review; it is kept free of GMP,
+Boost and the CUDA runtime so that depending on it creates no edge in either
+direction. See REVIEW.md D5, which anticipated it.
 
 Each app directory owns its library *and* its test binary, so a suite links
 only what it covers. `pte_cpu` and `pte_gpu` are INTERFACE targets aggregating
@@ -223,6 +285,18 @@ because the members are identical (layout and the by-value kernel argument are
 unaffected) and `push` is inline `__device__`, emitted only into device code.
 It is the standard CUDA idiom; Thrust and CUB are built on it. **Anything added
 inside such a guard must not touch layout.**
+
+The same hatch, widened for a whole value type, is `PTE_HOST_DEVICE` in
+[`src/core/hostdev.h`](src/core/hostdev.h): empty under `g++`, `__host__
+__device__` under `nvcc`. `core/uint.h` needs it because `UInt<N>` is arithmetic
+the host and the device both perform on the same bytes. The obligation it
+creates is checked rather than asserted —
+[`gpu/bigint/uint_device_test.cu`](src/gpu/bigint/uint_device_test.cu) runs a
+carry-heavy corpus through both definitions and requires identical results,
+because `add` and `sub` genuinely have two bodies there (a PTX carry chain on
+the device, a portable accumulate on the host). Dispatching on `__CUDA_ARCH__`
+to reach a faster instruction for the *same* value is fine and is what that test
+polices; dispatching to a different value is not.
 
 Practical payoff: host-side files get `-Wpedantic`, which CUDA translation units
 in this project do not.
@@ -287,16 +361,32 @@ report as skipped rather than failed on a GPU-less machine.
 Oracles are always a second, independent implementation:
 
 - CPU big integers → `boost::multiprecision::cpp_int`
+- `core::UInt<N>` → `boost::multiprecision::uint256_t` on the host, and its own
+  host definition when run on the device (`uint_device_test.cu`)
 - CPU matmul → `boost::numeric::ublas::prod`
 - GPU kernels → host loops written inline in the test files
+- the champion meet → three ways: the production meet and `meet_oracle` at small
+  D, a `std::map` brute force inside the GPU test, and a planted collision at
+  full width
 - Python bindings → Python's own `int` and numpy's `@`
 
 Kernel memory and race correctness:
 
 ```sh
-compute-sanitizer --tool memcheck  ./build/dev/src/gpu/pte_gpu_test
-compute-sanitizer --tool racecheck ./build/dev/src/gpu/pte_gpu_test --gtest_filter='GpuMatmul.*'
+compute-sanitizer --tool memcheck  ./build/dev/src/gpu/meet/pte_gpu_meet_test
+compute-sanitizer --tool racecheck ./build/dev/src/gpu/champion/pte_gpu_champion_test
+compute-sanitizer --tool initcheck ./build/dev/src/gpu/champion/pte_gpu_champion_test
 ```
+
+`racecheck` matters most on `gpu/champion`, which is the only kernel here whose
+correctness is an argument about concurrency rather than about arithmetic: its
+hash insert relies on "of two equal keys, exactly one sees the other", which is
+a claim about `atomicCAS` ordering. All three tools are clean on it — but note
+what they cannot see. The false-sharing class of bug (per-thread state sharing a
+cache line) is invisible to ThreadSanitizer on the CPU and its device analogues
+— shared-memory bank conflicts, contention on an append counter — are invisible
+to `compute-sanitizer`. Those need `ncu` sector and conflict counters, which are
+[currently blocked on this machine](../../drafts/performance_ceiling.md).
 
 ## Python
 
@@ -405,6 +495,50 @@ tower satisfies the degree-16 identity
 $\prod(x^2-r_k^2) = (((x^2-L_1)^2-L_2)^2-L_3)^2-L_4$ exactly. Note the third raw
 hit being rejected as a scaled duplicate — that is the primitivity rule doing
 real work, not a theoretical concern.
+
+The champion meet, at the sized champion (this is the full S-E search over one
+norm — 1.374×10¹¹ pairs; the default `champion_demo` with no argument is the
+14-prime version and takes three seconds):
+
+```
+$ ./build/dev/apps/champion_demo 20
+== S-E champion meet, 20 split primes ==
+  L1                     2386442377984630986454048784862092465
+  L1 bits                121
+  points D               524288
+  pairs C(D,2)           1.374e+11
+  widest nu / key        121 / 243 bits
+  point-set construction 1.009 s   (GMP; the int32 path would overflow above 20-bit coordinates)
+
+  CPU reference (sort each window, exact 256-bit keys), D = 8192
+    windows 42, pairs 33550336, hits 0
+    2.306 s   1.45e+07 pair/s
+
+  hash table 2^26 slots (512 MB), window cap 3.36e+07 pairs
+
+  GPU (atomicCAS hash insert per window, host confirms)
+    windows 5794, pairs 137438691328, candidates 4836, false positives 4836, hits 0
+    280.078 s   4.91e+08 pair/s   (includes window planning on the host and 11588 H2D copies)
+
+  cross-check at D = 8192: CPU 2.306 s, GPU 0.043 s (54x)
+  CPU and GPU hit sets are identical -> OK  (0 hits)
+
+  planted collision (nu ~ 2^126, key ~ 2^253): CPU found, GPU found, sets identical
+
+All checks passed.
+```
+
+Read the middle rows rather than the total. `pairs 137438691328` is
+$\binom{2^{19}}{2}$ **exactly** — every pair enumerated once, which is the
+property value-windowing exists to have and the one whose failure is invisible.
+All 4,836 candidates were fingerprint false positives and all were rejected by
+the exact re-check, at the rate the model predicts (~0.8 per window against ~0.5
+expected). This particular champion has no E₄; that is a fact about one norm and
+excludes nothing, since S-E is a discovery search.
+
+The 280 s is against a 138 s device ceiling (bench P4), and the gap is *host*
+work: window planning is an O(D) sweep per window, 5,794 of them, interleaved
+with the launches. The kernel is not the bottleneck.
 
 The original scaffold demo:
 

@@ -1085,3 +1085,131 @@ have shown it.
 
 That is exactly the failure mode the exclusion claim cannot survive, and the
 throw converted it into a crash on the first run at scale.
+
+
+---
+---
+
+# S-E round — the champion meet (G3 + G4)
+
+Built: `src/core/`, `gpu/core/pinned_pool.h`, `cpu/champion/`, `gpu/champion/`,
+`apps/champion_demo.cc`. What follows answers the one inline `GILRO:` comment
+of this round, then records what shipped and what it cost.
+
+## Part F — response to the inline comment
+
+### F1. `u256.h` should be templated, multi-limb, `uint32` limbs, with inline PTX carry — **agreed on all three, and the measurement is larger than I expected**
+
+`core/u256.h` (now `core/uint.h`). I had written a fixed 4×`uint64` type,
+reasoning from bench P6: the 256-bit add plus compare was already measured at
+1.02e11 op-pairs/s, i.e. **1.4 s against S-E's 138 s of collision detection**,
+so the arithmetic looked like a rounding error and not worth generality.
+
+That reasoning was fine about the *budget* and wrong about the *code*. Three
+separate points in the comment, and each turned out to be right for a reason I
+had not costed:
+
+**(a) `uint32` limbs are the documented convention.** `cpu/bigint/bigint.h` and
+`gpu/bigint/bigint.h` both state "a fixed-width array of 32-bit limbs,
+least-significant limb first", and `to_limbs`/`from_limbs` speak it. A 64-bit
+limb type would have needed a repacking step at the GMP boundary — which S-E
+does cross, since champion point sets are built in `mpz_class`
+(`champion_points.cc`). On the new type the bridge is
+`to_limbs(z, r.w, N)`: a bounds check and nothing else.
+
+**(b) 32-bit limbs are what sm_89 *is*.** There is no 64-bit integer ALU; a
+`uint64` add is IADD3 + IADD3.X. So the 64-bit spelling was not hiding work, it
+was hiding the carry chain — and that turns out to matter, because how the
+carry is spelled decides whether the compiler uses the hardware flag at all.
+
+**(c) Inline PTX, benchmarked, with the SASS read.** Both requested and both
+done. New bench **P8** measures one 256-bit add + compare three ways, and the
+SASS was counted on an add-only kernel so the histogram is the add itself:
+
+| 256-bit add | SASS ops | op-pair/s | relative | S-E's 1.374e11 |
+| --- | --- | --- | --- | --- |
+| 4 × `uint64`, portable C | ~25 | 1.14e11 | 1.00 | 1.21 s |
+| 8 × `uint32`, portable C | 14 | 1.70e11 | 1.49 | 0.81 s |
+| 8 × `uint32`, inline PTX | **7** | **2.53e11** | **2.22** | **0.54 s** |
+
+(All three rows at 2.12 GHz, so the ratios are direct. An earlier run where each
+row boosted to its own clock — 1.89 / 2.25 / 2.47 GHz, since a shorter kernel
+boosts higher — gives the same 2.22× once normalised, which is the check that
+this is the instruction count and not the clock.)
+
+The instruction counts explain the times almost exactly, and they are the real
+finding. **With `uint64` limbs the compiler stops using the carry flag**: it
+emits the adds and then *rebuilds* the carry with 3 SEL and 10 ISETP per
+256-bit add. With `uint32` limbs and a `uint64` accumulate it recovers the chain
+unaided (8 IADD3 + 6 IADD3.X). With the explicit
+`add.cc.u32` / `addc.cc.u32` / `addc.u32` sequence it is one instruction per
+limb and nothing else.
+
+Where I would still push back, slightly, is on what it buys *here*: 2.2× on an
+operation that is under 1% of S-E either way. The half second is not the reason
+to do it. The reason is that the same header is the arithmetic for anything
+wider later, and a 3.5× instruction-count difference is not something to leave
+on the table in a type whose whole job is to be the inner loop's integer.
+
+Two things the comment did not ask for, which the generality forced and which
+are improvements:
+
+- `UInt<N>` needed a host/device story, so `core/hostdev.h` states the
+  `PTE_HOST_DEVICE` bargain explicitly, with the ODR reasoning D16 established
+  for `DeviceAppendView::push` — and, because `add`/`sub` now genuinely have
+  *two bodies*, `gpu/bigint/uint_device_test.cu` checks that the device and host
+  definitions agree on a carry-heavy corpus. That test is the obligation the
+  macro creates; it did not exist for the 64-bit draft because that draft had
+  one body.
+- `mul` stayed portable C, deliberately. S-E multiplies D ≈ 2^19 times (one
+  square per point, once per run) against 1.374e11 additions, so PTX there
+  would be optimizing 0.0000004% of the search.
+
+## What shipped
+
+| Milestone | Where |
+| --- | --- |
+| **G3** fixed-width type, host + device | `core/uint.h` — `UInt<N>` over 32-bit limbs, PTX carry chains, tested against Boost `uint256_t` and against its own device path |
+| **G3** pinned session object | `gpu/core/pinned_pool.h` — one allocation reused across every transfer; `PinnedPool::allocations()` is what its test asserts on. Closes the P7 defect and the `cudaHostAlloc`-per-call regression from round 1 |
+| **G4** value-windowed partition | `core/window.h` — the 1000× of plan §3.1, with the exactly-once property tested against brute force (check 4 of `verify_gpu_plan.py`, now in the build) |
+| **G4** CPU reference | `cpu/champion/champion.{h,cc}` — sort each window's exact 256-bit keys; the arbiter |
+| **G4** device kernel | `gpu/champion/champion_impl.cu` — one warp per point, `atomicCAS` open addressing, payload packed *into* the CAS word |
+| champion point sets | `cpu/champion/champion_points.{h,cc}` — `mpz_class` Gaussian construction, because a champion's coordinates are 61 bits |
+| cross-check fixture | `apps/champion_demo.cc`, registered as `champion_demo_cross_check` |
+
+Three structural notes:
+
+- **`src/core/` now exists**, which D5 anticipated ("if a third consumer ever
+  wants one type, the right home is a neutral `src/core/`"). It carries no GMP,
+  no Boost and no CUDA, so it creates no edge in either direction. S-E is the
+  case D5 was holding it for: `U256` crosses the bus as raw bytes, so the two
+  halves must agree on its layout by construction rather than by review.
+- **The window planner is shared between the two meets, and the collision
+  detection is not.** That is the line: value-windowing is the *definition* of
+  which pairs exist, so two versions of it would make a disagreement
+  uninterpretable — "we differ" could not be told from "we enumerated different
+  pairs". It is tested on its own against brute force. The part that is
+  genuinely two implementations is the collision detection: sort-and-scan
+  against `atomicCAS` hashing.
+- **The device compares a signature, the host compares the key.** The slot packs
+  `[occupied:1][fingerprint:23][i:20][j:20]`, which makes insertion a single CAS
+  with no second write to race on. Effective width is table_log + 23 bits, so
+  at the sized window (2^26 slots, 3.3e7 pairs) the model says ~1.6 false
+  positives per window; the demo at 3.3e7 pairs reports 3, all rejected by the
+  exact re-check. Same asymmetry as `precision.h`: no false negatives, ever.
+
+## Still open
+
+- **The overflow paths throw rather than retry.** A window that exceeds
+  `max_candidates`, or a saturated table, is a hard error with the count the
+  caller should have asked for. Retrying with a larger buffer is the obvious
+  improvement and is deliberately not there: at the sized table the expected
+  candidate count per window is single digits, so a retry path would be
+  untested code guarding an event that does not happen.
+- **Window planning is host-side and O(D) per window.** At the sized champion
+  that is 4096 × 5.2e5 two-pointer steps interleaved with the launches. It is
+  the reason the demo's `pair/s` is below P4's ceiling, and the natural next
+  device kernel if S-E is ever run repeatedly.
+- **`E4MeetDirectKernel` is still there.** The plan retires it "when a real meet
+  lands"; this is a *different* search, so it is not that meet, and the launch
+  and append plumbing it exercises is what `gpu/champion` is built on.

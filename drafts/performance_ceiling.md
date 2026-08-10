@@ -240,9 +240,37 @@ raw output. Nominal INT32 roofline is 24 SM × 64 lanes × clock.
 | **P4** | `atomicCAS` hash insert | 1.0e9 insert/s | **S-E's 1.374e11 inserts: 138 s**, including the table clear |
 | **P5** | bitset rotate (funnelshift) | 1.5e10 → 1.1e11 word-op/s | $p$ = 1024 → 65536; small masks do not fill the machine |
 | **P6** | 256-bit compare + add | 1.02e11 op-pair/s | **S-E's exact windowing: 1.4 s** |
-| **P7** | `cudaHostAlloc` per transfer | 1.45 GB/s | the current code path |
+| **P7** | `cudaHostAlloc` per transfer | 1.45 GB/s | the path the code took; now fixed (`gpu/core/pinned_pool.h`) |
 | | pooled pinned buffer | **13.4 GB/s** | **9.2× faster**, 84% of PCIe 4.0 ×8 |
 | | pageable | 13.1 GB/s | the win is not pinning, it is not allocating |
+| **P8** | 256-bit add+cmp, 4×`uint64` C | 1.14e11 op-pair/s | reproduces P6; ~25 SASS ops per add |
+| | 256-bit add+cmp, 8×`uint32` C | 1.70e11 op-pair/s | 14 SASS ops — the compiler recovers the carry chain |
+| | 256-bit add+cmp, 8×`uint32` PTX | **2.53e11 op-pair/s** | **7 SASS ops**, one per limb. **S-E: 0.54 s** |
+
+### 3.1 P8 — the limb width decides whether the carry flag gets used
+
+P6 said the exact windowing was free and stopped there. P8 asked the follow-up,
+and the answer changed the shipped type (`code/native/src/core/uint.h`).
+
+The three rows above ran at one clock (2.12 GHz), so the ratios are direct:
+**1.00 / 1.49 / 2.22**. An earlier run where each row boosted separately
+(1.89 / 2.25 / 2.47 GHz — a shorter kernel boosts higher) gives the same 2.22×
+once normalised, which is what says this is the instruction count rather than
+the clock. The SASS counts, taken on an add-only kernel so the histogram *is*
+the add, explain the ratios almost exactly:
+
+| form | IADD3 | IADD3.X | ISETP | SEL |
+| --- | --- | --- | --- | --- |
+| 4 × `uint64`, portable C | 6 | 1 | 10 | 3 |
+| 8 × `uint32`, portable C | 8 | 6 | 0 | 0 |
+| 8 × `uint32`, inline PTX | 1 | 6 | 0 | 0 |
+
+**With 64-bit limbs the compiler stops using the carry flag** and rebuilds the
+carry with a compare and a select per limb. sm_89 has no 64-bit integer ALU, so
+64-bit limbs were never a shortcut past the carry chain — only a spelling that
+hid it from the compiler. This is worth 0.7 s across all of S-E, which is
+nothing; it is worth recording because the same three-and-a-half-fold difference
+applies to any future kernel where the multi-limb arithmetic *is* the loop.
 
 ---
 

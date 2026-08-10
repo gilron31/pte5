@@ -4,6 +4,7 @@ add_library(pte_cpu_bigint STATIC bigint.cc)
 target_include_directories(pte_cpu_bigint PUBLIC ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(pte_cpu_bigint
   PUBLIC  PkgConfig::GMP      # gmp + gmpxx; mpz_class appears in our header
+  PUBLIC  pte_core            # core::UInt appears in our header (to_uint)
   PRIVATE pte_warnings
 )
 

@@ -17,6 +17,7 @@ if(PTE_BUILD_TESTS)
   add_executable(pte_gpu_core_test
     device_append_buffer_test.cu
     host_buffer_test.cc
+    pinned_pool_test.cc
   )
   target_link_libraries(pte_gpu_core_test
     PRIVATE pte_gpu_core GTest::gtest_main pte_warnings

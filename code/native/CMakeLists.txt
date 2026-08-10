@@ -82,6 +82,9 @@ if(PTE_BUILD_TESTS)
   enable_testing()
 endif()
 
+# The neutral half first: both of the others depend on it, and it depends on
+# nothing (no GMP, no Boost, no CUDA). See src/core/CMakeLists.txt.
+add_subdirectory(src/core)
 add_subdirectory(src/cpu)
 if(PTE_HAVE_CUDA)
   add_subdirectory(src/gpu)

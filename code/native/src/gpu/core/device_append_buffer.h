@@ -72,6 +72,16 @@ public:
 
   index_t capacity() const { return capacity_; }
 
+  // Empties the buffer for the next launch, so a caller that launches in a loop
+  // (S-E runs one launch per value window) reuses one allocation instead of
+  // constructing a buffer per launch -- the same argument PinnedPool makes for
+  // staging memory.
+  //
+  // Only the counter is zeroed. The data beyond the next launch's count is
+  // never read by a correct caller, and rezeroing megabytes per window to keep
+  // compute-sanitizer's initcheck quiet would cost more than the launch.
+  void Reset() { counter_.Zero(); }
+
   // Number of appends attempted, which may exceed capacity(). Synchronizes, so
   // callers that also want the data should keep the result rather than asking
   // twice.

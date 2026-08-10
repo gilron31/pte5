@@ -13,9 +13,12 @@
 //   P5  bitset rotate (funnelshift)    S-D's transition
 //   P6  256-bit compare and add        S-E's exact windowing
 //   P7  pinned staging and H2D         the known-unfixed pooling defect
+//   P8  the same add, three ways       limb width and the inline PTX carry chain
 //
 //   ./bench_gpu_primitives [p1 p2 ...]      (default: all)
 #include "bench/gpu/gpu_harness.cuh"
+
+#include "core/uint.h"
 
 #include <cub/device/device_radix_sort.cuh>
 
@@ -519,6 +522,129 @@ void P7(const Device &dev) {
   PTE_CUDA_OK(cudaFree(device));
 }
 
+// ===========================================================================
+// P8 -- the same 256-bit add + compare, three ways
+// ===========================================================================
+//
+// P6 answered "can we afford exact 256-bit windowing?" (yes, 1.4 s of S-E's
+// 138). P8 answers the follow-up that decides how core/uint.h is written:
+// **does the limb width or the carry mechanism matter, and by how much?**
+//
+// Three implementations of one operation:
+//
+//   (a) 4 x uint64 limbs, portable C   -- P6's own U256, re-run here so the two
+//                                         tables are comparable and so a
+//                                         disagreement would be visible
+//   (b) 8 x uint32 limbs, portable C   -- the documented limb convention,
+//                                         carry rebuilt by 64-bit accumulate
+//   (c) 8 x uint32 limbs, inline PTX   -- add.cc.u32 / addc.cc.u32 / addc.u32,
+//                                         i.e. core/uint.h as it ships
+//
+// The loop shape is P6's: one dependent chain, so this is *latency*, which is
+// the honest number for a carry chain (a carry chain is a dependency by
+// definition -- there is no independent-accumulator version of it). Row (a)
+// reproducing P6 is the check that the harness is measuring the same thing.
+//
+// Verify the SASS alongside the timing, since that is the actual claim:
+//   cuobjdump -sass build/dev/bench/gpu/bench_gpu_primitives |
+//     grep -A40 Bench256U32Ptx
+
+struct U256x32 {
+  std::uint32_t w[8];
+};
+
+__device__ inline int Cmp256x32(const U256x32 &a, const U256x32 &b) {
+  for (int i = 7; i >= 0; --i) {
+    if (a.w[i] != b.w[i])
+      return a.w[i] < b.w[i] ? -1 : 1;
+  }
+  return 0;
+}
+
+// (b) the portable form: accumulate in 64 bits and shift the carry out.
+__device__ inline U256x32 Add256x32C(const U256x32 &a, const U256x32 &b) {
+  U256x32 r;
+  std::uint64_t carry = 0;
+#pragma unroll
+  for (int i = 0; i < 8; ++i) {
+    const std::uint64_t s = static_cast<std::uint64_t>(a.w[i]) + b.w[i] + carry;
+    r.w[i] = static_cast<std::uint32_t>(s);
+    carry = s >> 32;
+  }
+  return r;
+}
+
+__global__ void Bench256U64(std::uint32_t *out, int reps) {
+  U256 a, b;
+  for (int i = 0; i < 4; ++i) {
+    a.w[i] = threadIdx.x * 0x9e3779b97f4a7c15ull + i;
+    b.w[i] = threadIdx.x * 0xc2b2ae3512345679ull + i;
+  }
+  std::uint32_t acc = 0;
+  for (int i = 0; i < reps; ++i) {
+    a = Add256(a, b);
+    acc += static_cast<std::uint32_t>(Cmp256(a, b) + 1);
+  }
+  if (threadIdx.x == 0xffff)
+    out[blockIdx.x] = acc + static_cast<std::uint32_t>(a.w[0]);
+}
+
+__global__ void Bench256U32C(std::uint32_t *out, int reps) {
+  U256x32 a, b;
+  for (int i = 0; i < 8; ++i) {
+    a.w[i] = threadIdx.x * 0x9e3779b9u + i;
+    b.w[i] = threadIdx.x * 0x12345679u + i;
+  }
+  std::uint32_t acc = 0;
+  for (int i = 0; i < reps; ++i) {
+    a = Add256x32C(a, b);
+    acc += static_cast<std::uint32_t>(Cmp256x32(a, b) + 1);
+  }
+  if (threadIdx.x == 0xffff)
+    out[blockIdx.x] = acc + a.w[0];
+}
+
+// (c) core/uint.h itself -- the shipping implementation, not a copy of it, so
+// this row cannot drift away from the code it is quoted at.
+__global__ void Bench256U32Ptx(std::uint32_t *out, int reps) {
+  pte::core::U256 a, b;
+  for (int i = 0; i < 8; ++i) {
+    a.w[i] = threadIdx.x * 0x9e3779b9u + i;
+    b.w[i] = threadIdx.x * 0x12345679u + i;
+  }
+  std::uint32_t acc = 0;
+  for (int i = 0; i < reps; ++i) {
+    a = pte::core::add(a, b);
+    acc += static_cast<std::uint32_t>(pte::core::cmp(a, b) + 1);
+  }
+  if (threadIdx.x == 0xffff)
+    out[blockIdx.x] = acc + a.w[0];
+}
+
+void P8(const Device &dev) {
+  const int blocks = dev.prop.multiProcessorCount * 16;
+  const int reps = 2048;
+  std::uint32_t *out = nullptr;
+  PTE_CUDA_OK(cudaMalloc(&out, blocks * sizeof(std::uint32_t)));
+  const double ops = static_cast<double>(blocks) * kBlock * reps;
+
+  Table t("P8 256-bit add + compare, by limb width and carry", "op-pair/s");
+  const auto row = [&](const char *name, const Measurement &m) {
+    t.Row(name, m, ops, 0);
+    std::printf("      -> %.2f s for S-E's %.3e add+compare pairs\n",
+                kSEPairs / (ops / m.seconds), kSEPairs);
+  };
+  row("4 x uint64 limbs, portable C  (= P6)",
+      Time(dev, 20, [&] { Bench256U64<<<blocks, kBlock>>>(out, reps); }));
+  row("8 x uint32 limbs, portable C",
+      Time(dev, 20, [&] { Bench256U32C<<<blocks, kBlock>>>(out, reps); }));
+  row("8 x uint32 limbs, inline PTX  (core/uint.h)",
+      Time(dev, 20, [&] { Bench256U32Ptx<<<blocks, kBlock>>>(out, reps); }));
+  t.Note("one dependent chain, so this is carry-chain latency -- which is the "
+         "only thing a carry chain has");
+  PTE_CUDA_OK(cudaFree(out));
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -541,5 +667,6 @@ int main(int argc, char **argv) {
   if (run("p5")) P5(dev);
   if (run("p6")) P6(dev);
   if (run("p7")) P7(dev);
+  if (run("p8")) P8(dev);
   return 0;
 }

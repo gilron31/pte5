@@ -6,10 +6,13 @@
 #ifndef PTE_CPU_BIGINT_H_
 #define PTE_CPU_BIGINT_H_
 
+#include "core/uint.h"
+
 #include <gmpxx.h>
 
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -37,6 +40,31 @@ std::vector<std::uint32_t> to_limbs(const mpz_class &z, std::size_t nlimbs);
 
 // Inverse of to_limbs.
 mpz_class from_limbs(const std::uint32_t *in, std::size_t nlimbs);
+
+// ---------------------------------------------------------------------------
+// The bridge to the fixed-width type
+// ---------------------------------------------------------------------------
+//
+// core::UInt<N> *is* the limb array above -- N 32-bit limbs, least significant
+// first -- so these two are a cast with a bounds check rather than a
+// conversion. That is the payoff of keeping the shared type on the documented
+// convention instead of on 64-bit limbs: no repacking anywhere, and GMP stays
+// on the host side of the seam where cpu/core/precision.h wants it (layer 3,
+// the certificate layer).
+//
+// S-E uses both directions: champion point sets are built in mpz_class because
+// the coordinates are 61 bits and Cornacchia is a GMP job, then narrowed to
+// core::U128 for the meet; a confirmed hit goes back to mpz_class to be
+// certified.
+template <int N> core::UInt<N> to_uint(const mpz_class &z) {
+  core::UInt<N> r{};
+  to_limbs(z, r.w, static_cast<std::size_t>(N)); // throws if it does not fit
+  return r;
+}
+
+template <int N> mpz_class from_uint(const core::UInt<N> &v) {
+  return from_limbs(v.w, static_cast<std::size_t>(N));
+}
 
 } // namespace pte::cpu
 

@@ -280,6 +280,39 @@ as capability demos and this is the first search that actually needs them. What
 is missing is a fixed-width 4-limb type with comparison and addition, which is
 much less than the general `kMaxLimbs = 32` schoolbook kernel already there.
 
+### 3.4 What it did when it was built — **[measured]**
+
+G3 and G4 are built (`code/native/src/core/`, `src/cpu/champion/`,
+`src/gpu/champion/`, `apps/champion_demo.cc`). The sized champion has been run:
+
+| | |
+| --- | --- |
+| champion norm | $L_1 = 2386442377984630986454048784862092465$ (the 20 smallest split primes) |
+| $L_1$ / $\nu$ / key | 121 / 121 / **243 bits** — as §3.3 projected |
+| $D$ | 524,288 |
+| pairs enumerated | **137,438,691,328** = $\binom{2^{19}}{2}$ exactly |
+| point-set construction | 1.0 s (GMP; the `int32` path stops at 20-bit coordinates) |
+| device time | **280 s**, 4.91e8 pair/s, 5,794 windows |
+| candidates | 4,836 — **all** rejected by the exact 256-bit re-check |
+| collisions | **none** |
+
+Three things that measurement settled:
+
+1. **The false-positive model is right.** The device compares a signature of
+   table_log + 23 bits, not the key; at 2.37e7 pairs per window into 2^26 slots
+   the model says ~0.5 spurious candidates per window and the run produced 0.83.
+   Rejecting them costs one 256-bit compare each, so the filter/arbiter split of
+   `precision.h` carries over to the champion regime unchanged.
+2. **280 s against P4's 138 s ceiling, and the gap is the host.** Window
+   planning is an $O(D)$ two-pointer sweep per window, run on the host and
+   interleaved with the launches: 5,794 windows × 524,288 points, plus 11,588
+   H2D copies of the ranges. The kernel is not the bottleneck — planning is.
+   Moving the planner to the device is the obvious next step and is worth ~2×;
+   it was not worth doing before there was a number saying so.
+3. **This particular champion has no $E_4$.** That is a result about one norm and
+   nothing more — S-E is a discovery search, so a null answer excludes nothing.
+   It does say the machinery runs at the sized problem, which is what G4 was for.
+
 ---
 
 ## 4. If S-A ever does go to the device
@@ -349,7 +382,7 @@ $10^{10}$ — it never belongs on the device.
 | `gpu/meet/` `E4MeetDirectKernel` | superseded on every axis (§4) | **Retire** when a real meet lands; keep the launch/append plumbing |
 | `gpu/bigint/` | schoolbook to 1024 bits, one thread per operand pair | **Promote** — S-E needs a fixed 4-limb type built on this convention |
 | `gpu/matmul/` | pure capability demo | Leave as sandbox |
-| **Pinned-memory pooling** | **[measured]** 1.45 GB/s allocating per transfer against **13.4 GB/s pooled — a 9.2x penalty** (P7). Pageable is 13.1 GB/s, so the win is *not allocating*, not pinning | **Unfixed defect.** Any real kernel needs a session object owning pooled pinned staging. Fix before the first sized run, not after |
+| **Pinned-memory pooling** | **[measured]** 1.45 GB/s allocating per transfer against **13.4 GB/s pooled — a 9.2x penalty** (P7). Pageable is 13.1 GB/s, so the win is *not allocating*, not pinning | ~~Unfixed defect~~ **Fixed** — `gpu/core/pinned_pool.h`, one allocation reused across every transfer; its test asserts on `allocations()`, not on a timing. `gpu/champion` uses it and the window planner writes straight into it. `gpu/meet` still allocates per call and is slated for retirement anyway |
 | `__launch_bounds__` tuning in `meet_impl.h` | measured, correct, and about to be irrelevant | Re-measure per kernel; the recorded table is for a host-fed kernel |
 
 Two invariants from the design doc that must survive any port: `atomicAdd` takes
@@ -401,16 +434,28 @@ draft used.
 | **G0** ✅ | ~~Run the profiling queue~~ **Done.** `code/native/bench/` is a built suite with a shared harness and `perf_event_open` counters; results in `drafts/performance_ceiling.md`. It refuted one hypothesis (sorting networks in `Spine::push`) and promoted another (`meet_hashed` is 82% sort) | Nothing in this repo had a real profile. §10.1 found the cost sitting in a three-element `std::sort` — intuition here is demonstrably unreliable | none |
 | **G1** | Settle the S-D local model (§2.2), CPU only | Blocks $\sigma_p$, blocks the wheels, and is the only branch that could end the project with a theorem instead of a bound | G0 not required |
 | **G2** | S-D DP on CPU to $p \le 10^3$, with the brute-force fixture | Produces $\sigma_p$, wheels, and the nonexistence check. Minutes of compute | G1 |
-| **G3** | Fixed 4-limb integer type, host + device, on the existing `bigint` limb convention; pinned-memory session object | Both prerequisites for S-E, and both now sized: 4-limb compare+add costs S-E **1.4 s total** (P6), and pooling pinned staging is a measured **9.2×** on H2D (P7) | none |
-| **G4** | **S-E**: value-windowed two-pointer meet, CPU reference first, then the device **hash-insert** kernel (P4 beats radix sort on both time and memory) | The clearest GPU win: §3.1 makes it 1000× cheaper than either draft assumed, and P3/P4 put the whole collision detection at **138 s** | G3 |
+| **G3** ✅ | ~~Fixed 4-limb integer type~~ **Done.** `code/native/src/core/uint.h` — `UInt<N>` over **32-bit** limbs (the convention `cpu/bigint` and `gpu/bigint` already state), with `add.cc.u32`/`addc.cc.u32` carry chains on the device; `gpu/core/pinned_pool.h` for the staging | Both prerequisites for S-E. The limb width was not a free choice: **P8** measures 7 SASS instructions per 256-bit add for the 32-bit PTX form against ~25 for a 4×`uint64` C one, because with 64-bit limbs the compiler stops using the carry flag and rebuilds it with ISETP+SEL. 2.2× at equal clock, 0.46 s across all of S-E | none |
+| **G4** ✅ | ~~**S-E**: value-windowed two-pointer meet~~ **Done.** `cpu/champion/` (reference, exact 256-bit keys) and `gpu/champion/` (the hash-insert kernel), cross-checked in `apps/champion_demo.cc` | The clearest GPU win, and it held: §3.1's windowing is implemented as an adaptive bisection with the exactly-once property tested against brute force, and the sized champion runs on the device. See §3.4 for what it measured | G3 |
 | **G5** | S-D on device, only if $\sigma_p$ converges slowly enough to need $p > 10^3$ | Conditional by construction | G2 |
 | **G6** | S-C bottom-lift, sized on CPU before any kernel | Currently the only search with *no* cost estimate at all | catalog |
 | **G7** | Device S-A — K2/K3 first, against the existing catalog | Only if $B$ moves past $10^{13}$. P1 puts the device meet's ceiling at 7.34e11 quad-partitions/s, ~46× sixteen CPU threads — but the design bound's whole bucketed meet is only 1.48e12 partitions, i.e. **~2 s of device arithmetic**. Generation is the cost, not the meet | G0 ✅ |
 
-G0–G2 involve no CUDA at all, and that is the finding, not an oversight. **G0 is
-now complete**; the next unblocked item is G1, which is mathematics (§2.2), with
-G3 buildable in parallel since both its pieces are now sized rather than
-speculative.
+G0–G2 involve no CUDA at all, and that is the finding, not an oversight.
+**G0, G3 and G4 are now complete** — §3.4 has what the sized S-E run measured.
+The next unblocked item is **G1**, which is mathematics (§2.2) and still the
+highest-value open question in the plan; G5 and G7 remain conditional by
+construction, and G6 still has no cost estimate at all.
+
+Two items the S-E build added to the queue, both sized rather than guessed:
+
+- **S-E's window planner belongs on the device.** At the sized champion the
+  host's $O(D)$ per-window sweep is more of the 280 s than the kernel is (§3.4).
+  Worth ~2×, and it is the only part of S-E still on the host that scales with
+  the search rather than with the answer.
+- **Which champion?** Open question 5 is now the operative one for S-E rather
+  than a hypothetical: the machinery runs, so the next result depends entirely
+  on which norm it is pointed at. `smallest_split_primes` answers only the
+  obvious version (maximise $D$ per unit $L_1$).
 
 ---
 
