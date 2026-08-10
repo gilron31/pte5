@@ -11,6 +11,12 @@ remains the reference; what changes is where the device goes and in what order.
 measured, oracle-grade CPU enumerator, what is the GPU actually for?* — followed
 by sized designs for the two searches where the answer is "something".
 
+> **Update.** The cost models below have since been replaced by measurements:
+> see **`drafts/performance_ceiling.md`** and the `code/native/bench/` suite.
+> The rankings held, the S-E numbers came in *better* than projected (138 s, not
+> "minutes"), and one uncosted risk in §3.3 turned out to be free. Rows marked
+> **[measured]** carry a real figure; everything else is still a model.
+
 Hardware of record: RTX 4060 Laptop (sm_89, 8 GB, PCIe 4.0 ×8), CUDA 12.9,
 against an AMD Ryzen 7 8845HS (8 cores / 16 threads, AVX-512).
 
@@ -62,8 +68,8 @@ means a port is no longer justified by "we need a second implementation".
 | **S-A** to $10^{14}$ | $\sim2\times10^{12}$ norms; 1–3 days, 16 threads | hours instead of days | **Only if $B$ moves** |
 | **S-B** top-collision join | catalog-sized hash join; the $10^{10}$ catalog is 8 rows | — | **No** |
 | **S-C** bottom-lift | unsized — never measured | unknown | **Measure on CPU first** |
-| **S-D** $\mathbb{F}_p$ tower sieve | $O(p^4/64)$ word-ops/prime (§2); feasible to $p\approx10^3$ | extends reach to $p \sim$ few $\times10^3$ | **Second** — *after* the model is fixed |
-| **S-E** champion meet | $1.4\times10^{11}$ pair keys (§3, corrected down from $1.4\times10^{14}$) | bandwidth-bound; ~5–10× | **First, and the clearest win** |
+| **S-D** $\mathbb{F}_p$ tower sieve | $O(p^4/64)$ word-ops/prime (§2); feasible to $p\approx10^3$ | **[measured]** rotate runs at 1.1e11 word-op/s at $p{=}65536$ but only **1.5e10 at $p{=}1024$** — the device is at its worst exactly where S-D lives | **Second**, CPU first — now on two independent grounds |
+| **S-E** champion meet | $1.4\times10^{11}$ pair keys (§3, corrected down from $1.4\times10^{14}$) | **[measured]** collision detection **138 s** by hash insert, 163 s by radix sort; exact 256-bit windowing **1.4 s** | **First, and the clearest win** |
 
 Two entries in that table moved by orders of magnitude while writing it, both
 downwards, and both because an algorithm improved rather than because a machine
@@ -232,10 +238,18 @@ is the collision detection — a sort or a hash over ~1.4×10⁸ items, i.e. a
 entry (64-bit truncated key + packed $(i,j)$, both indices $< 2^{19}$): 2.2 GB.
 Take $R = 4\times10^3$ for ~550 MB per window, comfortably inside 8 GB.
 
-Estimate: $1.37\times10^{11}$ entries sorted in $\sim4\times10^3$ device radix
-sorts. At CUB rates this is minutes; the CPU equivalent is bounded by a random
-access into a table far larger than L3 on every key, and lands in hours. **~5–10×,
-on the one search whose CPU cost is measured in hours rather than seconds.**
+**[measured]** — `bench/gpu/bench_gpu_primitives` P3 and P4, on the 4060:
+
+| route | rate | S-E's $1.374\times10^{11}$ pairs |
+| --- | --- | --- |
+| CUB radix sort, 8+8 B pairs | 8.4e8 key/s (54 GB/s) | **163 s** |
+| `atomicCAS` open addressing | 1.0e9 insert/s | **138 s**, including the table clear |
+
+**Build the hash, not the sort**: it is faster and needs a quarter of the memory,
+so the window count $R$ can be chosen for convenience rather than to fit 2 GB of
+temp storage. The CPU equivalent pays a cache miss per key on a table far larger
+than L3. Note the device clock *sagged to 1.09–1.37 GHz* during the large sorts
+(power-limited laptop), so these are conservative.
 
 ### 3.3 The gap nobody has costed: the champion regime is outside the precision policy
 
@@ -245,7 +259,13 @@ the coordinates are 61 bits, $\nu$ is 122, and $sq = \nu^2$ is **~243 bits — f
 64-bit limbs.** The `uint64` filter still filters soundly (equal keys stay
 congruent, so still no false negatives; at 58 effective bits and $1.4\times10^8$
 keys per window the birthday load is ~0.03 false positives per window, ~130 over
-the run — free to reject on the host). But:
+the run — free to reject on the host).
+
+**[measured] The multi-limb cost, flagged here as an uncosted risk, is nil.**
+P6 puts a fixed 4-limb add plus lexicographic compare at 1.02e11 op-pairs/s, so
+S-E's $1.374\times10^{11}$ exact windowing comparisons cost **1.4 s** against the
+138 s of collision detection. Use exact 4-limb comparisons and stop worrying
+about it. The remaining requirements stand:
 
 - the **windowing comparison must be exact**, or a pair lands in the wrong window
   and is silently lost — the one failure mode Part IV of the design doc says is
@@ -329,7 +349,7 @@ $10^{10}$ — it never belongs on the device.
 | `gpu/meet/` `E4MeetDirectKernel` | superseded on every axis (§4) | **Retire** when a real meet lands; keep the launch/append plumbing |
 | `gpu/bigint/` | schoolbook to 1024 bits, one thread per operand pair | **Promote** — S-E needs a fixed 4-limb type built on this convention |
 | `gpu/matmul/` | pure capability demo | Leave as sandbox |
-| **Pinned-memory pooling** | `cudaHostAlloc` per call took the demo's GPU stage 0.92 ms → ~4 ms | **Unfixed defect.** Any real kernel needs a session object owning pooled pinned staging. Fix before the first sized run, not after |
+| **Pinned-memory pooling** | **[measured]** 1.45 GB/s allocating per transfer against **13.4 GB/s pooled — a 9.2x penalty** (P7). Pageable is 13.1 GB/s, so the win is *not allocating*, not pinning | **Unfixed defect.** Any real kernel needs a session object owning pooled pinned staging. Fix before the first sized run, not after |
 | `__launch_bounds__` tuning in `meet_impl.h` | measured, correct, and about to be irrelevant | Re-measure per kernel; the recorded table is for a host-fed kernel |
 
 Two invariants from the design doc that must survive any port: `atomicAdd` takes
@@ -378,16 +398,19 @@ draft used.
 
 | | What | Why here | Gate |
 | --- | --- | --- | --- |
-| **G0** | Run the profiling queue (`implementation_design.md` §10.2): `perf record` + `perf stat` on the CPU campaign at $10^7/10^8/10^9$ | Nothing in this repo has a real profile. §10.1 found the cost sitting in a three-element `std::sort` — intuition here is demonstrably unreliable, and a GPU port justified by an unmeasured profile is a guess | none |
+| **G0** ✅ | ~~Run the profiling queue~~ **Done.** `code/native/bench/` is a built suite with a shared harness and `perf_event_open` counters; results in `drafts/performance_ceiling.md`. It refuted one hypothesis (sorting networks in `Spine::push`) and promoted another (`meet_hashed` is 82% sort) | Nothing in this repo had a real profile. §10.1 found the cost sitting in a three-element `std::sort` — intuition here is demonstrably unreliable | none |
 | **G1** | Settle the S-D local model (§2.2), CPU only | Blocks $\sigma_p$, blocks the wheels, and is the only branch that could end the project with a theorem instead of a bound | G0 not required |
 | **G2** | S-D DP on CPU to $p \le 10^3$, with the brute-force fixture | Produces $\sigma_p$, wheels, and the nonexistence check. Minutes of compute | G1 |
-| **G3** | Fixed 4-limb integer type, host + device, on the existing `bigint` limb convention; pinned-memory session object | Both are prerequisites for S-E and neither is speculative | none |
-| **G4** | **S-E**: value-windowed two-pointer meet, CPU reference first, then the device sort/hash kernel | The clearest GPU win, and §3.1 makes it 1000× cheaper than either draft assumed | G3 |
+| **G3** | Fixed 4-limb integer type, host + device, on the existing `bigint` limb convention; pinned-memory session object | Both prerequisites for S-E, and both now sized: 4-limb compare+add costs S-E **1.4 s total** (P6), and pooling pinned staging is a measured **9.2×** on H2D (P7) | none |
+| **G4** | **S-E**: value-windowed two-pointer meet, CPU reference first, then the device **hash-insert** kernel (P4 beats radix sort on both time and memory) | The clearest GPU win: §3.1 makes it 1000× cheaper than either draft assumed, and P3/P4 put the whole collision detection at **138 s** | G3 |
 | **G5** | S-D on device, only if $\sigma_p$ converges slowly enough to need $p > 10^3$ | Conditional by construction | G2 |
 | **G6** | S-C bottom-lift, sized on CPU before any kernel | Currently the only search with *no* cost estimate at all | catalog |
-| **G7** | Device S-A — K2/K3 first, against the existing catalog | Only if $B$ moves past $10^{13}$ | G0 |
+| **G7** | Device S-A — K2/K3 first, against the existing catalog | Only if $B$ moves past $10^{13}$. P1 puts the device meet's ceiling at 7.34e11 quad-partitions/s, ~46× sixteen CPU threads — but the design bound's whole bucketed meet is only 1.48e12 partitions, i.e. **~2 s of device arithmetic**. Generation is the cost, not the meet | G0 ✅ |
 
-G0–G2 involve no CUDA at all, and that is the finding, not an oversight.
+G0–G2 involve no CUDA at all, and that is the finding, not an oversight. **G0 is
+now complete**; the next unblocked item is G1, which is mathematics (§2.2), with
+G3 buildable in parallel since both its pieces are now sized rather than
+speculative.
 
 ---
 
@@ -397,11 +420,14 @@ G0–G2 involve no CUDA at all, and that is the finding, not an oversight.
    a false theorem; with-multiplicity counts only degeneracies at small $p$. Every
    downstream use — the singular series, the wheels, the nonexistence branch —
    waits on this. **Highest value, and it is mathematics, not code.**
-2. **Does the value-windowed two-pointer (§3.1) extend to the exhaustive regime?**
-   There it would replace `meet_hashed`'s per-norm sort. At $D \le 192$ the sort
-   is already cheap, so probably not — but `meet_hashed` carries 74% of
-   direct-meet work at $10^8$ and nobody has measured whether its cost is the sort
-   or the key generation (§10.2).
+2. ~~**Does the value-windowed two-pointer (§3.1) extend to the exhaustive
+   regime?**~~ **[measured] Answered, and the guess in this slot was wrong.** The
+   sort is *not* already cheap: `meet_hashed` is **81.9% sort**, carrying 86
+   branch misses per norm and collapsing IPC from 5.55 to 1.53
+   (`performance_ceiling.md` §2.2). Since $D>8$ is 3% of norms but 74% of
+   direct-meet work, and the meet is 57% of the inner loop at $10^9$ and rising,
+   **a sort-free `meet_hashed` is now the highest-value open optimization in the
+   project** — the same structural move as §3.1, one level down.
 3. **Is A4′'s index-calculus framing competitive?** Unchanged from
    `gpu_algorithms.md` §6: collisions are equalities of factorizations over a
    prime set confined to $\equiv\pm1 \bmod 8$ by Theorem 5.3. Still the only route

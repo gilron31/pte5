@@ -6,20 +6,18 @@
 // point-set construction in five layouts and measures each against the
 // sort+unique that follows it.
 //
-// Not part of the build: it is a measurement, not a test, and it deliberately
-// reaches past Spine's public surface to reconstruct the walk. Build it by hand
-// from code/native:
+//   ./bench_point_set_layout <bound> <repeats>
 //
-//   g++-13 -std=c++20 -O2 -DNDEBUG -I src -o /tmp/bench_layout \
-//     ../../drafts/bench_point_set_layout.cc \
-//     src/cpu/generate/generate.cc src/cpu/factorbase/factorbase.cc \
-//     src/cpu/gaussian/gaussian.cc
-//   /tmp/bench_layout 10000000 9          # bound, repeats
+// Rebuild with -march=native for the second column of the tables in 10.1; the
+// shipped build is baseline x86-64, and the difference is itself a result.
 //
-// Repeat with -march=native for the second column of the tables in 10.1. The
-// headline results: the parent point set averages 1.58 points, so there is no
-// vector to fill; SoA alone is *slower* than AoS; and sort+unique is ~85% of
-// push. Read 10.1 before acting on any of it.
+// The headline, already reached: the parent point set averages 1.58 points, so
+// there is no vector to fill; SoA alone is *slower* than AoS; and sort+unique
+// is ~85% of push. Kept as a regression guard so the conclusion stays
+// checkable rather than remembered. Read 10.1 before acting on any of it.
+//
+// Deliberately reaches past Spine's public surface to reconstruct the walk,
+// which is why it lives in bench/ and not in a test.
 #include "cpu/factorbase/factorbase.h"
 #include "cpu/gaussian/gaussian.h"
 #include "cpu/generate/generate.h"

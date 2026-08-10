@@ -16,6 +16,7 @@ endif()
 option(PTE_ENABLE_CUDA  "Build the CUDA library, its tests and the hybrid demo" ON)
 option(PTE_BUILD_TESTS  "Build the C++/CUDA unit tests" ON)
 option(PTE_BUILD_PYTHON "Build the pybind11 extension module" ON)
+option(PTE_BUILD_BENCH  "Build the performance benchmarks in bench/" ON)
 
 # ---------------------------------------------------------------------------
 # CUDA
@@ -88,6 +89,11 @@ endif()
 # Always: enum_campaign is pure CPU and must build on a machine with no CUDA at
 # all. apps/CMakeLists.txt guards the GPU-dependent targets itself.
 add_subdirectory(apps)
+# Measurements, not tests: benches never appear in src/ dependencies, and they
+# build on a CPU-only machine (the GPU ones guard themselves).
+if(PTE_BUILD_BENCH)
+  add_subdirectory(bench)
+endif()
 if(PTE_BUILD_PYTHON)
   add_subdirectory(src/bindings)
 endif()

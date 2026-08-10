@@ -928,7 +928,7 @@ optimizing a loop that almost never iterates.
 
 **Third, the measurements.** Five layouts over that corpus, `g++-13`, one
 thread, min of nine runs, ns per push. Source and build line:
-`drafts/bench_point_set_layout.cc`.
+`code/native/bench/bench_point_set_layout.cc`.
 
 | variant | `-O2` (as shipped) | `-O2 -march=native` |
 | --- | --- | --- |
@@ -1001,63 +1001,101 @@ and the first three exist because §10.1 shows that intuition about this program
 hot spots is unreliable: the cost was in a three-element `std::sort`, which no
 one would have guessed.
 
-**Ground truth first — where does the time actually go?**
+**Status: most of this queue has been run.** The suite now lives in
+`code/native/bench/` as a built target with a shared harness, and the results are
+in **`drafts/performance_ceiling.md`**. `perf` was unlocked — nothing was
+blocking it; Ubuntu 24.04's kernel simply *defaults* to
+`perf_event_paranoid = 4` with no config file to edit, so a `sysctl -w` works and
+then silently reverts at the next boot. The persistent fix is a drop-in:
 
-- **`perf record` on `enum_campaign --bound=1e9 --threads=1`**, then annotate by
-  symbol. This is the single missing measurement. Everything in §3 and §8 is a
-  *microbenchmark* — a loop replayed over a captured corpus — and §10.1 shows
-  microbenchmarks and workloads disagree (the $D$-dispatch sweep in §7.1 makes
-  the same point in the other direction). Expected split, to be confirmed or
-  refuted: `Spine::push` 35–45%, `meet` 30–40%, walk skeleton and `nu` the rest.
-- **`perf stat -e cycles,instructions,branch-misses,cache-misses,L1-dcache-load-misses`**
-  on the same run. Cycle counts are stable where wall clock is not, which is what
-  makes any claim at ±2× variance defensible. Establishes IPC and says whether
-  this is a front-end, branch, or memory problem — currently unknown.
-- **The same two at $B = 10^7$, $10^8$, $10^9$**, single-threaded. The profile
-  *shape* must shift towards the meet as the $D>8$ tail grows (§2). If it does
-  not, the extrapolation to $10^{12}$ in §3 is wrong.
+```sh
+sudo sysctl -w kernel.perf_event_paranoid=1
+echo 'kernel.perf_event_paranoid=1' | sudo tee /etc/sysctl.d/60-perf.conf
+sudo cpupower frequency-set -g performance
+```
 
-**Then the specific hypotheses §10.1 raises.**
+| | outcome |
+| --- | --- |
+| Phase profile at $10^6$–$10^9$ | ✅ §10.3 and ceiling §1. Meet crosses `push` between $10^7$ and $10^8$ |
+| IPC / branch / cache counters | ✅ `bench/perf_counters.h`, scoped per *region* rather than per process |
+| **Sort replacement in `Spine::push`** | ✅ **Hypothesis refuted.** Networks win 30% of the sort, ~21% of the loop — **not the ~10× predicted**, because `std::sort` takes only 0.23 branch misses/push at $n=3$ and was never mispredict-bound. Not recommended: ~5–7% of the campaign against a change that re-baselines the catalog's point order |
+| **`meet_hashed`: sort or key generation?** | ✅ **The sort, 81.9%**, carrying 86 branch misses/norm and collapsing IPC from 5.55 to 1.53. Now the highest-value open optimization in the project |
+| Thread scaling 1→16 | ✅ 9.38× at 16 (7.64× at 8, SMT adds 1.23×). The `alignas(64)` fix is worth **0.2% at one thread and 3.4–4.6% at two or more** — the false-sharing signature, measured for the first time |
+| `Map` vs `Load` steady-state misses | ✅ **+0.2% cycles**, i.e. nothing, settling §9.4's deliberately-unanswered question with a frequency-invariant metric. And at 0.005–0.04 L1 misses/norm the base is not a cache problem at all |
+| Packed-`uint64` points end to end | ✅ measured at 10–13% of `push` in §10.1; superseded — §10.3 shows `push`'s share is shrinking |
 
-- **Sort replacement.** Replace `std::sort` + `unique` in `Spine::push` with a
-  branchless sorting network for $n \le 8$ (90% of pushes have $n = 2$ or 4
-  products) and keep `std::sort` above. Measure per-push and end to end.
-- **Dedup without sorting.** The child's point count is known in closed form from
-  the exponent vector the DFS already carries, so the walk knows *before*
-  multiplying whether any duplicate is possible. Where none is, the sort exists
-  only to keep the next level's `unique` valid. Test: dedup by $O(n^2)$
-  branchless scan, sort only at emission (37% of pushes, since 131,437 of 353,253
-  nodes are admissible norms). Changes point order, so it re-baselines the
-  catalog — run the audit and the 11,083/131,437 fixtures against it.
-- **Packed-`uint64` points end to end** (V4 above), including whether `nu`
-  extraction and the meet get faster or slower from the packed form.
-- **`-march=native` / `-mtune=native` as a build option**, measured with
-  `perf stat` cycles rather than wall clock, on the campaign and not on a kernel.
-  Cheap to try, and §10.1 predicts ~2%.
+Still open, and worth doing in this order:
 
-**Then the things nobody has looked at at all.**
+- **The meet's partition-table loop.** Now sized: the ceiling report shows the
+  direct meet is **load-bound**, at 5 loads per quad-partition (one `Partition`
+  plus four indexed `sq[]` gathers) against three load ports — not ALU-bound as
+  assumed. It runs at 50–61% of that. The fix is to turn the `constexpr` indices
+  from *data* into *code*, so the gathers become shuffles; that is a specific
+  proposal, and it is the $D\le8$ half, which is *not* the half that grows.
+- **Sort-free `meet_hashed`.** Radix, or a hash table finding equal keys
+  directly. This is the same structural move that made S-E 1000× cheaper
+  (`gpu_implementation_plan.md` §3.1) and it attacks the largest single cost at
+  the design bound.
+- **`-march=native` as a build option**, on `perf stat` cycles. §10.1 predicts
+  ~2%; unmeasured on the campaign as a whole.
+- **Dedup without sorting in `Spine::push`** — lower priority now that B4 has
+  bounded the whole sort at ~5–7% of the campaign.
+- **Multi-threaded phase shares.** §10.3 is single-threaded; how the phases scale
+  relative to each other is unknown, and the memory-bound ones should grow.
+- **Segment-cost histogram at $10^{10}$** — that the adaptive batcher converges
+  rather than oscillates is still assumed rather than checked.
 
-- **The meet's partition-table loop.** `-fopt-info-vec` says the `sq[]` hoist
-  vectorizes but the table loop is only SLP-vectorized inside its unrolled body.
-  The indices are `constexpr`, so `sq[t.a]+sq[t.b] == sq[t.c]+sq[t.d]` is a
-  shuffle, not a gather — four partitions per AVX2 instruction is expressible by
-  hand and unreachable by GCC. Only worth it if the profile puts the meet where
-  §2 predicts.
-- **`meet_hashed`'s sort**, which is the same finding as §10.1 one level up: it
-  sorts $D(D-1)/2$ pair keys per norm, and $D > 8$ is 74% of direct-meet work at
-  $10^8$. Is the sort or the key generation dominant? Untested.
-- **`Walker` scaling from 1 to 16 threads at fixed bound**, wall clock and
-  `perf stat` per thread. §9.3 reports 11.0× on 16 threads for the pre-`int32`
-  build; nothing has re-measured it since the `alignas(64)` false-sharing fix,
-  and the fix's value is exactly the thing that only shows up in this sweep.
-- **Memory behaviour at $10^{11}$–$10^{12}$**, which is where the factor base
-  stops fitting in cache: `perf stat` cache-miss rate for `Map` vs `Load` on a
-  *bounded* run (`--stop-after`), not a full campaign. The §9.4 tables measure
-  startup and RSS; nothing measures the steady-state miss rate, and that is the
-  quantity that decides whether the 2–3× pessimism in §3 is right.
-- **Segment-cost histogram at $10^{10}$** — per-segment norms and wall time, to
-  check the adaptive batcher converges rather than oscillates, and to confirm the
-  2.2% max-segment figure of §9.1 still holds three decades up.
+### 10.3 The phase profile, measured
+
+Ablation, not sampling: the walk is written once and instantiated at four levels,
+each adding one phase, so consecutive differences are the phases. The tree shape
+depends only on primes, bounds and exponent counts — never on points — so the
+skeleton level traverses *exactly* the same tree with `push` removed. Source:
+`code/native/bench/bench_walk_phases.cc`. Single thread, `-O2`, min of 5 runs
+(3 at $10^9$).
+
+The ablation checks itself: every level reports the same norm count, and those
+counts are 11,083 / 131,437 / 1,464,114 — the §2 fixtures — while the skeleton
+row reproduces §8's independently measured "DFS walk only" (12.9 / 11.5 / 10.8
+ns/norm) to within a tenth of a nanosecond.
+
+| $B$ | norms | DFS skeleton | `Spine::push` | $\nu$ extraction | `meet` | total |
+| --- | --- | --- | --- | --- | --- | --- |
+| $10^6$ | 11,083 | 12.6 (14.4%) | **44.6 (51.0%)** | 2.5 (2.9%) | 27.7 (31.7%) | 87.4 |
+| $10^7$ | 131,437 | 11.7 (12.1%) | **42.0 (43.2%)** | 2.5 (2.6%) | 41.0 (42.1%) | 97.2 |
+| $10^8$ | 1,464,114 | 10.8 (9.9%) | 40.2 (36.6%) | 3.7 (3.3%) | **55.1 (50.2%)** | 109.8 |
+| $10^9$ | 15,743,821 | 10.2 (8.2%) | 39.9 (31.8%) | 4.1 (3.3%) | **71.3 (56.8%)** | 125.5 |
+
+(ns per norm; share of the campaign's inner loop in parentheses.)
+
+**The decomposition is clean and the two halves behave completely differently.**
+`Spine::push` is flat — 44.6 → 39.9 ns/norm across three decades, an $O(1)$
+per-norm cost that if anything improves as the tree deepens. `meet` grows
+steadily, 27.7 → 71.3, and **crosses `push` between $10^7$ and $10^8$.**
+
+That is exactly the test this section was written to pose, and it passes: the
+profile shape tracks the $D>8$ work share of §2 (35.3% → 59.5% → 74.2%), so the
+$20.5\times$/decade growth of direct-meet work — and therefore the $10^{12}$
+extrapolation of §3 — is confirmed on real profiles rather than on quad-partition
+counts alone.
+
+**It also moves the optimization target, and away from where §10.1 left it.**
+§10.1's conclusion — "`push` is not a multiply loop, it is a sort" — is correct,
+and at $10^6$ `push` is indeed half the campaign. By $10^9$ it is under a third
+and falling, while the meet is 57% and rising. So:
+
+> The sort-replacement and packed-`uint64` experiments in §10.2 are worth at most
+> ~3–4% *and that ceiling shrinks with $B$*. At the design bound the campaign is
+> a meet, and specifically a `meet_hashed` — $D>8$ is 3% of norms and 74% of
+> direct-meet work at $10^8$. **The `meet_hashed` question in §10.2 (is its cost
+> the sort or the key generation?) is now the highest-value open measurement in
+> this document**, and the partition-table SIMD idea is worth its cost only for
+> the $D\le8$ half that is *not* growing.
+
+Two caveats. This is a single-threaded profile: it says nothing about how the
+phases scale across threads, and the false-sharing fix of §9.4 lives in exactly
+that gap. And ablation localises time without explaining it — whether the meet is
+branch- or memory-bound needs the counters `perf` would give.
 
 ---
 
