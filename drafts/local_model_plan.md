@@ -1,11 +1,18 @@
 # G1 — The Local Model for $\sigma_p$: research plan and implementation plan
 
-**Status of this document.** A plan, not a result. Every number below marked
-**[measured]** comes from a run recorded here; everything else is a proposal or
-a target. The one thing it does claim is a *diagnosis*: the two models
+**Status of this document.** A plan with its first three items built. Every
+number marked **[measured]** comes from a run recorded here; everything else is
+a proposal or a target. The claim it opens with is a *diagnosis*: the two models
 `gpu_implementation_plan.md` §2.2 rejects are not two competing answers, they
 are the same wrong question asked twice, and naming the right question makes all
 three of §6.6's deliverables fall out of one computation.
+
+**Built (T1, T2, T4).** `code/native/src/cpu/tower/` — the mod-$p^k$ recursion
+with the valuation cap (`tower.h`/`tower.cc`), the tree-condition oracle it is
+checked against (`tower_oracle.h`/`.cc`), and `tower_test.cc`; the driver is
+`apps/tower_demo.cc`. 10/10 tests in 51 ms, including exact agreement with
+brute force at every cap for ten $(p,k,d)$ combinations. §2 below is now
+measurement rather than proposal.
 
 ---
 
@@ -93,55 +100,139 @@ from finitely many terms rather than guessed from a plateau.
 
 ---
 
-## 2. First measurements
+## 2. Measurements
 
-A prototype of the mod-$p^k$ recursion with a cap on $\mathrm{ht}_p$
-(`drafts/` scratch, to be productionised as T1). Entries are $V_p(k,d)$; a value
-equal to $k$ means "nothing nondegenerate is visible at this precision".
+All from `apps/tower_demo`, single core. Entries are $V_p(k,d)$; a starred value
+equals $k$ and means "nothing nondegenerate is visible at this precision" — a
+non-answer, not a null. An unstarred value is stable and carries the inference
+of §2.1.
 
 **[measured]**
 
-| $p$ | $k$ | $d{=}3$ | $d{=}4$ | $d{=}5$ | towers mod $p^k$ (uncapped) |
-| --- | --- | --- | --- | --- | --- |
-| 3 | 1 | 1 | 1 | 1 | 3 |
-| 3 | 2 | 2 | 2 | 2 | 7 |
-| 3 | 3 | **2** | 3 | 3 | 57 |
-| 3 | 4 | **2** | 4 | 4 | 385 |
-| 3 | 5 | **2** | 5 | 5 | 3,423 |
-| 5 | 2 | **1** | 2 | 2 | 51 |
-| 5 | 3 | **1** | **2** | 3 | 3,755 |
-| 7 | 2 | **1** | 2 | 2 | 211 |
+| $p^k$ | $d{=}2$ | $d{=}3$ | $d{=}4$ | $d{=}5$ | states/level ($d=5$, uncapped) | s |
+| --- | --- | --- | --- | --- | --- | --- |
+| $2^{6}$ | 2 | **5** | 5\* | 5\* | 1 64 65 65 65 | 0.00 |
+| $2^{10}$ | 2 | **5** | 9\* | 9\* | 1 1024 3713 1025 1025 | 0.49 |
+| $2^{12}$ | 2 | **5** | 11\* | 11\* | 1 4096 19073 4097 4097 | 33.7 |
+| $3^{5}$ | 1 | **2** | 5\* | 5\* | 1 243 730 244 244 | 0.00 |
+| $3^{7}$ | 1 | **2** | **6** | 7\* | 1 2187 8749 4375 2188 | 2.6 |
+| $3^{8}$ | 1 | **2** | **6** | 8\* | 1 6561 32806 19684 6562 | 63.2 |
+| $5^{4}$ | 0 | **1** | **2** | 4\* | 1 625 1255 1251 626 | 0.06 |
+| $5^{5}$ | 0 | **1** | **2** | **4** | 1 3125 9380 9376 6251 | 13.6 |
+| $7^{3}$ | 0 | **1** | **2** | 3\* | 1 343 50772 2059 344 | 0.12 |
+| $11^{3}$ | 0 | **1** | **2** | 3\* | 1 1331 14642 3994 1332 | 1.5 |
+| $13^{3}$ | 0 | 0 | **1** | **2** | 1 2197 8801 4408 4395 | 2.2 |
 
-Depth 3 stabilises immediately; depth 4 stabilises at $p = 5$; depth 5 tracks
-$k$ everywhere so far. **That shape is what a nonexistence proof would look
-like — and it is also what "not deep enough yet" looks like**, which is why the
-next measurement is the control, not the extension.
+The exemplar control, now in C++ and reading only the *reduced* tuple — it
+recovers $\mathrm{ht}_p$ with no big-integer arithmetic, and agrees with the
+direct computation over $\mathbb{Z}$ where the two overlap: **[measured]**
 
-**The control, and it validates the prototype.** The §7 exemplar $E_4$ is a real
-depth-4 tower, so its reduction must appear in the table once $k$ is large
-enough. Its node valuations, computed directly: **[measured]**
+| | $p=2$ | $p=3$ | $p=5$ | $p=7$ | $p=11$ | $p=13$ |
+| --- | --- | --- | --- | --- | --- | --- |
+| $\mathrm{ht}_p(E_4^{\S 7})$ | 14 | **6** | 6 | **2** | **2** | **1** |
+| least $k$ that reveals it | 15 | 7 | 7 | 3 | 3 | 2 |
 
-| level | $v_2$ | $v_3$ | $v_5$ | $v_7$ |
-| --- | --- | --- | --- | --- |
-| 1 (roots) | 0 | 0, 1 | 0, 1 | 0 |
-| 2 | 2 | 0 | 0 | 0 |
-| 3 | 6 | 3, 4 | 3, 4 | 1 |
-| 4 ($\sqrt{L_4}$) | **14** | **6** | **6** | **2** |
+So the failure to find a nondegenerate depth-4 tower mod $3^5$ is **arithmetic,
+not a bug**: $5 < 6$. The 2-adic column is the ladder as a clean $0, 2, 6,
+14 = 2^{\ell}-2$, which `paper.md` §2's normalizing constants $2^{2^k-1}$ predict.
 
-So $\mathrm{ht}_3 = 6$ for a *known* solution — and the prototype's failure to
-find a nondegenerate depth-4 tower mod $3^5$ is therefore **correct, not a bug**:
-$5 < 6$. It also reproduces §4 independently ($v_3(C'_8/2) = 3 \le 6$,
-$v_2(C'_8/2) = 5 \le 14$, $v_3(C'_4/2) = 2 \le 3$), and the 2-adic column shows
-the ladder as a clean progression $0, 2, 6, 14 = 2^{\ell}-2$ that `paper.md` §2's
-normalizing constants $2^{2^k-1}$ predict.
+### 2.1 What the stable entries prove
 
-> **This fixes the required precision, which was the missing number.** You cannot
-> conclude anything about depth $d$ at prime $p$ until $k$ exceeds the valuation
-> a real solution needs. §4's $C'_{16} = 2^{11}3^6 5^4 7^3 11^2 13^2 \cdot 17
-> \cdots 53$ gives the floor for depth 5 directly: $k \ge 12$ at $p=2$, $k \ge 7$
-> at $p=3$, $k \ge 5$ at $p=5$, $k \ge 4$ at $p=7$, $k \ge 3$ at $p = 11, 13$,
-> $k \ge 2$ at $p \le 53$. **Every published depth-5 local claim computed at
-> $k=1$ — including the plan's own table — is below this floor.**
+If $V_p(k,d) < k$ then **every $E_d$ over $\mathbb{Z}$ has a node value divisible
+by $p^{V_p(k,d)}$** — unconditionally, with no hypothesis on the solution. The
+argument is three lines: a real tower reduces to a tower mod $p^k$; reduction
+sends a node of valuation $v$ to one of capped valuation $\min(v,k)$; so
+$\min(\mathrm{ht}_p, k) \ge V_p(k,d)$, and $V < k$ forces $\mathrm{ht}_p \ge V$.
+
+That makes the stable entries directly comparable with `paper.md` Theorem 4.1,
+which cascades [CMSV]'s $C'_n$ through the tower and gives
+$C'_{2^{d-1}}/2 \mid \sqrt{L_d}$ at the top node — hence
+$\mathrm{ht}_p \ge v_p(C'_{2^{d-1}}/2)$. **This is calibration 3, and it is the
+sharpest test in the plan: exact arithmetic against exact arithmetic.**
+**[measured]**
+
+| | $p=2$ | $p=3$ | $p=5$ | $p=7$ | $p=11$ | $p=13$ |
+| --- | --- | --- | --- | --- | --- | --- |
+| $d=3$: Thm 4.1 via $C'_4/2 = 18$ | 1 | 2 | 0 | 0 | 0 | 0 |
+| $d=3$: computed $V_p(\cdot,3)$ | **5** | 2 | **1** | **1** | **1** | 0 |
+| $d=4$: Thm 4.1 via $C'_8/2$ | 5 | 3 | 2 | 2 | 1 | 1 |
+| $d=4$: computed $V_p(\cdot,4)$ | ≥11 | **6** | 2 | 2 | **2** | 1 |
+| $d=5$: Thm 4.1 via $C'_{16}/2$ | 10 | 6 | 4 | 3 | 2 | 2 |
+| $d=5$: computed $V_p(\cdot,5)$ | ≥12 | ≥8 | **4** | ≥3 | ≥3 | **2** |
+
+> **The machine agrees with the theorem everywhere and beats it in four places.**
+> Every computed entry is $\ge$ the corresponding required-divisor exponent, which
+> is the consistency check passing. Where it is strictly larger — $p=2$ at depth
+> 3 (5 vs 1), $p=3$ at depth 4 (**6 vs 3**), $p=5,7,11$ at depth 3, $p=11$ at
+> depth 4 — it is a **new forced divisor obtained by computation**, and at $p=3$,
+> $d=4$ it is *sharp*: the §7 exemplar attains $\mathrm{ht}_3 = 6$ exactly, so
+> $3^6$ cannot be improved.
+
+**Two depth-5 entries are already stable, and both say "no obstruction here".**
+$V_5(5,5) = 4$ and $V_{13}(3,5) = 2$ are unstarred, so a depth-5 tower with
+finite node valuations exists mod $5^5$ and mod $13^3$ — and both land *exactly*
+on $v_p(C'_{16}/2)$. At those two primes the local model neither obstructs an
+$E_5$ nor improves on [CMSV]. The obstruction question lives at $p = 2$ and
+$p = 3$, which is also where §2.2 says the precision is hardest to reach.
+
+This is `paper.md` §11's "sharper required divisors" item, which asks for a
+constant strictly containing $C'_{16}$ and notes that a genuine improvement
+"must exploit the *towered* structure specifically". The DP is nothing but the
+towered structure. Two caveats keep the claim honest:
+
+- $V_p$ bounds $\max_{\text{nodes}} v_p$, whereas Theorem 4.1 localises to the
+  *top* node. The quantities differ, and only the top-node version would tighten
+  §4 as stated. Computing it is a small variant — minimise $v_p(t)$ over
+  $t \in A_{d-1}$ instead of capping every level — but the inference is **not**
+  the same, for the reason in §2.3, and that is what T6b has to solve.
+- $d=5$ rows are lower bounds from starred (non-)answers, not results.
+
+### 2.3 Why the *max* is the honest quantity and the *top node* is not, yet
+
+$E_n$ solutions scale: if $(L_1,\dots,L_n)$ is one then so is
+$(t^2L_1, t^4L_2, \dots, t^{2^n}L_n)$, because $E_j$ scales by $t^{2^j}$ under
+$x \mapsto tx$. Taking $t = p^N$ shows **$\mathrm{ht}_p$ is unbounded above**.
+
+Two consequences, in opposite directions:
+
+- **$V_p$ survives it untouched.** $V_p$ is a *minimum* over towers, and scaling
+  only produces towers with larger valuations, so it cannot lower the min. The
+  §2.1 inference stands unconditionally. It also explains the sharpness at
+  $p=3$: the §7 exemplar is $p$-minimal there, so it sits exactly on the floor.
+- **The top-node variant does not.** Its natural statement — "every $E_d$ has
+  $v_p(\sqrt{L_d}) \ge F$" — needs the *other* nodes capped, and a real solution
+  is only covered once $k$ exceeds its $\mathrm{ht}_p$. With $\mathrm{ht}_p$
+  unbounded there is no single $k$ that covers every solution, so what falls out
+  is conditional: *every $E_d$ whose node valuations are all $< k$ satisfies
+  $v_p(\sqrt{L_d}) \ge F(k)$.*
+
+**The fix is primitivity, and the project already has the notion**
+(`src/cpu/enumerate/`). Restricted to primitive towers, $\mathrm{ht}_p$ should be
+bounded — and *that* bound, not the DP, is the missing lemma. T6b is therefore
+two things: a small code change and a small proof, and the proof is the harder
+half. It should not be attempted as an implementation task alone.
+
+### 2.2 The precision floor, revised upward by the data
+
+Theorem 4.1 fixes the *minimum* precision at which a depth-5 claim can mean
+anything: $v_p(\sqrt{L_5}) \ge v_p(C'_{16}/2)$, so $k \ge 11, 7, 5, 4, 3, 3$ at
+$p = 2, 3, 5, 7, 11, 13$ and $k \ge 2$ at $p \le 53$. **Every depth-5 local claim
+computed at $k=1$ — including this plan's own first table — is below that floor.**
+
+But the depth-4 row now says the floor is *optimistic*, and by a measured factor:
+
+| | $p=2$ | $p=3$ | $p=5$ | $p=7$ | $p=11$ | $p=13$ |
+| --- | --- | --- | --- | --- | --- | --- |
+| $d=4$ floor from $C'_8/2$ | 5 | 3 | 2 | 2 | 1 | 1 |
+| $d=4$ truth ($\mathrm{ht}_p$ of the exemplar) | 14 | 6 | 6 | 2 | 2 | 1 |
+| ratio | 2.8 | 2.0 | 3.0 | 1.0 | 2.0 | 1.0 |
+
+At the two primes that matter most the required precision is **2–3× the §4
+floor**. Extrapolating the same ratio to depth 5 puts the honest target at
+$k \approx 15$–$20$ at $p=3$ and $k \approx 25$–$30$ at $p=2$ — that is
+$3^{15} = 1.4\times10^7$ and $2^{25} = 3.4\times10^7$, three to four orders of
+magnitude past what §5's cost model reaches. **T6 is not a matter of running the
+existing code for longer.** §5.1 is how it becomes reachable.
 
 ---
 
@@ -173,66 +264,112 @@ depth 5 is trustworthy until all three pass.
 
 ## 4. Work items
 
-| | task | output | depends |
-| --- | --- | --- | --- |
-| **T1** | Mod-$p^k$ tower DP with valuation cap, in C++, on $p^k$-bit masks | $V_p(k,d)$, $N_k$, state counts | — |
-| **T2** | Brute-force fixture: enumerate all $(L,\text{tree})$ mod $p^k$ for tiny $(p,k,d)$ and compare | the oracle §6 of the GPU plan demands | T1 |
-| **T3** | Fix the coordinates: define $\sigma_p$ in root coordinates, derive the $L$-count as a consequence, state the fibre correction | an unambiguous $\sigma_p$ | — |
-| **T4** | Exemplar and family regression: every known $E_4$ must appear as a tower mod $p^k$ with its measured valuation profile | the control that makes a null result meaningful | T1 |
-| **T5** | Poincaré series: fit a linear recurrence to $N_k$, verify, extract $\lim_k$ exactly | $\sigma_p$ as a rational number | T1, T3 |
-| **T6** | Push depth 5 to the §4 floor: $k \ge 7$ at $p=3$, $\ge 5$ at $p=5$, $\ge 12$ at $p=2$ | the obstruction test, honestly conducted | T1, T4 |
-| **T7** | Assemble $\prod_p \sigma_p$; run calibration 1 and 2 | the §8 constant, or a refutation | T3, T5 |
-| **T8** | Sieve wheels: residues of $L_1$ mod $p^k$ carrying no nondegenerate tower | a pre-sieve for S-A / S-C | T1 |
+| | task | output | depends | state |
+| --- | --- | --- | --- | --- |
+| **T1** | Mod-$p^k$ tower DP with valuation cap, in C++, on $p^k$-bit masks | $V_p(k,d)$, $N_k$, state counts | — | **done** |
+| **T2** | Brute-force fixture: enumerate all $(L,\text{tree})$ mod $p^k$ for tiny $(p,k,d)$ and compare | the oracle §6 of the GPU plan demands | T1 | **done** |
+| **T3** | Fix the coordinates: define $\sigma_p$ in root coordinates, derive the $L$-count as a consequence, state the fibre correction | an unambiguous $\sigma_p$ | — | open |
+| **T4** | Exemplar and family regression: every known $E_4$ must appear as a tower mod $p^k$ with its measured valuation profile | the control that makes a null result meaningful | T1 | **done** |
+| **T5** | Poincaré series: fit a linear recurrence to $N_k$, verify, extract $\lim_k$ exactly | $\sigma_p$ as a rational number | T1, T3 | open |
+| **T6** | Push depth 5 past the *revised* floor of §2.2, not the §4 one | the obstruction test, honestly conducted | T1b | blocked |
+| **T6b** | Top-node variant: minimise $v_p(\sqrt{L_d})$ instead of capping every level, **plus** the primitivity lemma bounding $\mathrm{ht}_p$ (§2.3) | directly comparable with Thm 4.1, so it can *tighten* $C'_{16}$ | T1 | open — the proof is the hard half |
+| **T1b** | Orbit-representative rewrite (§5.1): $O(\text{orbits}\cdot m^2)$ in place of $O(\text{states}\cdot m^2/64)$ | the $m/64$ factor T6 needs | T1 | next |
+| **T7** | Assemble $\prod_p \sigma_p$; run calibration 1 and 2 | the §8 constant, or a refutation | T3, T5 | open |
+| **T8** | Sieve wheels: residues of $L_1$ mod $p^k$ carrying no nondegenerate tower | a pre-sieve for S-A / S-C | T1 | open |
 
 **Order.** T1 → T2 → T4 → T6 is the obstruction branch and is the only one that
 can end in a theorem; it should be finished before T3/T5/T7, which are the
-density branch and can only ever end in a heuristic.
+density branch and can only ever end in a heuristic. T1b and T6b are what the
+first measurements added: T6b because §2.1 landed next to Theorem 4.1 but not
+quite on it, and T1b because §2.2 showed T6 is three orders of magnitude out of
+reach without it.
 
 ---
 
 ## 5. Implementation
 
-**Where.** `code/native/src/cpu/tower/` — a new CPU app directory, mirroring
-`champion/`: `tower.h` (the DP over a modulus), `tower.cc`, `tower_test.cc`.
-Pure CPU, no GMP needed (everything is mod $p^k \le 2^{15}$), so it links
-`pte_core` alone.
+**Where.** `code/native/src/cpu/tower/` — a CPU app directory mirroring
+`champion/`: `tower.h`/`tower.cc` (the DP over a modulus), `tower_oracle.h`/`.cc`
+(the tree condition, per tuple), `tower_test.cc`. It links **nothing**: every
+value is a residue mod $p^k \le 2^{20}$ and every state is a bitmask, so no GMP,
+no Boost, not even `pte_core`. Worth preserving, because the same DP is the
+candidate S-D device kernel and a dependency acquired here would be paid for
+again on the device.
 
-**The state, and why this is tractable.** The DP state is the set
-$T \subseteq \mathbb{Z}/p^k$ as a $p^k$-bit mask. The transition
-$T' = \{s - L : s \in S\}$, $S = \{t^2 : t \in A\}$, is a **cyclic shift of the
-mask by $L$** — the same structure as `gpu_implementation_plan.md` §2.3
-describes mod $p$, and it survives verbatim mod $p^k$. So one level costs
-$|\text{states}| \times p^k \times p^k/64$ word-operations.
+**The state.** The DP state is the set $T \subseteq \mathbb{Z}/p^k$ as a
+$p^k$-bit mask. The transition $T' = \{s - L : s \in S\}$, $S = \{t^2 : t \in A\}$,
+is a **cyclic rotation of the mask by $L$** — the same structure
+`gpu_implementation_plan.md` §2.3 describes mod $p$, surviving verbatim mod
+$p^k$. Distinct states are interned by 64-bit fingerprint with a full `memcmp`
+on a hit, the same shape as `gpu/champion`'s table. One level costs
+$|\text{states}| \times p^k \times p^k/64$ word-operations and
+$|\text{states}| \times p^k/8$ bytes.
 
-Sizing from the measured state counts (states per level, $p=3$): $[1,3,3,4,4]$
-at $k{=}1$, $[1,27,55,28,28]$ at $k{=}3$, $[1,243,730,244,244]$ at $k{=}5$ —
-**states grow like $O(p^k)$, not $O(p^{2k})$**, which is the fact that makes the
-whole thing feasible. At the §4 floor:
+**Measured, and the extrapolation was right.** States per level at $d=5$:
+**[measured]**
 
-| $p^k$ | mask | states (extrapolated) | state table | word-ops/level |
+| $p^k$ | states/level | states / $p^k$ | mask | wall |
 | --- | --- | --- | --- | --- |
-| $3^7 = 2{,}187$ | 274 B | ~6,600 | 1.8 MB | $2.4\times10^{8}$ |
-| $5^5 = 3{,}125$ | 391 B | ~9,400 | 3.7 MB | $4.6\times10^{8}$ |
-| $2^{12} = 4{,}096$ | 512 B | ~12,000 | 6.1 MB | $7.9\times10^{8}$ |
-| $5^7 = 78{,}125$ | 9.8 KB | ~235,000 | 2.3 GB | $2.3\times10^{13}$ |
+| $3^{5} = 243$ | 1 243 730 244 244 | 3.0 | 31 B | 0.00 s |
+| $3^{7} = 2{,}187$ | 1 2187 8749 4375 2188 | 4.0 | 274 B | 2.6 s |
+| $3^{8} = 6{,}561$ | 1 6561 32806 19684 6562 | 5.0 | 821 B | 63 s |
+| $2^{12} = 4{,}096$ | 1 4096 19073 4097 4097 | 4.7 | 512 B | 34 s |
+| $7^{3} = 343$ | 1 343 50772 2059 344 | 148 | 43 B | 0.12 s |
 
-The first three rows are **seconds** on one core. The last is the honest wall:
-matching the exemplar's $v_5 = 6$ needs $5^7$, and that is a GPU job or a
-better algorithm. Measure the state growth at each step rather than trusting the
-extrapolation — it is the one quantity that could kill this.
+**States grow like $O(p^k)$, not $O(p^{2k})$** — the fact the whole thing rests
+on. But the wall-clock column is the $m^3/64$ law asserting itself: $3^7
+\to 3^8$ is $3\times$ the modulus and $24\times$ the time. At that scaling
+$3^{15}$, which §2.2 says is the honest depth-5 target at $p=3$, is
+$10^{7}\times$ $3^8$'s 63 s. **Two years of core-time.** Hence §5.1.
 
-**Dedup.** Distinct states must be recognised; hash the mask (64-bit
-fingerprint, verify on collision) into an open-addressing table — the same
-structure `gpu/champion` already has, and the same one §2.3 of the plan
-specifies for the device version.
+### 5.1 The orbit collapse, measured
 
-**Tests.** (a) T2's brute force for $p^k \le 5^2$, $d \le 3$, every prefix, exact
-set equality — this is the fixture the GPU plan's §6 says must ship. (b) The
-$k=1$ results must reproduce `drafts/verify_gpu_plan.py`'s table exactly
-(13/26/14/1 states at $p=13$, the depth-5 counts 0/78/11/207/371 at
-79/89/97/113). (c) T4's exemplar profile, as a table of expected valuations.
-(d) $V_p(k,d)$ monotone non-decreasing in $k$ and in $d$ — a cheap invariant
-that catches most cap-handling bugs.
+Every state at level $\ge 1$ has the form $S - L$, so each level's state set is
+a **union of complete translation orbits**. `tower_demo`'s third table measures
+it directly — `misses` counts rotations of a state that are not themselves
+states, and it is **0 at every level of every run so far**: **[measured]**
+
+| $p^k$ | states/level | orbits/level |
+| --- | --- | --- |
+| $3^{4} = 81$ | 1 81 244 82 82 | 1 1 4 2 2 |
+| $5^{3} = 125$ | 1 125 255 251 126 | 1 1 3 3 2 |
+| $7^{3} = 343$ | 1 343 **50772** 2059 344 | 1 1 **150** 7 2 |
+| $2^{8} = 256$ | 1 256 641 257 257 | 1 1 4 2 2 |
+
+The orbit count is usually tiny where the state count is $\Theta(p^k)$ — but
+**not universally**, and the exception is worth recording rather than smoothing
+over: at $p=7$ the level-2 orbit count grows with $k$ (4, 24, **150** at
+$k = 1,2,3$, i.e. $\approx m/2$), while at $p = 3, 5, 11, 13$ it is flat in $k$
+(3, 3, 11, 4). $7^4$ is the first row that exceeds the shipped `max_states` and
+it does so for this reason.
+
+The speedup does not depend on that, which is the point:
+
+- **now**: for each of $\approx c\,m$ states, materialise all $m$ rotations and
+  intern them — $c\,m \cdot m \cdot m/64 = c\,m^3/64$.
+- **with orbits**: for each of $\approx c\,m$ states, compute $S$ and canonicalise
+  it to (representative, offset) in $O(m)$ by Booth's least-rotation — $c\,m^2$.
+
+The saving is **per state** — not materialising $m$ rotations of it — so it is
+$m/64$ whatever the orbit count turns out to be: **307× at $3^9$, 4,900× at
+$3^{13}$**. The orbit count governs *memory* instead, and there $p=7$ is the
+case to size for: representatives cost $\text{orbits} \cdot m/8$ bytes against
+the current $c\,m^2/8$ for states, so $5^7$'s 2.3 GB becomes kilobytes and even
+$p=7$'s $\approx m/2$ orbits stay linear in $m$ where states are quadratic. This
+is T1b, and §2.2 is why it is not optional.
+
+**Tests, all shipped and passing (10/10, 51 ms).** (a) Exact agreement with the
+tree-condition oracle at every cap, for ten $(p,k,d)$ combinations including
+$p=2$ — the fixture the GPU plan's §6 demands. (b) The $k=1$ results reproduce
+`drafts/verify_gpu_plan.py` exactly, for both rejected models at once: **cap 0
+is the distinct-root model and cap $k$ is the multiplicity model**, so the towers
+and states columns at $p = 3,5,7,11,13$ and the landmine counts 78/11/207/371 at
+$p = 79,89,97,113$ are asserted verbatim. That is the evidence that the cap
+*generalises* both rather than replacing them. (c) The exemplar recovers
+$\mathrm{ht}_p$ from its reduced tuple. (d) $V_p(k,d)$ monotone in $k$ and $d$,
+towers monotone in the cap. (e) `orbit_misses` is 0. (f) Sizing failures throw
+rather than wrap: exact counting past $2^{64}$ and state-table blowup are both
+refused.
 
 **The device question, which the correction changes.** `gpu_implementation_plan.md`
 §1 ranks S-D behind S-E partly because P5 measured the bitset rotate at
@@ -293,12 +430,20 @@ Written in advance, because this is the branch where wishful reading is
 cheapest:
 
 - **A depth-5 null at $k$ below the §4 floor means nothing** and must not be
-  reported. The floor is $k \ge 12, 7, 5, 4, 3, 3, 2$ at $p = 2, 3, 5, 7, 11,
-  13, \le 53$.
+  reported. The floor is $k \ge 11, 7, 5, 4, 3, 3, 2$ at $p = 2, 3, 5, 7, 11,
+  13, \le 53$ — and §2.2 now says even *that* is optimistic by a measured factor
+  of 2–3, so the working target is $k \approx 15$–$20$ at $p=3$.
 - **A depth-4 null at any $k$ is a bug**, since solutions exist — T4 is the
-  tripwire.
+  tripwire, and it has already earned its place: it is what turns "no depth-4
+  tower mod $3^5$" from an alarming result into the arithmetic fact $5 < 6$.
 - $V_p(k,5)$ growing 1:1 with $k$ **past** the floor, at a prime where
   $V_p(k,4)$ has stabilised, is the signal. Below that it is indistinguishable
-  from insufficient precision.
+  from insufficient precision. **As of the runs in §2 both conditions hold at
+  $p = 3$** — $V_3(k,4) = 6$ is stable and $V_3(k,5)$ tracks $k$ at $k = 7, 8$ —
+  **and this still is not the signal**, because §2.2's revised floor is not
+  cleared. This is exactly the case the rule was written in advance to catch.
 - The density branch is a heuristic and stays labelled one, whatever it produces
   (§1's note on the circle method).
+- **Report starred entries as starred.** A table that prints $V = k$ without
+  marking it invites reading a non-answer as a null; `tower_demo` marks it and
+  so should any write-up.

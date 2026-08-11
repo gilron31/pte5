@@ -5,6 +5,12 @@
 add_executable(enum_campaign enum_campaign.cc)
 target_link_libraries(enum_campaign PRIVATE pte_cpu_campaign pte_cpu_audit pte_warnings)
 
+# G1, the local model: V_p(k,d) over Z/p^k, the exemplar control, and the
+# translation-orbit structure. Pure CPU and dependency-free (see
+# src/cpu/tower/CMakeLists.txt), so it builds anywhere the campaign does.
+add_executable(tower_demo tower_demo.cc)
+target_link_libraries(tower_demo PRIVATE pte_cpu_tower pte_warnings)
+
 if(PTE_HAVE_CUDA)
   # The hybrid demo is ordinary C++ (compiled by g++, not nvcc); it reaches the
   # kernels only through the plain-C++ per-app headers under src/gpu.

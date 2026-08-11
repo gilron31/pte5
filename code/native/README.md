@@ -1,6 +1,6 @@
 # `code/native` — the compiled side of the E₅ work
 
-Three things live here:
+Four things live here:
 
 1. **The E₄ enumeration** — [`src/cpu/gaussian/`](src/cpu/gaussian/),
    [`src/cpu/enumerate/`](src/cpu/enumerate/), [`src/gpu/meet/`](src/gpu/meet/)
@@ -13,7 +13,13 @@ Three things live here:
    [`apps/champion_demo.cc`](apps/champion_demo.cc). This is search **S-E** of
    [`drafts/gpu_implementation_plan.md`](../../drafts/gpu_implementation_plan.md),
    milestones G3 and G4, and it is the one search where the GPU earns its keep.
-3. **The original scaffold** — big-integer add/multiply (GMP vs. a naive
+3. **The local model** — [`src/cpu/tower/`](src/cpu/tower/) and
+   [`apps/tower_demo.cc`](apps/tower_demo.cc). The depth-*d* tower recursion over
+   ℤ/pᵏ with a cap on node valuations: milestone **G1** of
+   [`drafts/local_model_plan.md`](../../drafts/local_model_plan.md), which is
+   where σ_p, the sieve wheels and any nonexistence certificate come from. Pure
+   CPU, and it links nothing at all — see the section below.
+4. **The original scaffold** — big-integer add/multiply (GMP vs. a naive
    schoolbook kernel) and matrix multiply (plain loops vs. a 16×16 tiled
    kernel), kept because it proves the plumbing end to end:
 
@@ -39,6 +45,7 @@ ctest --preset dev            # both
 
 ./build/dev/apps/enum_demo       # the E₄ enumeration demo
 ./build/dev/apps/champion_demo   # S-E, the champion meet (arg: prime count)
+./build/dev/apps/tower_demo      # G1, the local model (args: max p^k, depth, p)
 ./build/dev/apps/hybrid_demo     # the original scaffold demo
 
 pip install -e .              # build + install the Python module
@@ -201,6 +208,37 @@ small-D point sets, where all three are valid; a planted collision at full width
 back; and `stats.pairs == C(D,2)` on every run, which is the statement that no
 pair was skipped — the failure mode that has no other symptom.
 
+## The local model (G1)
+
+`./build/dev/apps/tower_demo [max_modulus] [max_depth] [only_p]` computes
+**V_p(k,d)**: the least cap on node valuations admitting a depth-*d* tower over
+ℤ/pᵏ. The default budget reaches 3⁷ = 2187 in about ten seconds.
+
+**Why mod pᵏ.** [`drafts/gpu_implementation_plan.md`](../../drafts/gpu_implementation_plan.md)
+§2.2 rejects two candidate local models — "roots stay distinct mod *p*" and
+"splits mod *p* at all" — and leaves σ_p undefined. They are not two competing
+answers. A solution is a ℤ_p-point of the *nondegenerate* locus, and
+nondegenerate means every node value has **finite** valuation; mod *p* you can
+see zero and nonzero but not finite. Bounding the valuation instead recovers
+both as the two extreme caps at k = 1: cap 0 is the distinct-root model, cap k
+is the multiplicity model. `tower_test.cc` asserts exactly that, against the
+numbers `drafts/verify_gpu_plan.py` prints for each.
+
+**What a stable entry means.** If V_p(k,d) < k then every E_d over ℤ has a node
+value divisible by p^V — unconditionally, since a real tower reduces to a tower
+mod pᵏ and reduction can only raise a valuation to the cap. Measured, this
+agrees with `paper.md` Theorem 4.1 everywhere and exceeds it in several places;
+at p = 3, d = 4 it gives 3⁶ where the theorem gives 3³, and the §7 exemplar
+attains 3⁶ exactly, so that one is sharp.
+
+**Correctness.** `tower_oracle.cc` walks `paper.md` §2's tree of nested radicals
+one L-tuple at a time — no sets, no interning, no rotations, no memoization — so
+what it evaluates is the definition. `tower_count_brute` runs it over every
+tuple in (ℤ/pᵏ)^depth and must equal the DP's count exactly, at every cap. It
+also answers what the set DP structurally cannot: the exemplar's own tuple
+recovers ht_p (6 at p = 3, 2 at p = 7) from the reduced residues alone, which is
+what makes a null result at depth 5 distinguishable from insufficient precision.
+
 ## Layout
 
 ```
@@ -214,6 +252,9 @@ src/cpu/      per-app directories, GMP + Boost, never sees nvcc
   gaussian/   pte_cpu_gaussian   Gaussian arithmetic, Cornacchia, point sets
   enumerate/  pte_cpu_enumerate  norm generation, reference meet, primitivity
   champion/   pte_cpu_champion   S-E: the reference meet and champion point sets
+  tower/      pte_cpu_tower      G1: the mod-p^k tower DP and its tree oracle.
+                                 Links nothing -- no GMP, no Boost, not even
+                                 pte_core
 src/gpu/      per-app directories, cudart only, never sees GMP
   core/       pte_gpu_core       error checking, launch macro, host/device
                                  buffers, pinned pool, device discovery.
@@ -225,6 +266,7 @@ src/gpu/      per-app directories, cudart only, never sees GMP
 src/bindings/ pte_native._core   pybind11 module linking both
 apps/         enum_demo          the E4 enumeration, CPU+GPU
               champion_demo      S-E, CPU+GPU
+              tower_demo         G1, CPU only
               hybrid_demo        the original scaffold demo
 python/pte_native/               the Python package and its tests
 ```
