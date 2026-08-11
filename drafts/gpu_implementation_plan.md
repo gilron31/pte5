@@ -463,7 +463,7 @@ draft used.
 | **G0** ✅ | ~~Run the profiling queue~~ **Done.** `code/native/bench/` is a built suite with a shared harness and `perf_event_open` counters; results in `drafts/performance_ceiling.md`. It refuted one hypothesis (sorting networks in `Spine::push`) and promoted another (`meet_hashed` is 82% sort) | Nothing in this repo had a real profile. §10.1 found the cost sitting in a three-element `std::sort` — intuition here is demonstrably unreliable | none |
 | **G1** | Settle the S-D local model (§2.2), CPU only | Blocks $\sigma_p$, blocks the wheels, and is the only branch that could end the project with a theorem instead of a bound | G0 not required |
 | **G2** | S-D DP on CPU to $p \le 10^3$, with the brute-force fixture | Produces $\sigma_p$, wheels, and the nonexistence check. Minutes of compute | G1 |
-| **G3** ✅ | ~~Fixed 4-limb integer type~~ **Done.** `code/native/src/core/uint.h` — `UInt<N>` over **32-bit** limbs (the convention `cpu/bigint` and `gpu/bigint` already state), with `add.cc.u32`/`addc.cc.u32` carry chains on the device; `gpu/core/pinned_pool.h` for the staging | Both prerequisites for S-E. The limb width was not a free choice: **P8** measures 7 SASS instructions per 256-bit add for the 32-bit PTX form against ~25 for a 4×`uint64` C one, because with 64-bit limbs the compiler stops using the carry flag and rebuilds it with ISETP+SEL. 2.2× at equal clock, 0.46 s across all of S-E | none |
+| **G3** ✅ | ~~Fixed 4-limb integer type~~ **Done.** `code/native/src/core/uint.h` — `UInt<N>` over **32-bit** limbs (the convention `cpu/bigint` and `gpu/bigint` already state), with `add.cc.u32`/`addc.cc.u32` carry chains on the device; `gpu/core/pinned_pool.h` for the staging | Both prerequisites for S-E. The limb width was not a free choice: **P8** measures 7 SASS instructions per 256-bit add for the 32-bit PTX form against ~25 for a 4×`uint64` C one, because with 64-bit limbs the compiler stops using the carry flag and rebuilds it with ISETP+SEL. 2.2× at equal clock, 0.54 s across all of S-E | none |
 | **G4** ✅ | ~~**S-E**: value-windowed two-pointer meet~~ **Done.** `cpu/champion/` (reference, exact 256-bit keys) and `gpu/champion/` (the hash-insert kernel), cross-checked in `apps/champion_demo.cc` | The clearest GPU win, and it held: §3.1's windowing is implemented as an adaptive bisection with the exactly-once property tested against brute force, and the sized champion runs on the device. See §3.4 for what it measured | G3 |
 | **G5** | S-D on device, only if $\sigma_p$ converges slowly enough to need $p > 10^3$ | Conditional by construction | G2 |
 | **G6** | S-C bottom-lift, sized on CPU before any kernel | Currently the only search with *no* cost estimate at all | catalog |
@@ -475,8 +475,9 @@ The next unblocked item is **G1**, which is mathematics (§2.2) and still the
 highest-value open question in the plan; G5 and G7 remain conditional by
 construction, and G6 still has no cost estimate at all.
 
-Three items the S-E build added to the queue, all sized rather than guessed, and
-in this order because each one gates the next:
+Four items the S-E build added to the queue. The first three are sized rather
+than guessed and are in this order because each one gates the next; the fourth
+is not engineering at all:
 
 - **G8 — get the planner off the critical path.** Measured at exactly 50% of the
   sized run (§3.4), with the device idle throughout. A second stream planning
