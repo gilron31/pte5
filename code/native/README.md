@@ -231,6 +231,20 @@ agrees with `paper.md` Theorem 4.1 everywhere and exceeds it in several places;
 at p = 3, d = 4 it gives 3⁶ where the theorem gives 3³, and the §7 exemplar
 attains 3⁶ exactly, so that one is sharp.
 
+**Cost, and why it is single-threaded.** One level costs `states × p^k × p^k/64`
+word-operations, so the wall clock scales as `p^{3k}`: 2.6 s at 3⁷, 63 s at 3⁸,
+1733 s at 3⁹ — 27.5× per step of *k*, against the predicted 27. That is the
+binding constraint on §6.6, not the hardware —
+and threads are the wrong lever for it. Measured at 3⁸, level 2 performs
+4.3×10⁷ hash-table insertions to produce 32,806 distinct states, a **99.92% hit
+rate**, because the `m` cyclic rotations of each state re-discover one
+translation orbit `m` times. Threading that loop means writing a concurrent
+intern table to accelerate work that is redundant by construction. Canonicalising
+once per state instead removes it — a factor `m/64`, ≈300× at 3⁹ — and leaves a
+per-state loop with a once-per-state critical section that threads cleanly
+afterwards. See `drafts/local_model_plan.md` §5.1–§5.2. (Sweeps over different
+primes are independent processes, so that parallelism is free at the shell.)
+
 **Correctness.** `tower_oracle.cc` walks `paper.md` §2's tree of nested radicals
 one L-tuple at a time — no sets, no interning, no rotations, no memoization — so
 what it evaluates is the definition. `tower_count_brute` runs it over every

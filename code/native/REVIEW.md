@@ -1213,3 +1213,71 @@ Three structural notes:
 - **`E4MeetDirectKernel` is still there.** The plan retires it "when a real meet
   lands"; this is a *different* search, so it is not that meet, and the launch
   and append plumbing it exercises is what `gpu/champion` is built on.
+
+---
+
+## Part G — the local model (G1), and one design decision worth defending
+
+`src/cpu/tower/` is new. Three notes on it, in the order a reviewer would ask.
+
+### G1. It links nothing, and that is load-bearing
+
+Not "links little" — nothing beyond the include path. No GMP, no Boost, not even
+`pte_core`. Every value is a residue mod `p^k <= 2^20` and every state is a
+bitmask, so nothing wider than `uint32_t` appears; even the section-7 exemplar's
+82-digit `L_4` is carried as a decimal string and reduced by four lines of
+Horner rather than by pulling `mpz_class` into the directory.
+
+The reason is the same one `src/core/` exists for. This DP is the candidate S-D
+device kernel (`gpu_implementation_plan.md` §2.3), and a dependency acquired
+here would have to be paid for again on the device. D5's argument — that the
+dependency edge, not the type, is the thing to refuse — applies verbatim.
+
+### G2. The oracle deliberately shares no machinery with the thing it checks
+
+`tower.cc` is a forward recursion on *sets*, with interning, cyclic rotation and
+multiplicities. `tower_oracle.cc` walks the tree of nested radicals one L-tuple
+at a time: no sets, no interning, no rotations, **no memoization**. That last
+one is a real cost — memoizing would be provably equivalent and much faster —
+and it is refused for the same reason `meet_oracle` is written the slow way: an
+oracle that shares an optimization with its subject can share a bug with it.
+`tower_count_brute` runs it over all of `(Z/p^k)^d` and must agree exactly, at
+every cap, which is the fixture the plan's §6 demands.
+
+The second thing the oracle buys is the one the set DP structurally cannot give:
+**what does one specific tuple do?** That is the exemplar regression, and it is
+what turns "no depth-4 tower mod 3^5" from an alarming null into the arithmetic
+fact `5 < 6`.
+
+### G3. Sizing failures throw; they do not truncate, wrap or degrade
+
+Two of them. Exact tuple counts are bounded by `m^depth` and the 64-bit
+accumulator is checked against that bound *before any work*, so a run that would
+overflow is refused with the parameter that caused it — and `count_towers=false`
+is offered as the documented way to run the same modulus without counting, since
+the obstruction branch never needs the counts. Separately `max_states` bounds the
+state table. Both are `TowerTooLarge`, and `tower_demo` catches the second and
+prints which `(p,k,d)` hit the wall, because *which row is unaffordable* is
+itself the measurement that sizes the next rewrite.
+
+This is the same policy as `gpu/champion`'s overflow paths, and it is right for
+the same reason: a research computation that silently returns a smaller answer
+is worse than one that stops.
+
+## Still open, in `src/cpu/tower/`
+
+- **The dedup table is 99.9% redundant work.** Measured at `3^8`: level 2 does
+  4.3e7 interns to produce 32,806 distinct states, because the `m` rotations of
+  one state re-discover a single translation orbit `m` times. `orbit_misses` is
+  0 in every run, which is the assertion that the orbit structure is real. The
+  rewrite — canonicalise once per state, carry `(representative, offset)` — is
+  a factor `m/64` and is what G2 in the plan is now blocked on.
+- **It is single-threaded, on purpose, for now.** See the plan's §5.2: the
+  parallel work is exactly the redundant work above, so threading it first would
+  buy ≤16× on a loop that is about to be deleted. After the rewrite the
+  per-state loop has a once-per-state critical section and threads cleanly.
+- **`p = 7` breaks the "few orbits" intuition.** Level-2 orbit counts go 4, 24,
+  150 at `k = 1,2,3` — roughly `m/2`, where `p = 3,5,11,13` stay flat. `7^4` is
+  the first row to exceed `max_states` and this is why. It costs memory, not
+  time, but it means the orbit table has to be sized from data rather than from
+  the small-prime intuition.

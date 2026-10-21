@@ -79,14 +79,23 @@ meet's bucketing, and now S-E — and it is the reason the ordering below puts
 
 ---
 
-## 2. S-D — the $\mathbb{F}_p$ tower sieve, sized and corrected
+## 2. S-D — the tower sieve, sized and corrected
+
+> **[resolved] The model question this section opens is settled, and the answer
+> changed the ring.** It is not $\mathbb{F}_p$ but $\mathbb{Z}/p^k$ with a cap on
+> node valuations; the two models §2.2 weighs are the two extreme caps at $k=1$.
+> `drafts/local_model_plan.md` is the argument and the measurements,
+> `paper.md` §6.6 and Proposition 4.3 are the write-up, and
+> `code/native/src/cpu/tower/` is the implementation. Read §2.1–§2.3 below as
+> the sizing exercise it was; the recursion survives verbatim, the ring does not.
 
 `paper.md` §6.6 asks, for each prime $p$ and depth $3 \le d \le 5$, for the count
 of $(L_1,\dots,L_d) \in \mathbb{F}_p^d$ with $E_d$ splitting completely over
 $\mathbb{F}_p$. It wants three products: local densities $\sigma_p$ for the
 singular series of §8, sieve wheels for S-A, and **the nonexistence branch — a
 single prime with zero depth-5 towers would prove unconditionally that no $E_5$
-exists over $\mathbb{Z}$.**
+exists over $\mathbb{Z}$.** The third of those is false as stated (§2.2), and its
+corrected form is a statement about $k \to \infty$ that no finite run settles.
 
 ### 2.1 The recursion, and why it is not $p^5$
 
@@ -197,6 +206,21 @@ for the state *table* that binds, not shared memory.
 unsettled, and a GPU kernel that computes the wrong quantity fast is worse than
 no kernel. The GPU version's only purpose is to push $p$ past $10^3$, and that is
 worth doing only if $\sigma_p$ turns out to converge slowly.
+
+> **[updated] The CPU build happened and it moved the device verdict.** Two
+> changes. **(1) The modulus is $p^k$, not $p$.** §5 ranks S-D behind S-E partly
+> because P5 measured the bitset rotate at 1.5e10 word-op/s at $p = 1024$ against
+> 1.1e11 at 65536 — "the device is at its worst exactly where S-D lives". The
+> corrected model lives at $p^k \approx 2\times10^3$ to $8\times10^4$, which is
+> the regime where P5 measured the device at its **best**. **(2) The dedup is
+> the wrong thing to accelerate.** Measured: at $3^8$, level 2 performs
+> $6561 \times 6561 = 4.3\times10^7$ interns that produce only $32{,}806$
+> distinct states — **99.92% hits**, because the $m$ rotations of one state are
+> re-discovering one translation orbit $m$ times. The fix is algorithmic
+> (`local_model_plan.md` §5.1: canonicalise once per state instead of interning
+> $m$ times, a factor $m/64$), and it deletes the `atomicCAS` table that §2.3
+> calls "the only irregular part". A device port should follow that rewrite, not
+> precede it.
 
 ---
 
@@ -461,8 +485,8 @@ draft used.
 | | What | Why here | Gate |
 | --- | --- | --- | --- |
 | **G0** ✅ | ~~Run the profiling queue~~ **Done.** `code/native/bench/` is a built suite with a shared harness and `perf_event_open` counters; results in `drafts/performance_ceiling.md`. It refuted one hypothesis (sorting networks in `Spine::push`) and promoted another (`meet_hashed` is 82% sort) | Nothing in this repo had a real profile. §10.1 found the cost sitting in a three-element `std::sort` — intuition here is demonstrably unreliable | none |
-| **G1** | Settle the S-D local model (§2.2), CPU only | Blocks $\sigma_p$, blocks the wheels, and is the only branch that could end the project with a theorem instead of a bound | G0 not required |
-| **G2** | S-D DP on CPU to $p \le 10^3$, with the brute-force fixture | Produces $\sigma_p$, wheels, and the nonexistence check. Minutes of compute | G1 |
+| **G1** ✅ | ~~Settle the S-D local model~~ **Done.** The ring is $\mathbb{Z}/p^k$ and the missing parameter is a cap on node valuations; the two models §2.2 weighs are its two extreme cases at $k=1$. `drafts/local_model_plan.md`, `paper.md` §6.6 + Prop. 4.3, `code/native/src/cpu/tower/` | Blocked $\sigma_p$ and the wheels. It also produced arithmetic: computed forced divisors that exceed [CMSV]'s $C'_{16}$ at $p = 2, 3, 11$, and are sharp at four of six small primes at depth 4 | G0 not required |
+| **G2** ◐ | S-D DP on CPU **with the brute-force fixture** — done; **to the precision floor** — not | The fixture ships (exhaustive tree-walk oracle, exact agreement at every cap). What is missing is reach: the floor is $k \ge 15$–$20$ at $p=3$, the current $O(p^{3k}/64)$ costs 63 s at $3^8$, and $3^9$ takes hours. Needs the §5.1 rewrite | G1 ✅ |
 | **G3** ✅ | ~~Fixed 4-limb integer type~~ **Done.** `code/native/src/core/uint.h` — `UInt<N>` over **32-bit** limbs (the convention `cpu/bigint` and `gpu/bigint` already state), with `add.cc.u32`/`addc.cc.u32` carry chains on the device; `gpu/core/pinned_pool.h` for the staging | Both prerequisites for S-E. The limb width was not a free choice: **P8** measures 7 SASS instructions per 256-bit add for the 32-bit PTX form against ~25 for a 4×`uint64` C one, because with 64-bit limbs the compiler stops using the carry flag and rebuilds it with ISETP+SEL. 2.2× at equal clock, 0.54 s across all of S-E | none |
 | **G4** ✅ | ~~**S-E**: value-windowed two-pointer meet~~ **Done.** `cpu/champion/` (reference, exact 256-bit keys) and `gpu/champion/` (the hash-insert kernel), cross-checked in `apps/champion_demo.cc` | The clearest GPU win, and it held: §3.1's windowing is implemented as an adaptive bisection with the exactly-once property tested against brute force, and the sized champion runs on the device. See §3.4 for what it measured | G3 |
 | **G5** | S-D on device, only if $\sigma_p$ converges slowly enough to need $p > 10^3$ | Conditional by construction | G2 |
@@ -470,10 +494,16 @@ draft used.
 | **G7** | Device S-A — K2/K3 first, against the existing catalog | Only if $B$ moves past $10^{13}$. P1 puts the device meet's ceiling at 7.34e11 quad-partitions/s, ~46× sixteen CPU threads — but the design bound's whole bucketed meet is only 1.48e12 partitions, i.e. **~2 s of device arithmetic**. Generation is the cost, not the meet | G0 ✅ |
 
 G0–G2 involve no CUDA at all, and that is the finding, not an oversight.
-**G0, G3 and G4 are now complete** — §3.4 has what the sized S-E run measured.
-The next unblocked item is **G1**, which is mathematics (§2.2) and still the
-highest-value open question in the plan; G5 and G7 remain conditional by
+**G0, G1, G3 and G4 are now complete**; G2 is half done and blocked on an
+algorithmic rewrite rather than on hardware. G5 and G7 remain conditional by
 construction, and G6 still has no cost estimate at all.
+
+The next unblocked item is **G2's second half**, and it is worth naming what it
+is *not*: not a CUDA task, not a threading task, but the orbit-representative
+rewrite of `local_model_plan.md` §5.1. The ordering matters because the factors
+multiply in the wrong order otherwise — the rewrite is $m/64$ (≈300× at $3^9$),
+threads are ≤16×, and the device is maybe another 10×, but the rewrite also
+*deletes* the irregular structure the other two would have had to parallelise.
 
 Four items the S-E build added to the queue. The first three are sized rather
 than guessed and are in this order because each one gates the next; the fourth
@@ -507,10 +537,21 @@ is not engineering at all:
 
 ## 8. Open questions
 
-1. **What is the right local model for $\sigma_p$?** (§2.2) Distinct roots proves
-   a false theorem; with-multiplicity counts only degeneracies at small $p$. Every
-   downstream use — the singular series, the wheels, the nonexistence branch —
-   waits on this. **Highest value, and it is mathematics, not code.**
+1. ~~**What is the right local model for $\sigma_p$?**~~ **Answered (§2.2), and
+   the answer was that the question was posed over the wrong ring.** Both models
+   are the $k=1$ truncation of a $p$-adic quantity: a solution is a
+   $\mathbb{Z}_p$-point of the *nondegenerate* locus, nondegenerate means every
+   node radical has **finite** valuation, and mod $p$ one can see zero and
+   nonzero but not finite. Over $\mathbb{Z}/p^k$ with a cap $c$ on node
+   valuations, $c=0$ *is* the distinct-root model and $c=k$ *is* the
+   multiplicity model. What replaces the question, in order:
+   (a) the nonexistence branch needs $V_p(k,d) \to \infty$, a limit no finite
+   $k$ settles — the missing ingredient is eventual periodicity or Poincaré
+   rationality, and it is still mathematics;
+   (b) $\sigma_p$ additionally needs a coordinate correction ($L$-count vs. root
+   count) that is not yet done;
+   (c) the wheels are available now and are proven congruences.
+   **The new highest-value open question is (a).**
 2. ~~**Does the value-windowed two-pointer (§3.1) extend to the exhaustive
    regime?**~~ **[measured] Answered, and the guess in this slot was wrong.** The
    sort is *not* already cheap: `meet_hashed` is **81.9% sort**, carrying 86

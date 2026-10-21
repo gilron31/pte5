@@ -57,10 +57,10 @@ Iterated-squaring polynomials also carry algebraic-complexity content. In the te
 
 We keep the focus on the $E_n$ ansatz itself, rather than on the size-$16$ record. After fixing definitions and the PTE correspondence (§2), our contributions are, **bounds first**:
 
-1. **The first explicit lower bounds for an $E_5$ solution (§4).** A divisibility ladder cascades [\[CMSV\]](#ref-CMSV)'s required divisors of the PTE constant through the nested radicals of the tower, forcing $\sqrt{L_5} \ge C'_{16}/2 \approx 2.44 \times 10^{27}$ and $L_5 \ge 5.9 \times 10^{54}$ for any $E_5$ over $\mathbb{Z}$; together with [\[CMSV\]](#ref-CMSV)'s exhaustive size-$16$ search this gives largest root $> 850$ and $L_1 > 3.6 \times 10^5$.
+1. **The first explicit lower bounds for an $E_5$ solution (§4).** A divisibility ladder cascades [\[CMSV\]](#ref-CMSV)'s required divisors of the PTE constant through the nested radicals of the tower, forcing $\sqrt{L_5} \ge C'_{16}/2 \approx 2.44 \times 10^{27}$ and $L_5 \ge 5.9 \times 10^{54}$ for any $E_5$ over $\mathbb{Z}$; together with [\[CMSV\]](#ref-CMSV)'s exhaustive size-$16$ search this gives largest root $> 850$ and $L_1 > 3.6 \times 10^5$. Complementing this, Proposition 4.3 computes forced divisors *directly from the tower* over $\mathbb{Z}_p$ rather than importing them from the PTE literature: the computation never contradicts the ladder, is sharp at four of six small primes at depth $4$, and at depth $5$ already exceeds [\[CMSV\]](#ref-CMSV) at $p = 2, 3, 11$.
 2. **Corrected structure theory (§2–§3).** $E_n$ solutions are exactly the *sym-perfect* subclass of [\[BMR\]](#ref-BMR), properly contained in symmetric ideal solutions; and a self-similar recursion (§3) identifies an $E_n$ solution with an $E_{n-1}$ solution whose entries are *congrua* of a common $L_1$, yielding a second, bottom-up search axis.
 3. **A single-constraint parameterization (§5).** A multiplicative parameterization of equal-norm Gaussian integers turns the $E_4$ conditions into a single polynomial identity $W(\mathbf X) = 0$; we prove it *surjective* over all admissible norms, including repeated primes (Proposition 5.1), so the reduction is exhaustive — $E_4$ solutions are exactly the $\mathbb{Z}[i]$-points of $\{W = 0\}$ — making explicit Dilcher's scalar constraint and Bremner's variety. Separately, the fourth-power invariant $L_{2,d}$ is shown to factor through the norm form of $\mathbb{Z}[\sqrt 2]$, forcing its odd prime divisors to be $\equiv \pm 1 \pmod 8$.
-4. **Algorithms and an exhaustive $E_4$ catalog (§6–§7)**, with a density heuristic (§8) and directions (§9).
+4. **Algorithms and an exhaustive $E_4$ catalog (§6–§7)**, with a density heuristic (§8) and directions (§9). We also correct a natural but unsound local model (§6.6): counting full-splitting towers over $\mathbb{F}_p$ yields zero depth-$5$ towers at most small primes, which is *not* a nonexistence proof — the §7 exemplar itself fails that test at more than half of them — and we replace it with the $p$-adic model that Proposition 4.3 rests on.
 
 All numeric claims in §2–§5 are reproduced by `drafts/verify_claims.py`. Throughout we take care to attribute the ansatz, the tree conditions, the correspondence, and the single-constraint reduction to their sources; the genuinely new ingredients are the ladder bounds, the multiplicative parameterization, the $\mathbb{Z}[\sqrt2]$ theorem, and the enumeration campaign.
 
@@ -194,6 +194,55 @@ This bound on the tower depth is complemented by a bound on the tower *height* c
 **Remark.** The constant $C'_{16}/2$ uses the full prime content of [\[CMSV, Table 1\]](#ref-CMSV), including the factor $17 \mid C_{16}$; dropping that prime gives the smaller $\approx 1.43 \times 10^{26}$, understating the bound seventeenfold. The magnitude is dominated by the primes present rather than by their exponents.
 
 **Congruence sieve.** Beyond the magnitude bound, Theorem 4.1 forces specific prime content at every level of any $E_5$ tower (e.g. $18 \mid \sqrt{L_3 \pm \sqrt{L_4}}$ at each level-$3$ node). These forced divisors are a congruence pre-sieve for the searches of §6.
+
+### Computed required divisors
+
+Theorem 4.1 obtains forced divisors by *importing* $C'_n$ from the PTE literature, where they were established for arbitrary symmetric ideal solutions. The tower is a proper subclass (§2), so one may instead compute forced divisors *directly from the tower*, over $\mathbb{Z}_p$ rather than over $\mathbb{Z}$. This is what the local model of §6.6 does, and it matches or exceeds Theorem 4.1's exponent at every prime tested, at every depth tested.
+
+Write $u_j$ for the radical at a node at level $j$ (so $u_d = \sqrt{L_d}$ at the top and $u_1 = r_\nu$ at the leaves), and for a depth-$d$ tower $\tau$ over any ring set
+$$
+\mathrm{ht}_p(\tau) \;=\; \max_{\text{nodes}} v_p(u_j).
+$$
+Over $\mathbb{Z}/p^k$ we cap valuations at $k$, since mod $p^k$ nothing distinguishes $v_p = k$ from $v_p = \infty$, and define the **valuation floor**
+$$
+V_p(k,d) \;=\; \min\{\,\mathrm{ht}_p(\tau) \;:\; \tau \text{ a depth-}d \text{ tower over } \mathbb{Z}/p^k\,\}.
+$$
+
+**Proposition 4.3 (computed forced divisors).** *For every prime $p$, every $k \ge 1$ and every $E_d$ solution over $\mathbb{Z}$,*
+$$
+\mathrm{ht}_p \;\ge\; V_p(k,d),
+$$
+*i.e. some node of the tower has $p^{V_p(k,d)} \mid u_j$. Moreover $V_p(k,d)$ is non-decreasing in $k$ and in $d$.*
+
+*Proof.* Reduction mod $p^k$ carries an $E_d$ tower over $\mathbb{Z}$ to a depth-$d$ tower over $\mathbb{Z}/p^k$, since the defining relations $u_j^2 = L_j \pm u_{j+1}$ are preserved, and carries a node of valuation $v$ to one of capped valuation $\min(v, k)$. Hence $\min(\mathrm{ht}_p, k) \ge V_p(k,d)$. If $V_p(k,d) < k$ this gives $\mathrm{ht}_p \ge V_p(k,d)$; if $V_p(k,d) = k$ it gives $\mathrm{ht}_p \ge k = V_p(k,d)$. Monotonicity in $k$ is reduction $\mathbb{Z}/p^{k+1} \to \mathbb{Z}/p^{k}$. For $d$: a depth-$d$ tower has a nonempty set of admissible level-$(d-1)$ radicals, and choosing $L_{d-1}$ to be one of their squares yields a depth-$(d-1)$ tower with the same or smaller $\mathrm{ht}_p$. $\square$
+
+Note that the proposition uses no hypothesis on the solution, and in particular is unaffected by the scaling $(L_1, \dots, L_d) \mapsto (t^2 L_1, t^4 L_2, \dots, t^{2^d} L_d)$ that maps solutions to solutions: scaling only *raises* valuations, and $V_p$ is a minimum.
+
+The following are computed by `code/native/src/cpu/tower/` (see §6.6 for the algorithm and its verification). **Bold** marks an entry strictly exceeding Theorem 4.1. Because $V_p(k,d)$ is a lower bound for every $k$, every entry is valid as printed; the marks record only how settled it is. An unmarked entry held unchanged over at least two consecutive precisions; $^\circ$ marks one still rising with $k$, and $^\dagger$ one observed at a single precision so far.
+
+| | $p=2$ | $p=3$ | $p=5$ | $p=7$ | $p=11$ | $p=13$ |
+| --- | --- | --- | --- | --- | --- | --- |
+| $d=3$, Thm 4.1: $v_p(C'_4/2)$ | 1 | 2 | 0 | 0 | 0 | 0 |
+| $d=3$, computed $V_p(k,3)$ | **5** | 2 | **1** | **1** | **1** | 0 |
+| $d=4$, Thm 4.1: $v_p(C'_8/2)$ | 5 | 3 | 2 | 2 | 1 | 1 |
+| $d=4$, computed $V_p(k,4)$ | **13**$^\circ$ | **6** | 2 | 2$^\dagger$ | **2** | 1 |
+| $d=4$, exemplar $v_p(\sqrt{L_4})$ | 14 | 6 | 6 | 2 | 2 | 1 |
+| $d=5$, Thm 4.1: $v_p(C'_{16}/2)$ | 10 | 6 | 4 | 3 | 2 | 2 |
+| $d=5$, computed $V_p(k,5)$ | **13**$^\circ$ | **9**$^\circ$ | 4$^\dagger$ | 3$^\circ$ | **4**$^\circ$ | 2$^\dagger$ |
+
+The precisions reached are $k = 14, 9, 5, 3, 4, 3$ at $p = 2, 3, 5, 7, 11, 13$; the depth-$4$ entry at $p = 7$ is unconfirmed because $7^4$ exceeds the shipped state-table bound, for the reason §6.6 records.
+
+The $p = 2$, $d = 4$ column is worth one sentence on its own, because it is the one place where the computation can be *falsified cheaply*. It reads $9, 10, 11, 12, 13$ at $k = 10, \dots, 14$ — exactly $k - 1$, still rising — and it is bounded above by the exemplar's $\mathrm{ht}_2 = 14$. It must therefore stop at $13$ or $14$, and $k = 15$ decides which. A value of $14$ would make $2^{14}$ a *sharp* forced divisor at depth $4$; a value of $13$ would mean some tower beats the exemplar 2-adically.
+
+Three things are worth reading off. First, **the computation never contradicts Theorem 4.1**, which is a nontrivial check of both: exact arithmetic against exact arithmetic, with no heuristic in between. Second, at depth $4$ it is *sharp* at $p = 3, 7, 11, 13$ — the §7 exemplar attains $V_p$ exactly, and since $V_p$ is a minimum over all towers this holds irrespective of whether the entry has settled, as its factorization $\sqrt{L_4} = 2^{14}\cdot 3^{6}\cdot 5^{6}\cdot 7^{2}\cdot 11^{2}\cdot 13\cdots 499$ (Appendix) shows — so those exponents cannot be improved. Third, at depth $5$ it already exceeds [\[CMSV\]](#ref-CMSV) at $p = 2, 3, 11$.
+
+**The $^\circ$ entries are not yet results, and the reason is the point of §6.6.** A value equal to $k$ means the model found nothing nondegenerate at that precision. It is a valid lower bound (Proposition 4.3 covers both cases), but it is *also* what insufficient precision looks like, and the two are indistinguishable from a single row. At $p = 3$, $V_3(k,5) = k$ has now held at $k = 7, 8, 9$ — all above Theorem 4.1's floor of $7$ — at a prime where $V_3(k,4)$ has settled at $6$ for $k = 7, 8, 9$. That is the shape a nonexistence proof would have. It is also the shape of "not deep enough yet", and §6.6's revised floor ($k \approx 15$–$20$ at $p=3$) says the second reading is still live. We record the numbers and decline the inference.
+
+**What this does not yet give.** $V_p$ bounds $\max_j v_p(u_j)$, whereas Theorem 4.1 and Corollary 4.2 concern the *top* radical $\sqrt{L_d}$ specifically. Proposition 4.3 therefore says that *some* node is highly divisible without saying which, and the high-valuation node may differ from prime to prime; the exponents consequently **cannot be multiplied together**, and Corollary 4.2 stands unimproved. The gap is exactly one localization step, and closing it would be worth a great deal:
+
+> **TODO (top-node localization).** Define $V^{\mathrm{top}}_p(k,d)$ as the minimum of $v_p(\sqrt{L_d})$ over depth-$d$ towers over $\mathbb{Z}/p^k$ whose *other* nodes have valuation $\le c$. This is a small variant of the same dynamic program. Two facts make it promising: for the §7 exemplar the maximum valuation is attained at the top node at **every** prime (Appendix), and Theorem 4.1's own exponents increase with level. If $V^{\mathrm{top}}_p$ matches the table above, the $d=5$ row replaces $C'_{16}/2$ by $2^{13}\cdot 3^{9}\cdot 5^{4}\cdot 7^{3}\cdot 11^{4}\cdot 13^{2}\cdot 17 \cdots 53$, a factor $2^{3}\cdot 3^{3}\cdot 11^{2} = 26{,}136$ larger, giving $\sqrt{L_5} \ge 6.4\times 10^{31}$ and $L_5 \ge 4.1 \times 10^{63}$ — nine orders of magnitude beyond Corollary 4.2. That factor is a snapshot of a quantity still rising with $k$, not a settled constant; the caveat of the $^\circ$ entries applies to it in full.
+>
+> The obstacle is not the code but a lemma. Because $\mathrm{ht}_p$ is unbounded above under the scaling above, no single $k$ covers every solution, and what the variant proves unaided is conditional: *every $E_d$ whose node valuations are all $< k$ satisfies $v_p(\sqrt{L_d}) \ge V^{\mathrm{top}}_p(k,d)$*. **What is missing is a bound on $\mathrm{ht}_p$ for primitive towers**, after which the conditional discharges. That lemma, not the computation, is the open problem.
 
 ## 5. Gaussian Parameterization and the Single-Constraint Reduction
 
@@ -466,11 +515,38 @@ The dual route (Corollary 3.2). For each catalogued $E_4$ with positive roots $r
 
 ### 6.5 The Ladder Congruence Pre-Sieve
 
-The forced divisors of §4 are a cheap upstream filter: any $E_5$ tower has $2^5 \cdot 3^3 \cdot 5^2 \cdot 7^2 \cdot 11 \cdot 13 \mid \sqrt{L_4}$ at each level-$4$ node, $18 \mid \sqrt{L_3 \pm \sqrt{L_4}}$ at each level-$3$ node, and $C'_{16}/2 \mid \sqrt{L_5}$ at the top, so norms whose towers cannot meet these congruences are discarded before enumeration. **Caveat: completeness is a theorem.** A congruence pre-sieve trades exhaustiveness for speed — "we skip these $L_1$ because provably no solution lives there" is itself a claim requiring proof, and an over-aggressive sieve silently voids the exclusion. We sieve only on the provably necessary congruences of §4 and cross-check surviving counts against §6.6.
+The forced divisors of §4 are a cheap upstream filter: any $E_5$ tower has $2^5 \cdot 3^3 \cdot 5^2 \cdot 7^2 \cdot 11 \cdot 13 \mid \sqrt{L_4}$ at each level-$4$ node, $18 \mid \sqrt{L_3 \pm \sqrt{L_4}}$ at each level-$3$ node, and $C'_{16}/2 \mid \sqrt{L_5}$ at the top, so norms whose towers cannot meet these congruences are discarded before enumeration. Proposition 4.3 adds a second, independent family: for each prime $p$, *some* node of the tower is divisible by $p^{V_p(k,d)}$. These are weaker as a sieve — they constrain the multiset of node valuations rather than one designated node — but they are strictly stronger arithmetically at $p = 2, 3, 11$, and they are computed rather than imported, so they extend to any prime the model reaches.
 
-### 6.6 The $\mathbb{F}_p$ Tower Sieve
+**Caveat: completeness is a theorem.** A congruence pre-sieve trades exhaustiveness for speed — "we skip these $L_1$ because provably no solution lives there" is itself a claim requiring proof, and an over-aggressive sieve silently voids the exclusion. We sieve only on the provably necessary congruences of §4 (Theorem 4.1 and Proposition 4.3, both unconditional) and cross-check surviving counts against §6.6. In particular the sieve wheels of §6.6(b) qualify and the density estimates of §6.6(a) do not.
 
-Enumerating full-splitting towers over a finite field is cheap dynamics: for each prime $p \le 10^3$ and depth $3 \le d \le 5$, count the $(L_1, \dots, L_d) \in \mathbb{F}_p^d$ for which $E_d$ splits completely over $\mathbb{F}_p$. This yields three products at once: (a) the **local densities** $\sigma_p$ feeding the singular series of §8; (b) **sieve wheels** — residue classes of $L_1$ carrying no local tower, pruning §6.2; and (c) the **nonexistence branch** — a single prime admitting *zero* full-splitting depth-$5$ towers would prove unconditionally that no $E_5$ exists over $\mathbb{Z}$. Per-norm $E_4$ counts are cross-checked against this model, where a systematic deviation flags a bug rather than a discovery.
+### 6.6 The $p$-adic Tower Sieve
+
+Enumerating full-splitting towers over a finite field is cheap dynamics, and it is the obvious thing to do: for each prime $p$ and depth $d$, count the $(L_1, \dots, L_d) \in \mathbb{F}_p^d$ for which $E_d$ splits over $\mathbb{F}_p$. The recursion is one line — with $T_0 = \mathbb{F}_p$,
+$$
+A_j = \{t \in T_j : -t \in T_j\}, \qquad T_{j+1} = \{t^2 - L_{j+1} : t \in A_j\},
+$$
+and the tower splits iff $0 \in T_d$ — and since $T_{j+1}$ is a cyclic shift of $\{t^2 : t \in A_j\}$, a whole level costs one pass over bitmasks.
+
+**This is not the right model, and the way it fails is instructive.** There are two variants and *neither* computes what §8 needs:
+
+- **Distinct roots** (require $t \ne 0$, so that the $2^d$ roots stay distinct mod $p$) gives **zero** depth-$5$ towers at $25$ of the $29$ primes $p \le 113$. Read naively that is an unconditional nonexistence proof for $E_5$. It is not: the $16$ roots of the §7 exemplar are distinct over $\mathbb{Z}$ yet collide mod $p$ at $16$ of those same primes, so a genuine solution *fails this test*, and a zero count excludes nothing.
+- **With multiplicity** (no condition on $t$) counts towers that split mod $p$ at all. But once $A_j$ collapses to $\{0\}$ the only completion is $L_{j+1} = 0$, i.e. $E_{j+1} = E_j^2$ — a tower, and not a solution. At small $p$ the count is dominated by these degeneracies.
+
+The two are not competing answers; they are the same wrong question asked twice. A solution is a $\mathbb{Z}$-point, hence a $\mathbb{Z}_p$-point, of the **nondegenerate** locus, and nondegeneracy is the statement that a node radical is nonzero *in $\mathbb{Z}_p$* — that its valuation is **finite**. Modulo $p$ one can see "zero" and "nonzero" but not "finite". The distinction first becomes visible mod $p^k$, and only for $k$ exceeding the valuation actually occurring.
+
+**The model.** Run the identical recursion over $\mathbb{Z}/p^k$ — nothing in it uses that the ring is a field — and add one parameter: a cap $c$ on the valuation of every node radical, admitting $t$ into $A_j$ only when $v_p(t) \le c$, under the convention $v_p(0) = k$. The two variants above are then the two extreme caps at $k = 1$: $c = 0$ is the distinct-root model and $c = k$ is the multiplicity model. The quantity of interest is the valuation floor $V_p(k,d)$ of §4, the least cap admitting a tower.
+
+This single computation yields the three products, and it is worth being precise about the standing of each:
+
+- **(a) Local densities.** $\sigma_p$ is the $p$-adic density $\lim_k p^{-k(N-c)} N_k$ in the *root* coordinates of §8.1, not the $L$-coordinates counted here; the two differ by a fibre count that is not constant across the degenerate locus, so a coordinate correction is required (TODO below). By Igusa's theorem the Poincaré series $\sum_k N_k p^{-Nk} t^k$ is rational, so the limit can be extracted exactly from finitely many terms rather than guessed from a plateau.
+- **(b) Sieve wheels.** Residue classes of $L_1$ mod $p^k$ carrying no nondegenerate tower prune §6.2. These are now *proven* congruences (Proposition 4.3), which is what §6.5's completeness caveat requires of anything used to skip work.
+- **(c) The nonexistence branch, corrected.** The claim that a prime admitting zero depth-$5$ towers proves nonexistence is **false for the $\mathbb{F}_p$ model** and **not directly available at finite $k$** for the corrected one. What a finite computation gives is Proposition 4.3: a lower bound $\mathrm{ht}_p \ge V_p(k,d)$ on any solution. Nonexistence requires $V_p(k,d) \to \infty$ as $k \to \infty$ — every $\mathbb{Z}_p$-tower degenerate, hence no $\mathbb{Z}$-point — and that is a *limit* statement no single $k$ establishes. Making it a proof needs an additional ingredient: eventual periodicity of the state dynamics, or rationality of the associated Poincaré series, or an explicit Hensel-type lifting lemma. This is stated as a target, not a result.
+
+**Precision is the binding constraint, and it is quantified.** Nothing can be concluded about depth $d$ at prime $p$ until $k$ exceeds the valuation a real solution needs. Theorem 4.1 fixes the minimum: $v_p(\sqrt{L_5}) \ge v_p(C'_{16}/2)$ forces $k \ge 11, 7, 5, 4, 3, 3$ at $p = 2, 3, 5, 7, 11, 13$ and $k \ge 2$ at $p \le 53$. **Every depth-$5$ claim computed at $k = 1$ is below that floor**, which is precisely why the $\mathbb{F}_p$ model's null is empty of content. Worse, the depth-$4$ data of §4 shows that floor to be optimistic by a measured factor of $2$–$3$: the true $\mathrm{ht}_p$ of the §7 exemplar is $14$ at $p=2$ against a floor of $5$, and $6$ at $p=3$ against $3$. Extrapolated, an honest depth-$5$ verdict wants $k \approx 15$–$20$ at $p = 3$ and $k \approx 25$–$30$ at $p = 2$.
+
+**Implementation and verification.** `code/native/src/cpu/tower/` implements the recursion over $\mathbb{Z}/p^k$ on $p^k$-bit masks, with states interned by fingerprint; `apps/tower_demo` produces the tables of §4. Three fixtures guard it. (i) An independent oracle walks the tree of nested radicals of §2 one $L$-tuple at a time — no sets, no interning, no memoization, so what it evaluates is the definition — and its exhaustive count over all of $(\mathbb{Z}/p^k)^d$ agrees with the dynamic program exactly, at every cap, for ten $(p,k,d)$ combinations. (ii) At $k = 1$ the two extreme caps reproduce the published counts of both rejected models. (iii) The §7 exemplar, reduced mod $p^k$, recovers its own $\mathrm{ht}_p$ from the residues alone — the control that distinguishes a null from insufficient precision, and the reason "no depth-$4$ tower mod $3^5$" is read as the arithmetic fact $5 < 6$ rather than as a result.
+
+> **TODO (data needed).** (1) $p = 2$ to $k = 15$ and $p = 3$ to $k \ge 12$, to test the prediction $V_2(k,4) = 14$ and to reach a depth-$5$ verdict at the two primes that matter; the current implementation costs $O(p^{3k}/64)$ per level and reaches $k = 14$ at $p = 2$ in 74 minutes, so this needs the orbit-representative rewrite described in `drafts/local_model_plan.md` §5.1 (a factor $p^k/64$). (2) The coordinate correction of (a), turning the $L$-count into a root-coordinate density. (3) A Poincaré-series fit to $N_k$, verified against held-out terms, to extract $\sigma_p$ exactly. (4) The depth-$3$ assembly $\prod_p \sigma_p$ checked against [\[TLT\]](#ref-TLT)'s rigorous constant $\tfrac{4\log 2}{3\pi^2}$ — the only place in this paper where a density heuristic can be tested against a theorem.
 
 ### 6.7 Symbolic Family Intersection
 
@@ -478,7 +554,7 @@ Bremner's two $E_4$ families are available in closed form ([\[Bre\]](#ref-Bre); 
 
 ### 6.8 Hardening Protocol
 
-The headline deliverable is a null, and a null is a *certificate* whose validity is mathematics: a bug in an exclusion search returns "nothing found" indistinguishably from a true absence. We therefore adopt the standard record-computation protocol: (1) **two independent implementations** (ideally two authors); (2) **synthetic-solution injection** — plant known $E_4$'s and a fabricated $E_5$ over a small auxiliary ring, and confirm recovery; (3) the **family self-test** — re-derive every member of [\[Bre\]](#ref-Bre)'s families, *including the non-squarefree $L_1(k)$*, the test that exposes an S3 coverage hole (Proposition 5.1); (4) **$\mathbb{F}_p$ count cross-checks** (§6.6); (5) **pre-registered bounds and checkpointed logs**, fixing the frontier $B$ before the run and making it reproducible.
+The headline deliverable is a null, and a null is a *certificate* whose validity is mathematics: a bug in an exclusion search returns "nothing found" indistinguishably from a true absence. We therefore adopt the standard record-computation protocol: (1) **two independent implementations** (ideally two authors); (2) **synthetic-solution injection** — plant known $E_4$'s and a fabricated $E_5$ over a small auxiliary ring, and confirm recovery; (3) the **family self-test** — re-derive every member of [\[Bre\]](#ref-Bre)'s families, *including the non-squarefree $L_1(k)$*, the test that exposes an S3 coverage hole (Proposition 5.1); (4) **local-model cross-checks** (§6.6) — with the caveat §6.6 documents, that the model must be $p$-adic and run above the precision floor before its counts mean anything, since a model checked at the wrong precision agrees with a buggy search for the wrong reason; (5) **pre-registered bounds and checkpointed logs**, fixing the frontier $B$ before the run and making it reproducible.
 
 ## 7. Computational Results — The Exhaustive Campaign
 
@@ -551,7 +627,9 @@ $$
 
 ## 8. A Density Heuristic
 
-How many $E_n$ solutions should exist below a given height, and why does the count collapse between $E_4$ (infinite families) and $E_5$ (none known)? We sketch a heuristic that makes the transition quantitative; it is the $E_4/E_5$ generalization of the rigorous $E_3$ count of [\[TLT\]](#ref-TLT), with constants to be pinned down by the $\mathbb{F}_p$ run of §6.6. Every statement in this section is heuristic or conjectural, as marked; §8 is a research plan, not a theorem.
+How many $E_n$ solutions should exist below a given height, and why does the count collapse between $E_4$ (infinite families) and $E_5$ (none known)? We sketch a heuristic that makes the transition quantitative; it is the $E_4/E_5$ generalization of the rigorous $E_3$ count of [\[TLT\]](#ref-TLT), with constants to be pinned down by the local-model run of §6.6. Every statement in this section is heuristic or conjectural, as marked; §8 is a research plan, not a theorem.
+
+It is worth saying once, plainly, why it cannot become one by this route. The circle method requires many more variables than the total degree, and $V_5 \subset \mathbb{P}^{15}$ has $16$ variables against total degree $34$; Birch's condition on the singular locus fails as well. $\mathfrak{S} = \prod_p \sigma_p$ is therefore a *weight*, not an asymptotic, however carefully the local factors are computed — which is an argument for computing the obstruction branch of §6.6(c) first and separately, since that branch is the only one capable of proving anything.
 
 ### 8.1 The multidegree count
 
@@ -582,7 +660,7 @@ for explicit $\theta, \kappa$ and a constant $c$ read off the $\mathbb{F}_p$ run
 Concretely, §8 is realized in dependence order:
 
 1. **Confirm the geometry.** Verify the multidegree, codimension and canonical class of $V_4$ (done, via [\[Bre\]](#ref-Bre)) and $V_5$; locate the singular locus (feeds §9).
-2. **Local densities.** Compute $\sigma_p$ from the §6.6 $\mathbb{F}_p$ tower enumeration; check $\prod_p \sigma_p$ converges, folding in the forced-divisor content of §4–§5 that biases the small-$p$ factors — the observed smoothness of $L_{2,d}$ (§5, §7) *is* this bias.
+2. **Local densities.** Compute $\sigma_p$ from the §6.6 tower enumeration — **over $\mathbb{Z}/p^k$, not $\mathbb{F}_p$**, and above the precision floor §6.6 fixes, else the factors measure degeneracies rather than solutions. Check $\prod_p \sigma_p$ converges, folding in the forced-divisor content of §4–§5 that biases the small-$p$ factors — the observed smoothness of $L_{2,d}$ (§5, §7) *is* this bias, and Proposition 4.3's exponents are a direct measurement of it.
 3. **Archimedean factor.** The real density (volume of the height-$\le 1$ real solution set).
 4. **The $r_2$ moment.** Identify the correlation sum of $r_2$ governing paired equal-norm representations under the $L_2$-condition; extract $\theta, \kappa$.
 5. **Fit and falsify.** Compare $c\, B^\theta (\log B)^\kappa$ to the §7 catalog; a mismatch is a bug signal (§6.8) or a genuine correction to the heuristic.
@@ -597,8 +675,8 @@ We state the $E_4$ density as a conjecture, not a theorem: the smoothness bias a
 - **The ring pivot ($\mathbb{Z}[i]$).** The congruum step $L \pm u = \text{squares}$ parameterizes through factorizations since $x^2+y^2$ splits, so per-norm candidate sets grow like Gaussian divisor counts and level-2 collisions become far likelier; any $E_5$ over $\mathbb{Z}[i]$ would be the first ideal size-16 solution in any ring. Transplanting CMSV's rotation ansatz to size 16 over $\mathbb{Z}[i]$ is an independent second attack.
 - **Geometry of the solution varieties.** Singular loci and low-degree rational curves on the $(2,2,2,4)$ complete intersection would mechanize family generation and ground §8; under Lang–Vojta, $E_5$ solutions off a special locus are finite.
 - **Arithmetic dynamics.** $E$-towers are totally rational preimage trees for non-autonomous quadratic compositions $y^2 - L_i$; even an abc-conditional bound on maximal full-splitting depth would be a genuine theorem extending §3.
-- **Completing the local theory.** A full 2-adic structure theorem and everywhere-local solubility at depth 5, upgrading §4 and §8.
-- **Sharper required divisors.** Derive a constant $C^{E}_{16}$ strictly containing [\[CMSV\]](#ref-CMSV)'s $C'_{16}$ by exploiting correlations between sibling radicals — new arithmetic that would tighten §4. Their §3 constructs local solutions obstructing some divisibilities (any prime $p>n$ with $p\equiv\pm1\bmod n$ cannot be forced), so a genuine improvement must exploit the *towered* structure specifically; the 2-adic machinery of [\[FM\]](#ref-FM) is the natural starting point.
+- **Completing the local theory.** A full 2-adic structure theorem and everywhere-local solubility at depth 5, upgrading §4 and §8. The computational half is §6.6 and is running; what it cannot supply is the limit $k \to \infty$, and the two candidate routes to that are eventual periodicity of the state dynamics and rationality of the associated Poincaré series.
+- **Sharper required divisors.** Derive a constant $C^{E}_{16}$ strictly containing [\[CMSV\]](#ref-CMSV)'s $C'_{16}$ by exploiting correlations between sibling radicals — new arithmetic that would tighten §4. Their §3 constructs local solutions obstructing some divisibilities (any prime $p>n$ with $p\equiv\pm1\bmod n$ cannot be forced), so a genuine improvement must exploit the *towered* structure specifically; the 2-adic machinery of [\[FM\]](#ref-FM) is the natural starting point. **Proposition 4.3 is a first instalment**: the local model *is* the towered structure, and it already exceeds $C'_{16}$ at $p = 2, 3, 11$ — but on $\max_j v_p(u_j)$ rather than on $v_p(\sqrt{L_5})$, so it does not yet aggregate into a bound on $L_5$. The two things that would close it are the top-node variant and a bound on $\mathrm{ht}_p$ for primitive towers (§4, TODO); the second is the mathematics.
 - **Complexity packaging.** State precisely what a skew 32-gem does to the BCSS-variant landscape, with the geometry as a conditional explanation for why skew gems stop at $n=4$; extend the [\[BMR\]](#ref-BMR) gem records.
 - **Quaternion triage.** The Hurwitz-quaternion route to $L_{2,a}$ (a sum of four fourth-powers) faces the 24-element unit group and a non-multiplicatively-defined square-coordinate locus; one time-boxed week, then a remark either way.
 - **CRT approach.** Solve modulo various primes and lift to integers.
@@ -615,6 +693,19 @@ We state the $E_4$ density as a conjecture, not a theorem: the smoothness bias a
 > (smooth, largest prime $499$) is listed in full in `drafts/verify_claims.py`.
 > Confirm the degree-16 polynomial identity $\prod(x^2-r_k^2) =
 > (((x^2-L_1)^2-L_2)^2-L_3)^2-L_4$ and the ladder divisibilities before citing.
+
+**Node valuations, and one observation §4 turns on.** The valuation profile of the exemplar's tree, computed from its $2^4$ roots (`drafts/probe_local_model.py`) and independently from the reduced tuple alone (`code/native/src/cpu/tower/`, which sees only residues mod $p^k$):
+
+| level | $v_2$ | $v_3$ | $v_5$ | $v_7$ | $v_{11}$ | $v_{13}$ |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 (roots) | 0 | 0, 1 | 0, 1 | 0 | 0 | 0 |
+| 2 | 2 | 0 | 0 | 0 | 0 | 0 |
+| 3 | 6 | 3, 4 | 3, 4 | 1 | 1 | 0 |
+| 4 ($\sqrt{L_4}$) | **14** | **6** | **6** | **2** | **2** | **1** |
+
+Two things to note. The $2$-adic column is a clean $0, 2, 6, 14 = 2^{\ell} - 2$, which the level-$k$ normalizing constant $2^{2^k - 1}$ of §2 predicts. And **at every prime the maximum is attained at the top node** — the empirical basis for the top-node localization TODO of §4, which if it held for all towers rather than this one would convert Proposition 4.3 into a direct improvement of Corollary 4.2.
+
+> **TODO (cheap, and decisive either way).** Test that observation against the full $E_4$ catalog of §7 rather than this one exemplar. A single catalog member whose maximum valuation sits below the top node refutes the localization and closes the question in the other direction.
 
 ## References
 

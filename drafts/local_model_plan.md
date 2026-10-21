@@ -102,25 +102,37 @@ from finitely many terms rather than guessed from a plateau.
 
 ## 2. Measurements
 
-All from `apps/tower_demo`, single core. Entries are $V_p(k,d)$; a starred value
-equals $k$ and means "nothing nondegenerate is visible at this precision" — a
-non-answer, not a null. An unstarred value is stable and carries the inference
-of §2.1.
+All from `apps/tower_demo`, single core. Entries are $V_p(k,d)$. A starred value
+equals $k$: the model found nothing nondegenerate at that precision. **Both
+kinds carry the §2.1 inference** — the star is not a missing answer, it is a
+bound that has not yet separated from $k$. What the star does mean is that the
+value cannot be *interpreted*: $V = k$ is equally consistent with an obstruction
+forming and with insufficient precision.
+
+Nor does the absence of a star mean the value has settled. $V_2(k,4)$ is
+unstarred at $k = 10,\dots,14$ and takes the values $9,10,11,12,13$ — tracking
+$k-1$, still rising, and capped above by the exemplar's $\mathrm{ht}_2 = 14$.
+**Stability is a claim about a column, never about a cell**, and below it is
+asserted only where two or more $k$ agree. (That column is also the cheapest
+falsification available: it must stop at 13 or 14, and $k = 15$ decides.)
 
 **[measured]**
 
 | $p^k$ | $d{=}2$ | $d{=}3$ | $d{=}4$ | $d{=}5$ | states/level ($d=5$, uncapped) | s |
 | --- | --- | --- | --- | --- | --- | --- |
-| $2^{6}$ | 2 | **5** | 5\* | 5\* | 1 64 65 65 65 | 0.00 |
-| $2^{10}$ | 2 | **5** | 9\* | 9\* | 1 1024 3713 1025 1025 | 0.49 |
-| $2^{12}$ | 2 | **5** | 11\* | 11\* | 1 4096 19073 4097 4097 | 33.7 |
+| $2^{6}$ | 2 | **5** | 5 | 5 | 1 64 65 65 65 | 0.00 |
+| $2^{10}$ | 2 | **5** | 9 | 9 | 1 1024 3713 1025 1025 | 0.49 |
+| $2^{12}$ | 2 | **5** | 11 | 11 | 1 4096 19073 4097 4097 | 33.7 |
+| $2^{14}$ | 2 | **5** | 13 | 13 | 1 16384 92801 16385 16385 | 4460 |
 | $3^{5}$ | 1 | **2** | 5\* | 5\* | 1 243 730 244 244 | 0.00 |
 | $3^{7}$ | 1 | **2** | **6** | 7\* | 1 2187 8749 4375 2188 | 2.6 |
 | $3^{8}$ | 1 | **2** | **6** | 8\* | 1 6561 32806 19684 6562 | 63.2 |
+| $3^{9}$ | 1 | **2** | **6** | 9\* | 1 19683 98416 59050 19684 | 1733 |
 | $5^{4}$ | 0 | **1** | **2** | 4\* | 1 625 1255 1251 626 | 0.06 |
 | $5^{5}$ | 0 | **1** | **2** | **4** | 1 3125 9380 9376 6251 | 13.6 |
 | $7^{3}$ | 0 | **1** | **2** | 3\* | 1 343 50772 2059 344 | 0.12 |
 | $11^{3}$ | 0 | **1** | **2** | 3\* | 1 1331 14642 3994 1332 | 1.5 |
+| $11^{4}$ | 0 | **1** | **2** | 4\* | 1 14641 161052 43924 14642 | 1584 |
 | $13^{3}$ | 0 | 0 | **1** | **2** | 1 2197 8801 4408 4395 | 2.2 |
 
 The exemplar control, now in C++ and reading only the *reduced* tuple — it
@@ -132,9 +144,18 @@ direct computation over $\mathbb{Z}$ where the two overlap: **[measured]**
 | $\mathrm{ht}_p(E_4^{\S 7})$ | 14 | **6** | 6 | **2** | **2** | **1** |
 | least $k$ that reveals it | 15 | 7 | 7 | 3 | 3 | 2 |
 
+Bold entries are the ones the oracle has actually reached — confirmed to
+$k = 9, 4, 3$ at $p = 3, 11, 13$; $p = 2$ and $p = 5$ are still tracking $k$, as
+they must until $k > 14$ and $k > 6$. All six agree with the factorization
+$\sqrt{L_4} = 2^{14}\cdot3^{6}\cdot5^{6}\cdot7^{2}\cdot11^{2}\cdot13\cdots499$
+in `paper.md`'s appendix, which is the cross-check that the reduced tuple really
+does carry the valuation.
+
 So the failure to find a nondegenerate depth-4 tower mod $3^5$ is **arithmetic,
 not a bug**: $5 < 6$. The 2-adic column is the ladder as a clean $0, 2, 6,
 14 = 2^{\ell}-2$, which `paper.md` §2's normalizing constants $2^{2^k-1}$ predict.
+Note also that at every prime the maximum sits at the **top** node — the
+observation `paper.md` §4's localization TODO rests on.
 
 ### 2.1 What the stable entries prove
 
@@ -156,9 +177,14 @@ sharpest test in the plan: exact arithmetic against exact arithmetic.**
 | $d=3$: Thm 4.1 via $C'_4/2 = 18$ | 1 | 2 | 0 | 0 | 0 | 0 |
 | $d=3$: computed $V_p(\cdot,3)$ | **5** | 2 | **1** | **1** | **1** | 0 |
 | $d=4$: Thm 4.1 via $C'_8/2$ | 5 | 3 | 2 | 2 | 1 | 1 |
-| $d=4$: computed $V_p(\cdot,4)$ | ≥11 | **6** | 2 | 2 | **2** | 1 |
+| $d=4$: computed $V_p(\cdot,4)$ | ≥13 | **6** | 2 | 2 | **2** | 1 |
 | $d=5$: Thm 4.1 via $C'_{16}/2$ | 10 | 6 | 4 | 3 | 2 | 2 |
-| $d=5$: computed $V_p(\cdot,5)$ | ≥12 | ≥8 | **4** | ≥3 | ≥3 | **2** |
+| $d=5$: computed $V_p(\cdot,5)$ | ≥13 | ≥9 | **4** | ≥3 | ≥4 | **2** |
+
+Precisions reached: $k = 14, 9, 5, 3, 4, 3$. The "≥" entries are runs where
+$V = k$; Proposition 4.3 (`paper.md` §4) covers that case too, so they are valid
+bounds — but they are also what insufficient precision looks like, and a single
+row cannot tell the two apart.
 
 > **The machine agrees with the theorem everywhere and beats it in four places.**
 > Every computed entry is $\ge$ the corresponding required-divisor exponent, which
@@ -274,6 +300,7 @@ depth 5 is trustworthy until all three pass.
 | **T6** | Push depth 5 past the *revised* floor of §2.2, not the §4 one | the obstruction test, honestly conducted | T1b | blocked |
 | **T6b** | Top-node variant: minimise $v_p(\sqrt{L_d})$ instead of capping every level, **plus** the primitivity lemma bounding $\mathrm{ht}_p$ (§2.3) | directly comparable with Thm 4.1, so it can *tighten* $C'_{16}$ | T1 | open — the proof is the hard half |
 | **T1b** | Orbit-representative rewrite (§5.1): $O(\text{orbits}\cdot m^2)$ in place of $O(\text{states}\cdot m^2/64)$ | the $m/64$ factor T6 needs | T1 | next |
+| **T1c** | Thread the per-state loop (§5.2), with a single-thread equality test and TSan | ≤16×, and only sane *after* T1b | T1b | after T1b |
 | **T7** | Assemble $\prod_p \sigma_p$; run calibration 1 and 2 | the §8 constant, or a refutation | T3, T5 | open |
 | **T8** | Sieve wheels: residues of $L_1$ mod $p^k$ carrying no nondegenerate tower | a pre-sieve for S-A / S-C | T1 | open |
 
@@ -313,14 +340,30 @@ $|\text{states}| \times p^k/8$ bytes.
 | $3^{5} = 243$ | 1 243 730 244 244 | 3.0 | 31 B | 0.00 s |
 | $3^{7} = 2{,}187$ | 1 2187 8749 4375 2188 | 4.0 | 274 B | 2.6 s |
 | $3^{8} = 6{,}561$ | 1 6561 32806 19684 6562 | 5.0 | 821 B | 63 s |
+| $3^{9} = 19{,}683$ | 1 19683 98416 59050 19684 | 5.0 | 2.4 KB | 1733 s |
 | $2^{12} = 4{,}096$ | 1 4096 19073 4097 4097 | 4.7 | 512 B | 34 s |
+| $2^{14} = 16{,}384$ | 1 16384 92801 16385 16385 | 5.7 | 2.0 KB | 4460 s |
 | $7^{3} = 343$ | 1 343 50772 2059 344 | 148 | 43 B | 0.12 s |
+| $11^{4} = 14{,}641$ | 1 14641 161052 43924 14642 | 11.0 | 1.8 KB | 1584 s |
 
 **States grow like $O(p^k)$, not $O(p^{2k})$** — the fact the whole thing rests
-on. But the wall-clock column is the $m^3/64$ law asserting itself: $3^7
-\to 3^8$ is $3\times$ the modulus and $24\times$ the time. At that scaling
-$3^{15}$, which §2.2 says is the honest depth-5 target at $p=3$, is
-$10^{7}\times$ $3^8$'s 63 s. **Two years of core-time.** Hence §5.1.
+on. The constant is not quite constant: flat at $p=3$ (4.0, 5.0, 5.0 across
+$3^7$–$3^9$) but drifting upward at $p=2$ (3.8, 4.7, 4.8, 5.7 across
+$2^{11}$–$2^{14}$). Linear in $m$ with a slowly growing constant, not linear
+with a fixed one.
+
+The wall-clock column is the $m^3/64$ law asserting itself, and the $3^9$ row
+**confirms it to 2%**: $3\times$ the modulus cost $27.5\times$ the time against
+a predicted $27\times$. The $p=2$ rows run about 35% above the law
+($2^{13} \to 2^{14}$ is $13.6\times$ against a predicted $8\times$), which the
+drifting state constant explains most but not all of; the arena at $2^{14}$ is
+190 MB, well past L3, and the rest is likely cache. **The law is confirmed where
+it was checked cleanly and is a mild underestimate elsewhere** — which matters
+only for sizing, since the conclusion below is an order-of-magnitude one.
+
+Extrapolating a law that has now been checked rather than assumed: $3^{15}$,
+which §2.2 says is the honest depth-5 target at $p=3$, is $10^{7}\times$ $3^8$'s
+63 s. **Two years of core-time.** Hence §5.1.
 
 ### 5.1 The orbit collapse, measured
 
@@ -357,6 +400,42 @@ case to size for: representatives cost $\text{orbits} \cdot m/8$ bytes against
 the current $c\,m^2/8$ for states, so $5^7$'s 2.3 GB becomes kilobytes and even
 $p=7$'s $\approx m/2$ orbits stay linear in $m$ where states are quadratic. This
 is T1b, and §2.2 is why it is not optional.
+
+### 5.2 Why it is single-threaded (for now)
+
+The machine has 16 cores and `tower_demo` uses one. That is a decision, and the
+measurement behind it is the same one that motivates §5.1.
+
+There are two places to put threads:
+
+- **Across cells $(p,k,d)$.** Trivially safe — the runs are independent — and
+  worth exactly nothing on the runs that matter, because the sweep is dominated
+  by its largest cell: in the $p=3$ sweep to $3^8$, the $3^8$ row is **60.7 s of
+  63.4 s**, i.e. 96%. Task parallelism fills the *table* faster; it does not move
+  the *frontier*, which is the only thing T6 cares about. (It is still free at
+  the shell: the three sweeps behind §2 were run as three concurrent processes
+  on different primes. That is where this parallelism belongs — in the operator,
+  not in the program.)
+- **Across states, within a level.** This is the real one, and it is where the
+  time is. It needs a concurrent intern table: a lock-free probe with
+  publish/acquire on the slots, a chunked arena for pointer stability, and
+  atomic multiplicities.
+
+**And that table is 99.92% redundant work.** Measured at $3^8$, level 2:
+$6561 \times 6561 = 4.3\times10^7$ interns produce $32{,}806$ distinct states.
+The hit rate is not an accident to be optimised around — it is the $m$ rotations
+of each state re-discovering one translation orbit $m$ times, which is precisely
+what §5.1 deletes. After T1b the per-state work is $O(m)$ with a critical section
+entered **once per state** rather than $m$ times, i.e. tens of thousands of
+times per level instead of tens of millions, and a plainly-sharded mutex suffices.
+
+So the order is forced, and the factors make the case on their own: T1b is
+$m/64$ (≈300× at $3^9$), threads are ≤16×, and a device port is maybe another
+10×. Threading first means writing lock-free concurrent code — and carrying its
+race risk into a computation whose outputs go into `paper.md` §4 — in order to
+accelerate a loop that is about to be deleted. **T1c: thread the per-state loop
+after T1b, with a test asserting equality against the single-threaded path and a
+TSan run.**
 
 **Tests, all shipped and passing (10/10, 51 ms).** (a) Exact agreement with the
 tree-condition oracle at every cap, for ten $(p,k,d)$ combinations including
