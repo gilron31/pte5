@@ -1,0 +1,23 @@
+// The branch sextic of Bremner's slice A - C = E - G (Bremner 2008, eq. 2-5):
+// F^2 = q1(x,y,z); the other one is H^2 = q1(x,y,-z) (eq. 2-6).
+// Prints the factorization (irreducible), the singular points, and their
+// Milnor/Tjurina numbers: three A2 cusps on z = 0 and two A1 nodes over Q(sqrt5).
+// Only simple singularities, so w^2 = q1 is a K3 surface.
+// Run: Singular -q bremner_sextic.sing
+LIB "primdec.lib"; LIB "sing.lib";
+ring r = 0, (x,y,z), dp;
+poly q1 = x4y2-2x3y3+x2y4+10x3yz2-20x2y2z2+10xy3z2-4x3z3-4x2yz3-4xy2z3-4y3z3+45x2z4-10xyz4+45y2z4+40xz5+40yz5;
+"irreducible factors:"; factorize(q1);
+ideal J0 = q1, jacob(q1);
+ideal SJ = std(J0);
+"total Tjurina number:"; mult(SJ);
+list L = minAssGTZ(SJ);
+int i;
+for (i = 1; i <= size(L); i++) { "singular point(s):"; L[i]; }
+ring Rl = 0, (u,v), ds;
+map m1 = r, 1, u, v;     poly g1 = m1(q1);  "(1:0:0)  mu, tau:"; milnor(g1); tjurina(g1);
+map m2 = r, u, 1, v;     poly g2 = m2(q1);  "(0:1:0)  mu, tau:"; milnor(g2); tjurina(g2);
+map m3 = r, 1, 1+u, v;   poly g3 = m3(q1);  "(1:1:0)  mu, tau:"; milnor(g3); tjurina(g3);
+ring Ra = (0,a), (u,v), ds; minpoly = a2-5;
+map m4 = r, -a+u, a+v, 1; poly g4 = m4(q1); "(-sqrt5:sqrt5:1)  mu, tau:"; milnor(g4); tjurina(g4);
+quit;

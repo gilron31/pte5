@@ -1,0 +1,29 @@
+// Singular locus of Bremner's threefold V_4 in P^7, over Q.
+// Prints: the degree of V_4 (32), the degree of Sing(V_4) as a scheme (864) --
+// it is reduced, so 864 points, each an ordinary double point -- and the 45
+// images of those points in squared coordinates s_j = X_j^2, one per line.
+// Run: Singular -q v4_singular.sing
+LIB "primdec.lib";
+ring r = 0, (A,B,C,D,E,F,G,H), dp;
+ideal I = A2+B2-C2-D2, A2+B2-E2-F2, A2+B2-G2-H2, A2*B2+C2*D2-E2*F2-G2*H2;
+ideal SI = std(I);
+"V4: affine cone dim, degree:"; dim(SI); mult(SI);
+ideal J = std(I + minor(jacob(I), 4));
+"Sing(V4): affine cone dim (1 = finitely many points), scheme degree:"; dim(J); mult(J);
+"degree of the reduced singular locus:"; mult(std(radical(J)));
+// images in s-space
+ring s = 0, (A,B,C,D,E,F,G,H,a,b,c,d,e,f,g,h), dp;
+ideal J = imap(r, J);
+ideal K = J, a-A2, b-B2, c-C2, d-D2, e-E2, f-F2, g-G2, h-H2;
+ideal Ks = eliminate(K, A*B*C*D*E*F*G*H);
+ring t = 0, (a,b,c,d,e,f,g,h), dp;
+ideal Ks = imap(s, Ks);
+ideal T = std(Ks);
+"image in s-space: number of points over Qbar (degree):"; mult(T);
+list L = minAssGTZ(T);
+"components over Q:"; size(L);
+int i;
+for (i = 1; i <= size(L); i++) {
+  print(string(mult(std(L[i]))) + " : " + string(L[i]));
+}
+quit;
