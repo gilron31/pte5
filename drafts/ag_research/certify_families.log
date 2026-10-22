@@ -1,0 +1,4 @@
+  F1k2 root (max root 289292754): CERTIFIED no E_5 above (quotient [0, 1, 3, 7, 12, 15], p0 = 23; 85 s)
+  F1k2 twin (max root 421575967): CERTIFIED no E_5 above (quotient [0, 6, 7, 9, 12, 15], p0 = 23; 140 s)
+  F1k3 root (max root 37400527311793323): CERTIFIED no E_5 above (quotient [3, 5, 7, 10, 13, 15], p0 = 31; 268 s)
+  F1k3 twin (max root 26446195555112642): CERTIFIED no E_5 above (quotient [4, 6, 7, 8, 9, 14], p0 = 19; 19 s)

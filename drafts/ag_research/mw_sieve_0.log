@@ -1,0 +1,8 @@
+S = [1, 5, 6, 11, 12, 14]; Chabauty prime p0 = 17: #J = 368, ord(D0) = 46, empty discs 14; initial survivors 28
+   + p = 67: ord(D0) = 552, modulus L = 552, survivors 8
+   + p = 23: ord(D0) = 64, modulus L = 4416, survivors 2
+   + p = 103: ord(D0) = 1344, modulus L = 30912, survivors 0
+   saturation at l = 3: proved via q = 67
+   saturation at l = 7: proved via q = 103
+   saturation at l = 23: proved via q = 17
+S = [1, 5, 6, 11, 12, 14]: survivors 0, saturation ok -> C(Q) = the 8 known points: CERTIFIED

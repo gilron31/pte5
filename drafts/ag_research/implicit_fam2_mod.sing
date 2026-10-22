@@ -1,0 +1,30 @@
+// Image of Bremner's family-2 cubic in (J1,J2) = (8L2/(2L1)^2, 8L3/(2L1)^4),
+// via Rabinowitsch (T*L1 = 1) and a modular Groebner basis with elimination order.
+LIB "modstd.lib"; LIB "resources.lib";
+setcores(4);
+ring r = 0, (T,x,y,J1,J2), (dp(3),dp(2));
+poly A = x2y - xy2 + (3x - 7y);
+poly B = (x2 + 2xy - y2 + 10);
+poly C = x2y - xy2 + (7x - 3y);
+poly D = -(x2 - 2xy - y2 - 10);
+poly E = -(x2 + y2 + 2*(x + y) - 10);
+poly F = -2x2y + 3xy2 - y3 - (x2 - 8xy + 7y2) - (x + 3y);
+poly G = -(x2 + y2 - 2*(x + y) - 10);
+poly H = -x2y + xy2 + (6xy - 2y2) + (3x - 11y);
+poly CUB = 3x2y - 4xy2 + y3 + (x2 - 14xy + 9y2) + 10*(x + y);
+poly L1 = A^2 + B^2;
+poly L2 = (A^2 - B^2)^2 + (C^2 - D^2)^2;
+poly u = A^2*B^2 - C^2*D^2; poly w = E^2*F^2 - G^2*H^2;
+poly L3 = u^2 + w^2;
+ideal I = CUB, T*L1 - 1, J1*L1^2 - L2, J2*L1^4 - L3;
+int t = rtimer;
+ideal S = modStd(I);
+"modStd time (s):"; rtimer - t;
+ideal K;
+int i;
+for (i = 1; i <= size(S); i++) { if (subst(subst(subst(S[i], T, 0), x, 0), y, 0) == S[i]) { K = K, S[i]; } }
+K = simplify(K, 2);
+"elimination ideal generators:"; size(K);
+for (i = 1; i <= size(K); i++) { "deg J1, J2, total:"; deg(K[i], intvec(0,0,0,1,0)); deg(K[i], intvec(0,0,0,0,1)); deg(K[i]); }
+write(":w fam2_image_mod.txt", K);
+quit;

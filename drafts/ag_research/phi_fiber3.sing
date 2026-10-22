@@ -1,0 +1,15 @@
+LIB "primdec.lib"; LIB "elim.lib";
+ring r = 0, (t,u), dp;
+poly L1 = t^2 + u^2 + 6;
+ideal I = 85872*t^4 - 704744*t^2*u^2 + 153976*t^2 + 85872*u^4 + 153976*u^2 - 1291048, -324736848*t^8 - 1298947392*t^6*u^2 + 184264119184*t^6 - 1948421088*t^4*u^4 - 215438856592*t^4*u^2 - 1606605587456*t^4 - 1298947392*t^2*u^6 - 215438856592*t^2*u^4 + 2932638538240*t^2*u^2 + 2792352219904*t^2 - 324736848*u^8 + 184264119184*u^6 - 1606605587456*u^4 + 2792352219904*u^2 - 420858955008;
+def S0 = sat(I, ideal(L1));
+ideal S; if (typeof(S0) == "list") { S = S0[1]; } else { S = S0; }
+S = std(S);
+"fiber dim:"; dim(S);
+"fiber points with multiplicity:"; vdim(S);
+list L = minAssGTZ(S);
+"Q-components:"; size(L);
+int i;
+for (i = 1; i <= size(L); i++) { ideal Pi = std(L[i]); print("  deg " + string(vdim(Pi)) + "  mult " + string(vdim(std(L[i]^1)))); }
+"reduced total:"; vdim(std(radical(S)));
+quit;

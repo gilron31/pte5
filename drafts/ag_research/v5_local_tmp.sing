@@ -1,0 +1,22 @@
+LIB "primdec.lib"; LIB "elim.lib";
+option(redSB);
+ring r = 0, (d0,d1,d2,d3,d4,d5,d6,d7,y0,y4), dp;
+ideal I = d0^2+d1^2-d2^2-d3^2, d0^2+d1^2-d4^2-d5^2, d0^2+d1^2-d6^2-d7^2, d0^2*d1^2+d2^2*d3^2-d4^2*d5^2-d6^2*d7^2, 2*y0^2 - (1 - d0), 2*y4^2 - (1 - d4);
+ideal S = I + minor(jacob(I), 6);
+// on the stratum: y_K = 0 locally; away from the other branch divisors and from d = 0
+poly opn = (1 - d1^2)*(1 - d2^2)*(1 - d3^2)*(1 - d5^2)*(1 - d6^2)*(1 - d7^2);
+def S0 = sat(S, ideal(opn));
+ideal T; if (typeof(S0) == "list") { T = S0[1]; } else { T = S0; }
+T = std(T + ideal(y0, y4) * 0);
+list P = primdecGTZ(T);
+int i;
+for (i = 1; i <= size(P); i++) {
+  ideal Q = std(P[i][1]); ideal R = std(P[i][2]);
+  int onstratum = (reduce(y0, R) == 0);
+  if (onstratum) {
+    int red = (size(reduce(R, Q)) == 0);
+    print("COMPONENT dim " + string(dim(R)) + " degree " + string(mult(R)) + " reduced " + string(red));
+  }
+  kill onstratum;
+}
+quit;

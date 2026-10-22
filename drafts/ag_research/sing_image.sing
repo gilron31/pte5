@@ -1,0 +1,16 @@
+// Singular points of a family's image curve in the (J1,J2)-plane.
+LIB "primdec.lib";
+ring r = 0, (J1,J2), dp;
+execute("poly F = " + read("fam1_F.txt") + ";");
+"degree:"; deg(F); "factors:"; size(factorize(F)[1]) - 1;
+ideal S = std(ideal(F, diff(F, J1), diff(F, J2)));
+"singular scheme: dim, length:"; dim(S); vdim(S);
+list L = minAssGTZ(S);
+"components over Q:"; size(L);
+int i;
+for (i = 1; i <= size(L); i++) {
+  ideal P = std(L[i]);
+  if (vdim(P) == 1) { print("  RATIONAL singular point: " + string(P)); }
+  else { print("  conjugate cluster of " + string(vdim(P)) + " points"); }
+}
+quit;

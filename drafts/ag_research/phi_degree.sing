@@ -1,0 +1,33 @@
+// Degree of phi: P^2_stu -> P(1,2,4), (s:t:u) -> (L1:L2:L3) on Bremner's slice.
+// Fiber over phi(1, t0, u0) in the chart s = 1, with L1 = 0 removed.
+LIB "primdec.lib"; LIB "elim.lib";
+ring r = 0, (t,u), dp;
+proc L123(poly s, poly t, poly u)
+{
+  poly A = -s + t; poly C = s + t; poly E = -s + u; poly G = s + u;
+  poly b = 5s2 + 2st + u2; poly d = 5s2 - 2st + u2; poly f = 5s2 + 2su + t2; poly h = 5s2 - 2su + t2;
+  poly L1 = A^2 + b;                                // 2 L1
+  poly L2 = (A^2 - b)^2 + (C^2 - d)^2;              // 8 L2
+  poly U = A^2*b - C^2*d; poly W = E^2*f - G^2*h;
+  poly L3 = U^2 + W^2;                              // 8 L3
+  poly S4 = U^2 - W^2;                              // 8 sqrt(L4)
+  return(list(L1, L2, L3, S4));
+}
+list P = L123(1, t, u);
+int t0 = 3; int u0 = 7;
+list Q = L123(1, t0, u0);
+poly a1 = Q[1]; poly a2 = Q[2]; poly a3 = Q[3];
+ideal I = P[2]*a1^2 - a2*P[1]^2, P[3]*a1^4 - a3*P[1]^4;
+def S0 = sat(I, ideal(P[1]));
+ideal S; if (typeof(S0) == "list") { S = S0[1]; } else { S = S0; }
+S = std(S);
+"dim of fiber (0 = finite):"; dim(S);
+"number of points in the fiber (with multiplicity):"; vdim(S);
+list L = minAssGTZ(S);
+"components over Q:"; size(L);
+int i;
+for (i = 1; i <= size(L); i++) {
+  ideal Pi = std(L[i]);
+  print("  degree " + string(vdim(Pi)) + ": " + string(L[i]));
+}
+quit;

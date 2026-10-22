@@ -1,0 +1,47 @@
+S = [6, 7, 8, 9, 14, 15]; Chabauty prime p0 = 17: #J = 256, ord(D0) = 8, empty discs 6; initial survivors 0
+S = [6, 7, 8, 9, 14, 15]: survivors 0, saturation ok -> C(Q) = the 8 known points: CERTIFIED
+S = [1, 9, 11, 12, 14, 15]; Chabauty prime p0 = 17: #J = 304, ord(D0) = 38, empty discs 10; initial survivors 20
+   + p = 41: ord(D0) = 80, modulus L = 1520, survivors 12
+   + p = 97: ord(D0) = 640, modulus L = 12160, survivors 6
+   + p = 113: ord(D0) = 1792, modulus L = 170240, survivors 2
+   + p = 107: ord(D0) = 770, modulus L = 1872640, survivors 6
+   + p = 101: ord(D0) = 594, modulus L = 50561280, survivors 6
+   + p = 61: ord(D0) = 468, modulus L = 657296640, survivors 2
+   + p = 43: ord(D0) = 238, modulus L = 11174042880, survivors 2
+   + p = 109: ord(D0) = 1666, modulus L = 78218300160, survivors 6
+   + p = 73: ord(D0) = 754, modulus L = 2268330704640, survivors 6
+   + p = 79: ord(D0) = 248, modulus L = 70318251843840, survivors 6
+   + p = 47: ord(D0) = 164, modulus L = 2883048325597440, survivors 6
+   + p = 53: ord(D0) = 177, modulus L = 170099851210248960, survivors 6
+   saturation at l = 3: proved via q = 53
+   saturation at l = 5: proved via q = 41
+   saturation at l = 7: proved via q = 43
+   saturation at l = 11: proved via q = 101
+   saturation at l = 13: proved via q = 61
+   saturation at l = 17: proved via q = 43
+   saturation at l = 19: proved via q = 17
+   saturation at l = 29: proved via q = 73
+   saturation at l = 31: proved via q = 79
+   saturation at l = 41: proved via q = 47
+   saturation at l = 59: proved via q = 53
+S = [1, 9, 11, 12, 14, 15]: survivors 6, saturation ok -> not certified
+S = [2, 3, 8, 9, 11, 13]; Chabauty prime p0 = 13: #J = 128, ord(D0) = 16, empty discs 2; initial survivors 4
+   + p = 17: ord(D0) = 48, modulus L = 48, survivors 2
+   + p = 53: ord(D0) = 408, modulus L = 816, survivors 0
+   saturation at l = 3: proved via q = 17
+   saturation at l = 17: proved via q = 41
+S = [2, 3, 8, 9, 11, 13]: survivors 0, saturation ok -> C(Q) = the 8 known points: CERTIFIED
+S = [3, 5, 8, 12, 13, 16]; Chabauty prime p0 = 17: #J = 304, ord(D0) = 38, empty discs 10; initial survivors 20
+   + p = 79: ord(D0) = 38, modulus L = 38, survivors 0
+   saturation at l = 19: proved via q = 17
+S = [3, 5, 8, 12, 13, 16]: survivors 0, saturation ok -> C(Q) = the 8 known points: CERTIFIED
+S = [5, 8, 9, 11, 14, 15]; Chabauty prime p0 = 13: #J = 176, ord(D0) = 22, empty discs 6; initial survivors 12
+   + p = 17: ord(D0) = 6, modulus L = 66, survivors 2
+   + p = 103: ord(D0) = 48, modulus L = 528, survivors 0
+   saturation at l = 3: proved via q = 73
+   saturation at l = 11: proved via q = 13
+S = [5, 8, 9, 11, 14, 15]: survivors 0, saturation ok -> C(Q) = the 8 known points: CERTIFIED
+S = [3, 6, 7, 8, 9, 13]; Chabauty prime p0 = 17: #J = 304, ord(D0) = 38, empty discs 10; initial survivors 20
+   + p = 73: ord(D0) = 38, modulus L = 38, survivors 0
+   saturation at l = 19: proved via q = 17
+S = [3, 6, 7, 8, 9, 13]: survivors 0, saturation ok -> C(Q) = the 8 known points: CERTIFIED

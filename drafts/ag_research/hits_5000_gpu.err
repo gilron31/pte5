@@ -1,0 +1,11 @@
+z = 500: survivors so far 133826, hits 78
+z = 1000: survivors so far 274346, hits 82
+z = 1500: survivors so far 418812, hits 82
+z = 2000: survivors so far 564276, hits 82
+z = 2500: survivors so far 713570, hits 84
+z = 3000: survivors so far 859174, hits 84
+z = 3500: survivors so far 1006520, hits 84
+z = 4000: survivors so far 1152128, hits 84
+z = 4500: survivors so far 1299694, hits 84
+z = 5000: survivors so far 1451078, hits 84
+H = 5000, z in [1, 5000]: GPU survivors 1451078, exact hits 84

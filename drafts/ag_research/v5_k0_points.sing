@@ -1,0 +1,22 @@
+LIB "primdec.lib"; LIB "elim.lib"; option(redSB);
+ring r = 0, (sg,d0,d1,d2,d3,d4,d5,d6,d7), dp;
+ideal V = d0^2+d1^2-d2^2-d3^2, d0^2+d1^2-d4^2-d5^2, d0^2+d1^2-d6^2-d7^2, d0^2*d1^2+d2^2*d3^2-d4^2*d5^2-d6^2*d7^2;
+matrix N = jacob(V);
+matrix M[4][8];
+int i;
+for (i = 1; i <= 4; i++) { M[i, 1] = N[i, 3]; }
+for (i = 1; i <= 4; i++) { M[i, 2] = N[i, 4]; }
+for (i = 1; i <= 4; i++) { M[i, 3] = N[i, 5]; }
+for (i = 1; i <= 4; i++) { M[i, 4] = N[i, 6]; }
+for (i = 1; i <= 4; i++) { M[i, 5] = N[i, 7]; }
+for (i = 1; i <= 4; i++) { M[i, 6] = N[i, 8]; }
+for (i = 1; i <= 4; i++) { M[i, 7] = N[i, 9]; }
+for (i = 1; i <= 4; i++) { M[i, 8] = N[i, 2]; }
+ideal I = V, d0 - sg, minor(M, 4);
+poly opn = sg*(d1^2 - sg^2)*(d2^2 - sg^2)*(d3^2 - sg^2)*(d4^2 - sg^2)*(d5^2 - sg^2)*(d6^2 - sg^2)*(d7^2 - sg^2);
+def S0 = sat(I, ideal(opn));
+ideal S; if (typeof(S0) == "list") { S = S0[1]; } else { S = S0; }
+S = std(S);
+list L = minAssGTZ(S); int j; for (j = 1; j <= size(L); j++) { print(std(L[j])); print("--"); } "DIM"; dim(S);
+if (dim(S) > 0) { "DEG"; mult(S); }
+quit;

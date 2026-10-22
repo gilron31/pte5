@@ -1,0 +1,15 @@
+LIB "primdec.lib"; LIB "elim.lib";
+ring r = 0, (sg,d0,d1,d2,d3,d4,d5,d6,d7), dp;
+ideal V = d0^2+d1^2-d2^2-d3^2, d0^2+d1^2-d4^2-d5^2, d0^2+d1^2-d6^2-d7^2, d0^2*d1^2+d2^2*d3^2-d4^2*d5^2-d6^2*d7^2;
+matrix N = jacob(V);
+matrix M[4][1];
+int i;
+for (i = 1; i <= 4; i++) { M[i, 1] = N[i, 2] + N[i, 3] + N[i, 4] + N[i, 5] + N[i, 6] + N[i, 7] + N[i, 8] + N[i, 9]; }
+ideal I = V, d0 - sg, d1 - sg, d2 - sg, d3 - sg, d4 - sg, d5 - sg, d6 - sg, d7 - sg, minor(M, 4);
+poly opn = sg;
+def S0 = sat(I, ideal(opn));
+ideal S; if (typeof(S0) == "list") { S = S0[1]; } else { S = S0; }
+S = std(S);
+"DIM"; dim(S);
+if (dim(S) > 0) { "DEG"; mult(S); }
+quit;

@@ -1,0 +1,11 @@
+// Images of Bremner's family curves in the (s:t:u)-plane of his slice.
+LIB "elim.lib"; LIB "primdec.lib";
+ring r = 0, (x,y,z,s,t,u), dp;
+poly S0 = 2*(x+y)*z2; poly T0 = (x-y)*(xy+5z2); poly U0 = z*(-x2-y2+10z2);
+poly FAM2 = 3x2y - 4xy2 + y3 + (x2 - 14xy + 9y2)*z + 10*(x + y)*z2;
+poly FAM1 = 2x3y - 4x2y2 + 2xy3 + x3z + 13x2yz - 13xy2z - y3z + 16x2z2 + 16y2z2 + 60xz3 - 60yz3 + 40z4;
+ideal K2 = eliminate(ideal(FAM2, s - S0, t - T0, u - U0), xyz);
+ideal K1 = eliminate(ideal(FAM1, s - S0, t - T0, u - U0), xyz);
+"family 2 image: generators, degree"; size(K2); deg(K2[1]); K2[1];
+"family 1 image: generators, degree"; size(K1); deg(K1[1]); factorize(K1[1]);
+quit;

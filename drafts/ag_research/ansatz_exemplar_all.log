@@ -1,0 +1,204 @@
+(-10105, -12954, 2475) y+z no admissible sign/divisibility choice
+(10105, 12954, 2475) y+z no admissible sign/divisibility choice
+(-110, -515, 297) [y+z]: 208 candidate quadrics; cubic factors through P0: 1
+   -x**3 - x**2*y + 5*x**2*z + 2*x*y**2 - 15*x*z**2 + 4*y**2*z - 5*y*z**2 - 25*z**3   q2 square on it mod 101, 103: False   from [(1, 1, (-1, 0, -7, 1, 1, 4)), (-1, -1, (1, 0, 7, -1, -1, -4))]
+(110, 515, 297) y+z no admissible sign/divisibility choice
+(-1250, 16848, 3375) y+z no admissible sign/divisibility choice
+(1250, -16848, 3375) [y+z]: 4 candidate quadrics; cubic factors through P0: 0
+(-12954, -10105, 2475) y+z no admissible sign/divisibility choice
+(12954, 10105, 2475) y+z no admissible sign/divisibility choice
+(-134703, 64375, 37125) y+z no admissible sign/divisibility choice
+(134703, -64375, 37125) y+z no admissible sign/divisibility choice
+(-16848, 1250, 3375) y+z no admissible sign/divisibility choice
+(16848, -1250, 3375) y+z no admissible sign/divisibility choice
+(-2021, 781, 495) [y+z]: 10 candidate quadrics; cubic factors through P0: 0
+(2021, -781, 495) [y+z]: 12 candidate quadrics; cubic factors through P0: 0
+(-352, 4318, 825) y+z no admissible sign/divisibility choice
+(352, -4318, 825) y+z no admissible sign/divisibility choice
+(-355, -96, 225) [y+z]: 322 candidate quadrics; cubic factors through P0: 0
+(355, 96, 225) [y+z]: 462 candidate quadrics; cubic factors through P0: 1
+   -30*x**2*y - 36*x**2*z + 5*x*y**2 - 10*x*y*z + 17*x*z**2 + y**2*z + 44*y*z**2 + 81*z**3   q2 square on it mod 101, 103: False   from [(1, 1, (11, 0, -15, -1, 3, 0)), (-1, -1, (-11, 0, 15, 1, -3, 0))]
+(-4318, 352, 825) [y+z]: 4 candidate quadrics; cubic factors through P0: 0
+(4318, -352, 825) y+z no admissible sign/divisibility choice
+(-4989, -6864, 1375) [y+z]: 12 candidate quadrics; cubic factors through P0: 0
+(4989, 6864, 1375) y+z no admissible sign/divisibility choice
+(-515, -110, 297) [y+z]: 142 candidate quadrics; cubic factors through P0: 0
+(515, 110, 297) [y+z]: 210 candidate quadrics; cubic factors through P0: 0
+(-64375, 134703, 37125) y+z no admissible sign/divisibility choice
+(64375, -134703, 37125) y+z no admissible sign/divisibility choice
+(-6864, -4989, 1375) y+z no admissible sign/divisibility choice
+(6864, 4989, 1375) y+z no admissible sign/divisibility choice
+(-781, 2021, 495) y+z no admissible sign/divisibility choice
+(781, -2021, 495) y+z no admissible sign/divisibility choice
+(-96, -355, 225) [y+z]: 422 candidate quadrics; cubic factors through P0: 0
+(96, 355, 225) [y+z]: 416 candidate quadrics; cubic factors through P0: 1
+   -5*x**2*y - x**2*z + 30*x*y**2 + 10*x*y*z - 44*x*z**2 + 36*y**2*z - 17*y*z**2 - 81*z**3   q2 square on it mod 101, 103: False   from [(1, 1, (-1, 0, -15, 11, -9, 12)), (-1, -1, (1, 0, 15, -11, 9, -12))]
+(-10105, -12954, 2475) y-z no admissible sign/divisibility choice
+(10105, 12954, 2475) y-z no admissible sign/divisibility choice
+(-110, -515, 297) [y-z]: 216 candidate quadrics; cubic factors through P0: 1
+   -x**3 - x**2*y + 5*x**2*z + 2*x*y**2 - 15*x*z**2 + 4*y**2*z - 5*y*z**2 - 25*z**3   q2 square on it mod 101, 103: False   from [(1, -1, (-1, 0, 1, 1, 3, 4)), (-1, 1, (1, 0, -1, -1, -3, -4))]
+(110, 515, 297) [y-z]: 154 candidate quadrics; cubic factors through P0: 0
+(-1250, 16848, 3375) [y-z]: 6 candidate quadrics; cubic factors through P0: 0
+(1250, -16848, 3375) y-z no admissible sign/divisibility choice
+(-12954, -10105, 2475) y-z no admissible sign/divisibility choice
+(12954, 10105, 2475) y-z no admissible sign/divisibility choice
+(-134703, 64375, 37125) y-z no admissible sign/divisibility choice
+(134703, -64375, 37125) y-z no admissible sign/divisibility choice
+(-16848, 1250, 3375) y-z no admissible sign/divisibility choice
+(16848, -1250, 3375) y-z no admissible sign/divisibility choice
+(-2021, 781, 495) [y-z]: 14 candidate quadrics; cubic factors through P0: 0
+(2021, -781, 495) [y-z]: 16 candidate quadrics; cubic factors through P0: 0
+(-352, 4318, 825) y-z no admissible sign/divisibility choice
+(352, -4318, 825) [y-z]: 6 candidate quadrics; cubic factors through P0: 0
+(-355, -96, 225) [y-z]: 514 candidate quadrics; cubic factors through P0: 0
+(355, 96, 225) [y-z]: 468 candidate quadrics; cubic factors through P0: 0
+(-4318, 352, 825) [y-z]: 4 candidate quadrics; cubic factors through P0: 0
+(4318, -352, 825) [y-z]: 4 candidate quadrics; cubic factors through P0: 0
+(-4989, -6864, 1375) y-z no admissible sign/divisibility choice
+(4989, 6864, 1375) [y-z]: 12 candidate quadrics; cubic factors through P0: 0
+(-515, -110, 297) [y-z]: 204 candidate quadrics; cubic factors through P0: 0
+(515, 110, 297) [y-z]: 84 candidate quadrics; cubic factors through P0: 0
+(-64375, 134703, 37125) y-z no admissible sign/divisibility choice
+(64375, -134703, 37125) [y-z]: 2 candidate quadrics; cubic factors through P0: 0
+(-6864, -4989, 1375) y-z no admissible sign/divisibility choice
+(6864, 4989, 1375) y-z no admissible sign/divisibility choice
+(-781, 2021, 495) [y-z]: 14 candidate quadrics; cubic factors through P0: 0
+(781, -2021, 495) y-z no admissible sign/divisibility choice
+(-96, -355, 225) [y-z]: 418 candidate quadrics; cubic factors through P0: 0
+(96, 355, 225) [y-z]: 230 candidate quadrics; cubic factors through P0: 1
+   -5*x**2*y - x**2*z + 30*x*y**2 + 10*x*y*z - 44*x*z**2 + 36*y**2*z - 17*y*z**2 - 81*z**3   q2 square on it mod 101, 103: False   from [(1, -1, (-1, 0, 9, 11, 13, 12)), (-1, 1, (1, 0, -9, -11, -13, -12))]
+(-10105, -12954, 2475) x+z no admissible sign/divisibility choice
+(10105, 12954, 2475) x+z no admissible sign/divisibility choice
+(-110, -515, 297) [x+z]: 142 candidate quadrics; cubic factors through P0: 0
+(110, 515, 297) [x+z]: 210 candidate quadrics; cubic factors through P0: 0
+(-1250, 16848, 3375) x+z no admissible sign/divisibility choice
+(1250, -16848, 3375) x+z no admissible sign/divisibility choice
+(-12954, -10105, 2475) x+z no admissible sign/divisibility choice
+(12954, 10105, 2475) x+z no admissible sign/divisibility choice
+(-134703, 64375, 37125) x+z no admissible sign/divisibility choice
+(134703, -64375, 37125) x+z no admissible sign/divisibility choice
+(-16848, 1250, 3375) [x+z]: 4 candidate quadrics; cubic factors through P0: 0
+(16848, -1250, 3375) x+z no admissible sign/divisibility choice
+(-2021, 781, 495) x+z no admissible sign/divisibility choice
+(2021, -781, 495) x+z no admissible sign/divisibility choice
+(-352, 4318, 825) x+z no admissible sign/divisibility choice
+(352, -4318, 825) [x+z]: 4 candidate quadrics; cubic factors through P0: 0
+(-355, -96, 225) [x+z]: 422 candidate quadrics; cubic factors through P0: 0
+(355, 96, 225) [x+z]: 416 candidate quadrics; cubic factors through P0: 1
+   -30*x**2*y - 36*x**2*z + 5*x*y**2 - 10*x*y*z + 17*x*z**2 + y**2*z + 44*y*z**2 + 81*z**3   q2 square on it mod 101, 103: False   from [(1, 1, (0, -1, -15, 11, 12, -9)), (-1, -1, (0, 1, 15, -11, -12, 9))]
+(-4318, 352, 825) x+z no admissible sign/divisibility choice
+(4318, -352, 825) x+z no admissible sign/divisibility choice
+(-4989, -6864, 1375) x+z no admissible sign/divisibility choice
+(4989, 6864, 1375) x+z no admissible sign/divisibility choice
+(-515, -110, 297) [x+z]: 208 candidate quadrics; cubic factors through P0: 1
+   -2*x**2*y - 4*x**2*z + x*y**2 + 5*x*z**2 + y**3 - 5*y**2*z + 15*y*z**2 + 25*z**3   q2 square on it mod 101, 103: False   from [(1, 1, (0, -1, -7, 1, 4, 1)), (-1, -1, (0, 1, 7, -1, -4, -1))]
+(515, 110, 297) x+z no admissible sign/divisibility choice
+(-64375, 134703, 37125) x+z no admissible sign/divisibility choice
+(64375, -134703, 37125) x+z no admissible sign/divisibility choice
+(-6864, -4989, 1375) [x+z]: 12 candidate quadrics; cubic factors through P0: 0
+(6864, 4989, 1375) x+z no admissible sign/divisibility choice
+(-781, 2021, 495) [x+z]: 12 candidate quadrics; cubic factors through P0: 0
+(781, -2021, 495) [x+z]: 10 candidate quadrics; cubic factors through P0: 0
+(-96, -355, 225) [x+z]: 322 candidate quadrics; cubic factors through P0: 0
+(96, 355, 225) [x+z]: 462 candidate quadrics; cubic factors through P0: 1
+   -5*x**2*y - x**2*z + 30*x*y**2 + 10*x*y*z - 44*x*z**2 + 36*y**2*z - 17*y*z**2 - 81*z**3   q2 square on it mod 101, 103: False   from [(1, 1, (0, 11, -15, -1, 0, 3)), (-1, -1, (0, -11, 15, 1, 0, -3))]
+(-10105, -12954, 2475) x-z no admissible sign/divisibility choice
+(10105, 12954, 2475) x-z no admissible sign/divisibility choice
+(-110, -515, 297) [x-z]: 204 candidate quadrics; cubic factors through P0: 0
+(110, 515, 297) [x-z]: 84 candidate quadrics; cubic factors through P0: 0
+(-1250, 16848, 3375) x-z no admissible sign/divisibility choice
+(1250, -16848, 3375) x-z no admissible sign/divisibility choice
+(-12954, -10105, 2475) x-z no admissible sign/divisibility choice
+(12954, 10105, 2475) x-z no admissible sign/divisibility choice
+(-134703, 64375, 37125) [x-z]: 2 candidate quadrics; cubic factors through P0: 0
+(134703, -64375, 37125) x-z no admissible sign/divisibility choice
+(-16848, 1250, 3375) x-z no admissible sign/divisibility choice
+(16848, -1250, 3375) [x-z]: 6 candidate quadrics; cubic factors through P0: 0
+(-2021, 781, 495) x-z no admissible sign/divisibility choice
+(2021, -781, 495) [x-z]: 14 candidate quadrics; cubic factors through P0: 0
+(-352, 4318, 825) [x-z]: 4 candidate quadrics; cubic factors through P0: 0
+(352, -4318, 825) [x-z]: 4 candidate quadrics; cubic factors through P0: 0
+(-355, -96, 225) [x-z]: 418 candidate quadrics; cubic factors through P0: 0
+(355, 96, 225) [x-z]: 230 candidate quadrics; cubic factors through P0: 1
+   -30*x**2*y - 36*x**2*z + 5*x*y**2 - 10*x*y*z + 17*x*z**2 + y**2*z + 44*y*z**2 + 81*z**3   q2 square on it mod 101, 103: False   from [(1, -1, (0, -1, 9, 11, 12, 13)), (-1, 1, (0, 1, -9, -11, -12, -13))]
+(-4318, 352, 825) [x-z]: 6 candidate quadrics; cubic factors through P0: 0
+(4318, -352, 825) x-z no admissible sign/divisibility choice
+(-4989, -6864, 1375) x-z no admissible sign/divisibility choice
+(4989, 6864, 1375) x-z no admissible sign/divisibility choice
+(-515, -110, 297) [x-z]: 216 candidate quadrics; cubic factors through P0: 1
+   -2*x**2*y - 4*x**2*z + x*y**2 + 5*x*z**2 + y**3 - 5*y**2*z + 15*y*z**2 + 25*z**3   q2 square on it mod 101, 103: False   from [(1, -1, (0, -1, 1, 1, 4, 3)), (-1, 1, (0, 1, -1, -1, -4, -3))]
+(515, 110, 297) [x-z]: 154 candidate quadrics; cubic factors through P0: 0
+(-64375, 134703, 37125) x-z no admissible sign/divisibility choice
+(64375, -134703, 37125) x-z no admissible sign/divisibility choice
+(-6864, -4989, 1375) x-z no admissible sign/divisibility choice
+(6864, 4989, 1375) [x-z]: 12 candidate quadrics; cubic factors through P0: 0
+(-781, 2021, 495) [x-z]: 16 candidate quadrics; cubic factors through P0: 0
+(781, -2021, 495) [x-z]: 14 candidate quadrics; cubic factors through P0: 0
+(-96, -355, 225) [x-z]: 514 candidate quadrics; cubic factors through P0: 0
+(96, 355, 225) [x-z]: 468 candidate quadrics; cubic factors through P0: 0
+(-10105, -12954, 2475) [x+y]: 2 candidate quadrics; cubic factors through P0: 0
+(10105, 12954, 2475) x+y no admissible sign/divisibility choice
+(-110, -515, 297) x+y no admissible sign/divisibility choice
+(110, 515, 297) x+y no admissible sign/divisibility choice
+(-1250, 16848, 3375) [x+y]: 4 candidate quadrics; cubic factors through P0: 0
+(1250, -16848, 3375) [x+y]: 4 candidate quadrics; cubic factors through P0: 0
+(-12954, -10105, 2475) x+y no admissible sign/divisibility choice
+(12954, 10105, 2475) x+y no admissible sign/divisibility choice
+(-134703, 64375, 37125) x+y no admissible sign/divisibility choice
+(134703, -64375, 37125) x+y no admissible sign/divisibility choice
+(-16848, 1250, 3375) [x+y]: 4 candidate quadrics; cubic factors through P0: 0
+(16848, -1250, 3375) [x+y]: 6 candidate quadrics; cubic factors through P0: 0
+(-2021, 781, 495) [x+y]: 14 candidate quadrics; cubic factors through P0: 0
+(2021, -781, 495) [x+y]: 14 candidate quadrics; cubic factors through P0: 0
+(-352, 4318, 825) [x+y]: 8 candidate quadrics; cubic factors through P0: 0
+(352, -4318, 825) [x+y]: 8 candidate quadrics; cubic factors through P0: 0
+(-355, -96, 225) [x+y]: 430 candidate quadrics; cubic factors through P0: 0
+(355, 96, 225) [x+y]: 444 candidate quadrics; cubic factors through P0: 0
+(-4318, 352, 825) [x+y]: 6 candidate quadrics; cubic factors through P0: 0
+(4318, -352, 825) [x+y]: 6 candidate quadrics; cubic factors through P0: 0
+(-4989, -6864, 1375) x+y no admissible sign/divisibility choice
+(4989, 6864, 1375) x+y no admissible sign/divisibility choice
+(-515, -110, 297) x+y no admissible sign/divisibility choice
+(515, 110, 297) x+y no admissible sign/divisibility choice
+(-64375, 134703, 37125) x+y no admissible sign/divisibility choice
+(64375, -134703, 37125) x+y no admissible sign/divisibility choice
+(-6864, -4989, 1375) x+y no admissible sign/divisibility choice
+(6864, 4989, 1375) x+y no admissible sign/divisibility choice
+(-781, 2021, 495) [x+y]: 12 candidate quadrics; cubic factors through P0: 0
+(781, -2021, 495) [x+y]: 14 candidate quadrics; cubic factors through P0: 0
+(-96, -355, 225) [x+y]: 494 candidate quadrics; cubic factors through P0: 0
+(96, 355, 225) [x+y]: 460 candidate quadrics; cubic factors through P0: 0
+(-10105, -12954, 2475) z no admissible sign/divisibility choice
+(10105, 12954, 2475) z no admissible sign/divisibility choice
+(-110, -515, 297) [z]: 502 candidate quadrics; cubic factors through P0: 1
+   -x**3 - x**2*y + 5*x**2*z + 2*x*y**2 - 15*x*z**2 + 4*y**2*z - 5*y*z**2 - 25*z**3   q2 square on it mod 101, 103: False   from [(1, -1, (0, 4, -10, 2, -5, -3)), (-1, 1, (0, -4, 10, -2, 5, 3))]
+(110, 515, 297) [z]: 496 candidate quadrics; cubic factors through P0: 0
+(-1250, 16848, 3375) z no admissible sign/divisibility choice
+(1250, -16848, 3375) z no admissible sign/divisibility choice
+(-12954, -10105, 2475) z no admissible sign/divisibility choice
+(12954, 10105, 2475) z no admissible sign/divisibility choice
+(-134703, 64375, 37125) z no admissible sign/divisibility choice
+(134703, -64375, 37125) z no admissible sign/divisibility choice
+(-16848, 1250, 3375) z no admissible sign/divisibility choice
+(16848, -1250, 3375) z no admissible sign/divisibility choice
+(-2021, 781, 495) z no admissible sign/divisibility choice
+(2021, -781, 495) z no admissible sign/divisibility choice
+(-352, 4318, 825) z no admissible sign/divisibility choice
+(352, -4318, 825) z no admissible sign/divisibility choice
+(-355, -96, 225) z no admissible sign/divisibility choice
+(355, 96, 225) z no admissible sign/divisibility choice
+(-4318, 352, 825) z no admissible sign/divisibility choice
+(4318, -352, 825) z no admissible sign/divisibility choice
+(-4989, -6864, 1375) z no admissible sign/divisibility choice
+(4989, 6864, 1375) [z]: 6 candidate quadrics; cubic factors through P0: 0
+(-515, -110, 297) [z]: 502 candidate quadrics; cubic factors through P0: 1
+   -2*x**2*y - 4*x**2*z + x*y**2 + 5*x*z**2 + y**3 - 5*y**2*z + 15*y*z**2 + 25*z**3   q2 square on it mod 101, 103: False   from [(1, 1, (4, 0, -10, 2, -3, -5)), (-1, -1, (-4, 0, 10, -2, 3, 5))]
+(515, 110, 297) [z]: 496 candidate quadrics; cubic factors through P0: 0
+(-64375, 134703, 37125) z no admissible sign/divisibility choice
+(64375, -134703, 37125) z no admissible sign/divisibility choice
+(-6864, -4989, 1375) z no admissible sign/divisibility choice
+(6864, 4989, 1375) [z]: 6 candidate quadrics; cubic factors through P0: 0
+(-781, 2021, 495) z no admissible sign/divisibility choice
+(781, -2021, 495) z no admissible sign/divisibility choice
+(-96, -355, 225) z no admissible sign/divisibility choice
+(96, 355, 225) z no admissible sign/divisibility choice

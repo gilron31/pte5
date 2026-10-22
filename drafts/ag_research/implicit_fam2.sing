@@ -1,0 +1,29 @@
+// Image of Bremner's family-2 cubic in the (J1,J2) = (L2/L1^2, L3/L1^4) plane.
+// Affine chart z = 1; L1 = 0 points removed by saturation.
+LIB "elim.lib"; LIB "primdec.lib";
+ring r = 0, (x,y,J1,J2), dp;
+
+poly A = x2y - xy2 + (3x - 7y)*1;
+poly B = (x2 + 2xy - y2 + 10);
+poly C = x2y - xy2 + (7x - 3y)*1;
+poly D = -(x2 - 2xy - y2 - 10);
+poly E = -(x2 + y2 + 2*(x + y) - 10);
+poly F = -2x2y + 3xy2 - y3 - (x2 - 8xy + 7y2) - (x + 3y)*1;
+poly G = -(x2 + y2 - 2*(x + y) - 10);
+poly H = -x2y + xy2 + (6xy - 2y2) + (3x - 11y)*1;
+poly CUB = 3x2y - 4xy2 + y3 + (x2 - 14xy + 9y2) + 10*(x + y)*1;
+poly L1 = (A^2 + B^2);                 // 2 L1
+poly L2 = ((A^2 - B^2)^2 + (C^2 - D^2)^2);   // 8 L2
+poly u = A^2*B^2 - C^2*D^2; poly w = E^2*F^2 - G^2*H^2;
+poly L3 = u^2 + w^2;                   // 8 L3
+// J1 = L2/L1^2 = (8L2)/(2L1)^2 * 4/8 ; use scaled invariants j1 = (8L2)/(2L1)^2, j2 = (8L3)/(2L1)^4
+ideal I = CUB, J1*L1^2 - L2, J2*L1^4 - L3;
+int t = timer;
+def S0 = sat(I, ideal(L1));
+ideal S; if (typeof(S0) == "list") { S = S0[1]; } else { S = S0; }
+ideal K = eliminate(S, xy);
+"elimination time (s):"; timer - t;
+"number of generators:"; size(K);
+"degrees in (J1, J2) of the generator:"; deg(K[1], intvec(1,1,1,0)); deg(K[1], intvec(1,1,0,1)); deg(K[1]);
+write(":w fam2_image.txt", K);
+quit;

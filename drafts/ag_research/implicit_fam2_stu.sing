@@ -1,0 +1,16 @@
+// Image of Bremner's fam2 curve (in the (s:t:u)-plane, chart s = 1)
+// in (J1, J2) = (8L2/(2L1)^2, 8L3/(2L1)^4); Rabinowitsch variable T removes L1 = 0.
+LIB "elim.lib";
+ring r = 0, (T,t,u,J1,J2), dp;
+poly L1 = t^2 + u^2 + 6;
+poly L2 = 2*t^4 - 4*t^2*u^2 + 16*t^2 + 2*u^4 + 16*u^2 + 32;
+poly L3 = 16*t^6 - 16*t^4*u^2 - 128*t^4 - 16*t^2*u^4 + 256*t^2*u^2 + 256*t^2 + 16*u^6 - 128*u^4 + 256*u^2;
+poly G = -25*t^6 - 12*t^5*u^2 + 70*t^5*u + 28*t^4*u^3 + 29*t^4*u^2 - 40*t^4*u - 400*t^4 + 28*t^3*u^4 - 68*t^3*u^3 - 120*t^3*u^2 - 200*t^3*u + 500*t^3 - 12*t^2*u^5 + 29*t^2*u^4 - 120*t^2*u^3 + 800*t^2*u^2 - 100*t^2*u + 500*t^2 + 70*t*u^5 - 40*t*u^4 - 200*t*u^3 - 100*t*u^2 - 3000*t*u - 25*u^6 - 400*u^4 + 500*u^3 + 500*u^2 + 10000;
+ideal I = G, T*L1 - 1, J1*L1^2 - L2, J2*L1^4 - L3;
+int tm = rtimer;
+ideal K = eliminate(I, T*t*u);
+"time (s):"; rtimer - tm;
+"generators:"; size(K);
+int i; for (i = 1; i <= size(K); i++) { "deg J1, J2:"; deg(K[i], intvec(0,0,0,1,0)); deg(K[i], intvec(0,0,0,0,1)); }
+write(":w fam2_image_J.txt", K);
+quit;

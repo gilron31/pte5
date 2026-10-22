@@ -1,0 +1,5 @@
+z = 500: survivors so far 1703610, hits 76
+z = 1000: survivors so far 3489578, hits 78
+z = 1500: survivors so far 5288460, hits 78
+z = 2000: survivors so far 7116780, hits 78
+H = 2000, z in [1, 2000]: GPU survivors 7116780, exact hits 78

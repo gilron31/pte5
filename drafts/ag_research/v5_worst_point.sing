@@ -1,0 +1,23 @@
+// The 128 worst singular points of V_5: over (sigma : d) = (1 : 1,...,1) all 8 branch
+// divisors meet (N12, K = all). Locally X = { V_4(d) = 0, 2 y_k^2 = 1 - d_k }; put
+// d_k = 1 - 2 y_k^2 and compute the tangent cone at y = 0.
+LIB "sing.lib"; LIB "primdec.lib";
+ring r = 0, (y0,y1,y2,y3,y4,y5,y6,y7), ds;
+poly d0 = 1-2*y0^2; poly d1 = 1-2*y1^2; poly d2 = 1-2*y2^2; poly d3 = 1-2*y3^2;
+poly d4 = 1-2*y4^2; poly d5 = 1-2*y5^2; poly d6 = 1-2*y6^2; poly d7 = 1-2*y7^2;
+ideal I = d0^2+d1^2-d2^2-d3^2, d0^2+d1^2-d4^2-d5^2, d0^2+d1^2-d6^2-d7^2,
+          d0^2*d1^2+d2^2*d3^2-d4^2*d5^2-d6^2*d7^2;
+ideal TC = tangentcone(I);
+"tangent cone generators (leading forms) and their degrees:";
+int i; for (i = 1; i <= size(TC); i++) { deg(TC[i]); }
+ring rh = 0, (y0,y1,y2,y3,y4,y5,y6,y7), dp;
+ideal TC = imap(r, TC);
+ideal S = std(TC);
+"tangent cone: affine dim, degree (projective: dim - 1):"; dim(S); mult(S);
+// compare with V_4 in the variables y (A..H = y0..y7)
+ideal V4 = y0^2+y1^2-y2^2-y3^2, y0^2+y1^2-y4^2-y5^2, y0^2+y1^2-y6^2-y7^2,
+           y0^2*y1^2+y2^2*y3^2-y4^2*y5^2-y6^2*y7^2;
+"is the tangent cone the cone over V_4 itself?";
+ideal SV = std(V4);
+print(size(reduce(TC, SV)) == 0 && size(reduce(V4, S)) == 0);
+quit;

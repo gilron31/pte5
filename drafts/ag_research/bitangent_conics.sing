@@ -1,0 +1,31 @@
+// Conics C in Bremner's (s:t:u)-plane bitangent (with *rational* square
+// restrictions) to the three branch conics b, d, f:
+//   C = b + l1^2 = m2*d + l2^2 = m3*f + l3^2   (C normalized by the coefficient of b).
+// Over such a C the slice cover has only h as a nontrivial square condition, so
+// the curve above C has genus 1 (or 0 if C is also tangent to h).
+// The case where C is a double line (coefficient of b zero) is degenerate and omitted.
+// Run: Singular -q bitangent_conics.sing
+LIB "primdec.lib";
+ring R = 0, (m2,m3,a1,b1,c1,a2,b2,c2,a3,b3,c3,s,t,u), dp;
+poly b = 5s2 + 2st + u2; poly d = 5s2 - 2st + u2; poly f = 5s2 + 2su + t2; poly h = 5s2 - 2su + t2;
+poly l1 = a1*s + b1*t + c1*u; poly l2 = a2*s + b2*t + c2*u; poly l3 = a3*s + b3*t + c3*u;
+poly e1 = b + l1^2 - m2*d - l2^2;
+poly e2 = b + l1^2 - m3*f - l3^2;
+matrix M1 = coef(e1, s*t*u); matrix M2 = coef(e2, s*t*u);
+ideal I;
+int i;
+for (i = 1; i <= ncols(M1); i++) { I = I, M1[2, i]; }
+for (i = 1; i <= ncols(M2); i++) { I = I, M2[2, i]; }
+I = simplify(I, 2);
+ring Rp = 0, (m2,m3,a1,b1,c1,a2,b2,c2,a3,b3,c3), dp;
+ideal I = imap(R, I);
+"number of equations:"; size(I);
+ideal SI = std(I);
+"dimension of the solution set:"; dim(SI);
+list L = minAssGTZ(SI);
+"components over Q:"; size(L);
+for (i = 1; i <= size(L); i++) {
+  ideal P = std(L[i]);
+  print("component " + string(i) + ": dim " + string(dim(P)) + ", degree " + string(vdim(P)) + " : " + string(L[i]));
+}
+quit;

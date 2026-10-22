@@ -1,0 +1,14 @@
+// ** redefining mod_init (;return();) implicit_fam2_mod.sing:3
+// ** redefining addcores (;return();) implicit_fam2_mod.sing:3
+// ** redefining addcores (;return();) implicit_fam2_mod.sing:3
+// ** redefining setcores (;return();) implicit_fam2_mod.sing:3
+// ** redefining setcores (;return();) implicit_fam2_mod.sing:3
+// ** redefining getcores (;return();) implicit_fam2_mod.sing:3
+// ** redefining getcores (;return();) implicit_fam2_mod.sing:3
+// ** redefining semaphore (;return();) implicit_fam2_mod.sing:3
+// ** redefining semaphore (;return();) implicit_fam2_mod.sing:3
+// ** redefining setcores_subtree (;return();) implicit_fam2_mod.sing:3
+// ** redefining resetcores_subtree (;return();) implicit_fam2_mod.sing:3
+// ** redefining sem_cores (  exportto(Resources, sem_cores);)
+// ** redefining NCORES (  exportto(Resources, NCORES);)
+4

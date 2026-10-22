@@ -1,0 +1,15 @@
+// Local type of V_5 at one of the 16 points of the K = (0) stratum (N12):
+// sigma = 1, d = (1, -a^2, a^3, a, 0, 0, 0, 0), a^4 = -1, y0 = 0. Locally V_5 is
+// X = { V_4(d) = 0, 2 y0^2 = 1 - d0 } (the other square roots are etale there).
+// Length of the singular scheme at the point: 1 means an ordinary double point.
+LIB "sing.lib";
+ring r = (0,a), (y0,e0,e1,e2,e3,e4,e5,e6,e7), ds;
+minpoly = a4+1;
+poly d0 = 1 + e0; poly d1 = -a^2 + e1; poly d2 = a^3 + e2; poly d3 = a + e3;
+poly d4 = e4; poly d5 = e5; poly d6 = e6; poly d7 = e7;
+ideal I = d0^2+d1^2-d2^2-d3^2, d0^2+d1^2-d4^2-d5^2, d0^2+d1^2-d6^2-d7^2,
+          d0^2*d1^2+d2^2*d3^2-d4^2*d5^2-d6^2*d7^2, 2*y0^2 - (1 - d0);
+"the point lies on X (all equations vanish at the origin):"; jet(I, 0);
+ideal S = std(I + minor(jacob(I), 5));
+"local length of the singular scheme at the point:"; vdim(S);
+quit;
