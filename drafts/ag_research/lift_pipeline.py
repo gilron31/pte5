@@ -12,7 +12,9 @@ Per quotient:
      exactly that one p-adic zero (Strassmann);
   3. Mordell-Weil sieve: no (c mod L, T) with the class c*D0 + T landing in an
      empty disc mod p0 and on the curve mod the sieve primes; saturation of D0 at
-     the odd primes dividing the orders used.
+     the odd primes dividing the orders used. At each sieve prime the odd l-parts
+     of J(F_p) with l not dividing ord(D0) are projected away (audit fix,
+     2026-10-23): the index of <D0> + J[2] is unknown at those l.
 Success on one quotient: the rational points of C_e are exactly the known ones,
 so no lift beyond the known ones exists above the seed.
 Usage (Sage): see the __main__ block.
@@ -188,7 +190,7 @@ def saturated(f, A, W0, ell, bad, max_q=3000):
     return None
 
 
-def mw_sieve(A, known_X, p0, report, pool_max=120, max_steps=14, hide=()):
+def mw_sieve(A, known_X, p0, report, pool_max=120, max_steps=14, hide=(), project=True):
     f = poly_from(A)
     W0 = QQ(f(0)).sqrt()
     disc = ZZ(f.discriminant())
@@ -198,17 +200,25 @@ def mw_sieve(A, known_X, p0, report, pool_max=120, max_steps=14, hide=()):
     empty = [Q for (Q, k, b) in report if k == 0] + list(hide)
 
     def data(p, empty_pts=None):
+        # Odd l | #J(F_p) with l not dividing ord(D0) are never tested for saturation,
+        # so the image of J(Q) may have an l-part that <D0> + J[2] misses. Kill those
+        # parts: compare kill * (class) instead of the class (sound for any index m).
         Jj = Jp(f, p)
         D0 = Jj.cls(0, W0)
         o = Jj.order(D0)
+        kill = 1
+        for l, v in ZZ(Jj.N).factor():
+            if project and l != 2 and o % l:
+                kill *= l**v
         tors = two_torsion(Jj, A)
         if empty_pts is None:
-            target = {str(Jj.zero)} | {str(Jj.cls(Q[0], Q[1])) for Q in Jj.C.points() if Q[2] != 0}
+            classes = [Jj.zero] + [Jj.cls(Q[0], Q[1]) for Q in Jj.C.points() if Q[2] != 0]
         else:
-            target = {str(Jj.cls(ZZ(Q[0]), ZZ(Q[1]))) for Q in empty_pts}
+            classes = [Jj.cls(ZZ(Q[0]), ZZ(Q[1])) for Q in empty_pts]
+        target = {str(kill * X) for X in classes}
         mult = [k * D0 for k in range(o)]
-        return dict(p=p, N=Jj.N, o=o, ncurve=len(target),
-                    ok=[[str(mult[k] + tors[t]) in target for t in range(16)] for k in range(o)])
+        return dict(p=p, N=Jj.N // kill, o=o, kill=kill, ncurve=len(target),
+                    ok=[[str(kill * (mult[k] + tors[t])) in target for t in range(16)] for k in range(o)])
 
     d0 = data(p0, empty)
     L, used = d0['o'], [d0]
@@ -225,7 +235,7 @@ def mw_sieve(A, known_X, p0, report, pool_max=120, max_steps=14, hide=()):
                 if d['ok'][(c + k * L) % d['o']][t]]
         L = Ln
         used.append(d)
-        log.append(f'+ {q}: ord {d["o"]}, L = {L}, survivors {len(surv)}')
+        log.append(f'+ {q}: ord {d["o"]}, kill {d["kill"]}, L = {L}, survivors {len(surv)}')
     ells = sorted({l for d in used for l in ZZ(d['o']).prime_divisors() if l != 2})
     sat = {l: saturated(f, A, W0, l, bad) for l in ells}
     log.append('saturation: ' + ', '.join(f'{l} via {q}' if q else f'{l} FAILED' for l, q in sat.items()))

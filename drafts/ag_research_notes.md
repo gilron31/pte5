@@ -455,7 +455,8 @@ curve of $cA_1$ singularities.
   is far below $2.9 \cdot 10^8\, m^4$.
 
 So **$V_5$ is of general type** by this count. A formal proof needs explicit
-local constants along the curves (B1).
+local constants along the curves (B1). **[N19: the count of these points is at
+least 77,824, not 128, and $\sigma = 0$ was missing. The margin is about 34.]**
 
 **B1 done** (`v5_transversal.py`, 5 s). For each of the five curve strata, take an
 $\mathbb F_p$-point of the stratum ($p = 32003$; for $K = (0,2)$ and
@@ -633,11 +634,20 @@ every time; no seed needed a second quotient.
 > or a member of family 2 with $5 \le \lvert k\rvert \le 10$ (in either 45° twin
 > form). Then **no $E_5$ has $E$, up to scaling, as its derived $E_4$.**
 >
-> Equivalently: the primitive derived $E_4$ of any $E_5$ has $L_1' > 10^{12}$ and
-> is not one of those family members. This is complementary to Proposition 6.1
-> (no $E_5$ with $L_1 \le 10^{12}$): together, an $E_5$ needs
-> $L_1(E_5) > 10^{12}$ **and** $L_2(E_5) > 10^{12} c^2$, where $c$ is the content
-> of the derived sequence.
+> Equivalently: the primitive derived $E_4$ of any $E_5$ lies outside the catalog's
+> twin classes and is not one of those family members. This is complementary to
+> Proposition 6.1 (no $E_5$ with $L_1 \le 10^{12}$): together, an $E_5$ needs
+> $L_1(E_5) > 10^{12}$ **and** $L_2(E_5) > 5 \cdot 10^{11} c^2$, where $c$ is the
+> content of the derived sequence.
+
+**Correction (audit, N19).** The first version of this entry said
+$L_2(E_5) > 10^{12} c^2$, which overstates the bound by up to a factor of 2.
+The catalog's $L_1$ is the paper's $L_1$ of the *root* form. The point form has
+odd pair sums and paper $L_1 = L_1^{\rm cat}/2$. So a primitive derived $E_4$
+with odd pair sums is covered only up to paper $L_1' \le 5 \cdot 10^{11}$. With
+even pair sums it is covered up to $10^{12}$. Since $L_2(E_5) = c^2 L_1'$, the
+safe statement is $5 \cdot 10^{11} c^2$. (Family 1 at $k = 0, -1$ is degenerate
+and not a seed.)
 
 ### N18. C1/D2: the slice and $\varphi$ at larger height (`slice_search.cpp`, `slice_search_gpu.cu`, `phi_scan400.gp`)
 
@@ -663,6 +673,76 @@ every time; no seed needed a second quotient.
 - **D2.** The $\varphi$-partner scan over $\lvert t\rvert, u \le 400$ (about
   240,000 base points, 209 s) finds **0** rational partners with a different
   $E_4$, and 524 special points, all on the $u = \pm 3t \pm 2s$ lines.
+
+## 2026-10-23
+
+### N19. Audit of N1–N18 (`audit_certs.py`, `v5_audit_points.py`; report in `../ag_research_report.md`)
+
+Every PROVEN label was re-derived from its script, and every script-backed claim
+re-run or cross-checked. Five findings changed something.
+
+**(a) MW-sieve soundness gap (N15, N17): fixed.**
+
+- **The gap.** The sieve needs the index $m$ of $\langle D_0\rangle + J[2]$ in
+  $J(\mathbb Q)$ to be prime to $\#J(\mathbb F_q)$ at every sieve prime. The code
+  proved $\ell \nmid m$ only for the odd $\ell \mid \mathrm{ord}(D_0 \bmod q)$, not
+  for every odd $\ell \mid \#J(\mathbb F_q)$. N15's docstring states the right
+  condition.
+- **The fix** (`lift_pipeline.mw_sieve`, on by default). At each $q$, multiply
+  every class by $k_q$, the product of the odd $\ell$-parts of
+  $\#J(\mathbb F_q)$ with $\ell \nmid \mathrm{ord}(D_0)$. Sound for any $m$:
+  with $\Lambda = \mathrm{lcm}_q(\#J(\mathbb F_q)/k_q)$ we have
+  $\gcd(m, \Lambda) = 1$, so $k_q[P - \infty] = k_q(cD_0 + T)$ with one $c$ and
+  one $T$ for all $q$.
+- **The re-run** over all 49 certificates (the 42 seed forms and N15's 7):
+  - E4 checks, rank 1 and Chabauty (same $p_0$): 49/49.
+  - 16 old certificates used a prime with an untested $\ell$-part. In 9, that
+    $\ell$ (3, 5, 7, 19 or 47) was never proven saturated, so the old proof was
+    incomplete.
+  - The fixed sieve re-certifies 46 of 49 quotients with the default pool.
+  - An independent second quotient (seed 2, fixed pipeline) certifies **42/42**
+    seed forms.
+  - `hyperellratpoints` to height 3000 finds no extra points anywhere.
+
+  - The other 3 quotients (cat12781559905 point form, F1k4 twin form, and N15's
+    [1,9,11,12,14,15]) re-certify with the pool widened to 220
+    (`audit_retry_wide.py`, `retry3_wide_pool.log`).
+
+  So **N17's theorem stands with the fixed pipeline**: 49/49 quotients, and two
+  independent certificates for every one of the 42 seed forms.
+
+**(b) N17's $L_2$ bound** was too strong by up to a factor of 2 (point forms have
+paper $L_1 = L_1^{\rm cat}/2$). Corrected in N17. Prop. 6.1 is unaffected, and
+the 30 catalog forms have pairwise distinct $(J_1, J_2)$, so no collision exists
+across twin forms either.
+
+**(c) $\mathrm{Sing}(V_5)$ is larger than N12/N12a recorded**
+(`v5_audit_points.py`):
+
+- **Cone-over-$V_4$ points, $a = -3$, Jacobian rank 7 (corank 4):**
+  - the 128 worst points are one sign pattern of $2^8$: **32,768** in all;
+  - over the vertex of the base cone (all roots $\pm 1$) there are **32,768**
+    more;
+  - at $\sigma = 0$ (skipped by N12), points with half the tree zero: **at least
+    12,288** more.
+- **Other loci at $\sigma = 0$:**
+  - curves where two pairs are entirely zero (rank 10, a rank-4 quadric, so
+    $cA_1$);
+  - singular over the nodes of $V_4$;
+  - smooth otherwise (rank 11).
+
+The plurigenus count becomes $\ge 77{,}824 \cdot 108\, m^4 \approx 8.4 \cdot
+10^6\, m^4$ against $2.9 \cdot 10^8\, m^4$: a margin of about 34, not
+$2 \cdot 10^4$. General type survives the count, but B2 now needs real
+discrepancies at the remaining special points.
+
+**(d) G4's scope.** Family 2's 45° twins are not on the slice ($k = 5$–10
+checked), so N8d says nothing about them. The inputs check out: every family
+member lies on its own $(s:t:u)$-curve, 4 or 2 of its 8 labelings, and never on
+the other.
+
+**(e) B1 robustness.** Six random points per curve stratum: 30/30 transversal
+ODPs.
 
 ### Blocked / waiting
 

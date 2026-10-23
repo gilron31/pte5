@@ -1,6 +1,6 @@
 # `drafts/ag_research/` — scripts behind `../ag_research_notes.md`
 
-Each script implements one notebook entry (N1–N18). Run everything from this
+Each script implements one notebook entry (N1–N19). Run everything from this
 directory. Toolchain:
 
 - Python 3 with sympy and numpy;
@@ -43,6 +43,7 @@ directory. Toolchain:
 | N16 | calibration ranks; omission soundness test | `calib_ranks.gp`, `omission_test.py` | 25 s |
 | N17 | certificates over the catalog / family members | `certify_catalog.py`, `certify_families.py` (+ `family_seeds.json`) | 20–80 s per seed |
 | N18 | slice search to height 5000+ (C++ / CUDA) | `slice_search.cpp`, `slice_search_gpu.cu`, `classify_hits.py` | 1 s at $H = 500$; GPU 90 s at $H = 5000$ |
+| N19 | audit: re-run of all 49 certificates with the fixed MW sieve, second independent certificate per seed, seed checks, point searches | `audit_certs.py` (log `audit_certs.log`), `audit_retry_wide.py` (log `retry3_wide_pool.log`), `v5_audit_points.py` (missed points of $\mathrm{Sing}(V_5)$) | about 30 min on 6 workers; 2 min; 1 min |
 
 Files ending in `_tmp.sing`, `phi_fiber*.sing` and `modimg_tmp.sing` are scripts
 generated on the fly and can be deleted. Logs (`*.log`, `hits_*.txt`) are run

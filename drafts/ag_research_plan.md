@@ -1,6 +1,6 @@
-# AG research: status and plan (rev. 2)
+# AG research: status and plan (rev. 3)
 
-2026-10-22. This is the working plan for the research branch, separate from the
+2026-10-22, audited 2026-10-23 (N19, `ag_research_report.md`). This is the working plan for the research branch, separate from the
 paper. Evidence is in `ag_research_notes.md` (entries N1–N14), scripts in
 `ag_research/`, and the background in `algebraic_geometry_plan.md` (lines G1–G6).
 
@@ -49,10 +49,10 @@ family, and all cheap ways of finding a curve through it have come back empty.
 | G5 | elliptic quotients | all rank $\ge 1$, for structural reasons | PROVEN (Symes) | plan §7.2 |
 | G5 | genus-2 descent | implemented; on 56 split Jacobians 0 violations, sharp in 52 | PROVEN (validated) | N13 |
 | G5 | rank-1 quotients of Symes' lift curve | 7 certified | PROVEN | N13 |
-| G5 | Chabauty + MW sieve on those quotients | all 7 certified: no $E_5$ above Symes' $E_4$, any $\mu$ | PROVEN | N15 |
+| G5 | Chabauty + MW sieve on those quotients | all 7 certified: no $E_5$ above Symes' $E_4$, any $\mu$ (re-sieved after the N19 fix) | PROVEN | N15, N19 |
 | G5 | soundness (hide a real point) | the sieve keeps it, 3 of 3 trials | PROVEN | N16 |
-| G5 | all catalog $E_4$ + family members (42 seed forms) | 42 of 42 certified: no $E_5$ above any of them, any $\mu$ | PROVEN | N17 |
-| G1 | local types of $\mathrm{Sing}(V_5)$ | curves: $cA_1$ (canonical); 128 points: cones over $V_4$ ($a = -3$) | PROVEN (local); $V_5$ general type up to a routine bound | N12a |
+| G5 | all catalog $E_4$ + family members (42 seed forms) | 42 of 42 certified: no $E_5$ above any of them, any $\mu$; after the N19 sieve fix, every form re-certified, with a second independent quotient each | PROVEN | N17, N19 |
+| G1 | local types of $\mathrm{Sing}(V_5)$ | curves: $cA_1$ (canonical); at least 77,824 cone-over-$V_4$ points ($a = -3$), not 128; the $\sigma = 0$ locus was missing (N19) | PROVEN (local); $V_5$ general type by the count, margin about 34; the special points are open | N12a, N19 |
 | G3 | slice search to height $10^4$ (CUDA) | only the families and the exemplar | EVIDENCE: exemplar sporadic | N18 |
 | G4 | $\varphi$ scan, $\lvert t\rvert, u \le 400$ | no slice–slice candidate | EVIDENCE | N18 |
 

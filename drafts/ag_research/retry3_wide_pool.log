@@ -1,0 +1,3 @@
+N15 Symes #2 S=[1, 9, 11, 12, 14, 15]: wide-pool fixed sieve CERT (0 surv; saturation: 3 via 53, 5 via 41, 11 via 101, 19 via 17; 30 s)
+F1k4 twin S=[0, 3, 6, 10, 13, 14]: wide-pool fixed sieve CERT (0 surv; saturation: 3 via 167, 5 via 71, 7 via 71, 17 via 47, 37 via 137, 113 via 181, 137 via 179; 51 s)
+cat12781559905 point S=[0, 6, 7, 9, 12, 15]: wide-pool fixed sieve CERT (0 surv; saturation: 3 via 37, 7 via 37, 23 via 53; 112 s)
